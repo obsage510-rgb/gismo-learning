@@ -1,0 +1,1328 @@
+const express = require('express');
+const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const crypto = require('crypto');
+const { DatabaseSync } = require('node:sqlite');
+const { Readable } = require('stream');
+
+// Load environment variables (.env.local for ElevenLabs, .env for Google/others)
+try {
+  require('dotenv').config({ path: path.join(__dirname, '.env.local') });
+} catch (_) {}
+
+let elevenlabs = null;
+function getElevenLabs() {
+  if (!elevenlabs) {
+    const { ElevenLabsClient } = require('@elevenlabs/elevenlabs-js');
+    elevenlabs = new ElevenLabsClient();
+  }
+  return elevenlabs;
+}
+
+
+const app = express();
+const PORT = process.env.PORT || 8000;
+const IS_VERCEL = !!process.env.VERCEL;
+const BUNDLED_DB_PATH = path.join(__dirname, 'gismo.db');
+const DB_PATH = IS_VERCEL ? path.join(os.tmpdir(), 'gismo.db') : BUNDLED_DB_PATH;
+const UPLOAD_FOLDER = IS_VERCEL ? path.join(os.tmpdir(), 'uploads') : path.join(__dirname, 'uploads');
+
+if (IS_VERCEL && !fs.existsSync(DB_PATH) && fs.existsSync(BUNDLED_DB_PATH)) {
+  try {
+    fs.copyFileSync(BUNDLED_DB_PATH, DB_PATH);
+  } catch (err) {
+    console.warn('Could not copy bundled database to /tmp:', err.message);
+  }
+}
+
+try {
+  if (!fs.existsSync(UPLOAD_FOLDER)) {
+    fs.mkdirSync(UPLOAD_FOLDER, { recursive: true });
+  }
+} catch (_) {}
+
+// Load .env
+let GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || '';
+if (fs.existsSync(path.join(__dirname, '.env'))) {
+  const envContent = fs.readFileSync(path.join(__dirname, '.env'), 'utf-8');
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+      const idx = trimmed.indexOf('=');
+      const k = trimmed.slice(0, idx).trim();
+      const v = trimmed.slice(idx + 1).trim();
+      if (k === 'GOOGLE_API_KEY') GOOGLE_API_KEY = v;
+    }
+  }
+}
+
+// Initialize SQLite
+const db = new DatabaseSync(DB_PATH);
+
+// Initialize Antigravity AI Model
+const AntigravityTutorModel = require('./antigravity_model');
+const antigravityTutor = new AntigravityTutorModel(GOOGLE_API_KEY);
+
+function initDb() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT,
+      school TEXT,
+      reg_no TEXT,
+      disability TEXT,
+      role TEXT DEFAULT 'student',
+      quizzes_passed INTEGER DEFAULT 0,
+      last_login_date TEXT,
+      current_streak INTEGER DEFAULT 0,
+      preferred_learning_mode TEXT DEFAULT 'visual'
+    );
+
+    CREATE TABLE IF NOT EXISTS notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      content TEXT,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS textbooks (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      meta TEXT,
+      image TEXT,
+      descriptor TEXT,
+      content TEXT,
+      quiz_q TEXT,
+      quiz_a TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      filename TEXT,
+      filepath TEXT,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS homework (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT,
+      description TEXT,
+      student_id INTEGER,
+      status TEXT DEFAULT 'pending',
+      FOREIGN KEY(student_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS chats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      role TEXT,
+      content TEXT,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS quizzes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      subject TEXT,
+      created_by TEXT DEFAULT 'teacher',
+      assigned_to TEXT DEFAULT 'all',
+      questions TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS quiz_submissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      quiz_id INTEGER,
+      student_id INTEGER,
+      student_username TEXT,
+      score INTEGER,
+      total INTEGER,
+      percentage INTEGER,
+      answers TEXT,
+      submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(quiz_id) REFERENCES quizzes(id),
+      FOREIGN KEY(student_id) REFERENCES users(id)
+    );
+  `);
+
+  try {
+    db.prepare("ALTER TABLE chats ADD COLUMN session_id TEXT DEFAULT 'default'").run();
+  } catch (_) {
+
+    // Column already exists
+  }
+
+  try {
+    db.prepare("ALTER TABLE homework ADD COLUMN submission_file TEXT").run();
+  } catch (_) {}
+  try {
+    db.prepare("ALTER TABLE homework ADD COLUMN submission_filename TEXT").run();
+  } catch (_) {}
+  try {
+    db.prepare("ALTER TABLE homework ADD COLUMN submission_date DATETIME").run();
+  } catch (_) {}
+
+  // Default admin user
+  const admin = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
+  if (!admin) {
+    const hPw = generatePasswordHash('admin');
+    db.prepare(`
+      INSERT INTO users (username, password, school, reg_no, disability, role)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run('admin', hPw, '', '', 'None', 'admin');
+  }
+}
+
+// Password helpers (compatible with Werkzeug scrypt)
+function checkPasswordHash(storedHash, password) {
+  if (!storedHash) return false;
+  if (!storedHash.includes('$')) return storedHash === password;
+  const parts = storedHash.split('$');
+  if (parts.length === 3) {
+    const [method, salt, hash] = parts;
+    if (method.startsWith('scrypt:')) {
+      const [_, N, r, p] = method.split(':');
+      const computed = crypto.scryptSync(password, salt, 64, {
+        N: parseInt(N, 10),
+        r: parseInt(r, 10),
+        p: parseInt(p, 10),
+        maxmem: 128 * 1024 * 1024
+      }).toString('hex');
+      try {
+        return crypto.timingSafeEqual(Buffer.from(computed, 'hex'), Buffer.from(hash, 'hex'));
+      } catch (e) {
+        return false;
+      }
+    }
+  }
+  return false;
+}
+
+function generatePasswordHash(password) {
+  const salt = crypto.randomBytes(16).toString('base64url');
+  const N = 16384, r = 8, p = 1;
+  const hash = crypto.scryptSync(password, salt, 64, {
+    N, r, p, maxmem: 128 * 1024 * 1024
+  }).toString('hex');
+  return `scrypt:${N}:${r}:${p}$${salt}$${hash}`;
+}
+
+let global_announcement = '';
+
+// Multer storage for uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOAD_FOLDER),
+  filename: (req, file, cb) => {
+    const cleanName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, Date.now() + '-' + cleanName);
+  }
+});
+const upload = multer({ storage, limits: { fileSize: 16 * 1024 * 1024 } });
+
+// Middleware
+app.use(cors());
+app.use(express.json({ limit: '16mb' }));
+app.use(express.urlencoded({ extended: true, limit: '16mb' }));
+
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '-1');
+  next();
+});
+
+// Serve static frontend files
+app.use(express.static(path.join(__dirname), { index: 'index.html' }));
+app.use('/uploads', express.static(UPLOAD_FOLDER));
+
+// Root route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// --- AUTH API ---
+app.post('/api/auth/register', (req, res) => {
+  const { username, password, school = 'Gismo Academy', reg_no = '', disability = 'None', role = 'student' } = req.body;
+  const cleanUsername = (username || '').trim();
+  const cleanPassword = (password || '').trim();
+
+  if (!cleanUsername || !cleanPassword) {
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
+
+  const existing = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)').get(cleanUsername);
+  if (existing) {
+    return res.status(409).json({ error: 'That Student ID is already registered. Please log in or choose another.' });
+  }
+
+  const hPw = generatePasswordHash(cleanPassword);
+  const cleanSchool = (school || 'Gismo Academy').trim();
+  const cleanRegNo = (reg_no || '').trim() || ('STD-' + Math.floor(1000 + Math.random() * 9000));
+  try {
+    const result = db.prepare(`
+      INSERT INTO users (username, password, school, reg_no, disability, role, quizzes_passed, current_streak)
+      VALUES (?, ?, ?, ?, ?, ?, 0, 1)
+    `).run(cleanUsername, hPw, cleanSchool, cleanRegNo, disability, role);
+    
+    const newUser = db.prepare('SELECT id, username, role, quizzes_passed, current_streak, school, reg_no, disability FROM users WHERE id = ?').get(result.lastInsertRowid);
+    return res.json(newUser);
+  } catch (err) {
+    if (err.message && err.message.includes('UNIQUE constraint failed')) {
+      return res.status(409).json({ error: 'That Student ID is already registered.' });
+    }
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/login', (req, res) => {
+  const { username, password } = req.body;
+  const cleanUsername = (username || '').trim();
+  const cleanPassword = (password || '').trim();
+
+  if (!cleanUsername || !cleanPassword) {
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
+
+  const user = db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?)').get(cleanUsername);
+  if (user && checkPasswordHash(user.password, cleanPassword)) {
+    const today = new Date().toISOString().split('T')[0];
+    const lastLogin = user.last_login_date;
+    let currentStreak = user.current_streak || 0;
+
+    if (lastLogin) {
+      const lastDate = new Date(lastLogin);
+      const currDate = new Date(today);
+      const diffDays = Math.round((currDate - lastDate) / (1000 * 60 * 60 * 24));
+      if (diffDays === 1) {
+        currentStreak += 1;
+      } else if (diffDays > 1) {
+        currentStreak = 1;
+      }
+    } else {
+      currentStreak = 1;
+    }
+
+    db.prepare('UPDATE users SET last_login_date = ?, current_streak = ? WHERE id = ?').run(today, currentStreak, user.id);
+    const updatedUser = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+    return res.json(updatedUser);
+  }
+  return res.status(401).json({ error: 'Invalid username or password. Please try again.' });
+});
+
+// --- ADMIN API ---
+app.get('/api/admin/users', (req, res) => {
+  const users = db.prepare('SELECT * FROM users').all();
+  res.json(users);
+});
+
+app.get('/api/admin/users/:user_id/analytics', (req, res) => {
+  const userId = req.params.user_id;
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  const notesCount = db.prepare('SELECT COUNT(*) as count FROM notes WHERE user_id = ?').get(userId).count;
+  const homeworkCount = db.prepare('SELECT COUNT(*) as count FROM homework WHERE student_id = ?').get(userId).count;
+  res.json({
+    quizzes_passed: user.quizzes_passed,
+    notes_count: notesCount,
+    homework_assigned: homeworkCount,
+    rank: user.quizzes_passed < 5 ? 'Novice' : 'Scholar'
+  });
+});
+
+app.post('/api/admin/textbooks', (req, res) => {
+  const { id, title, meta, image, descriptor, content, quiz_q, quiz_a } = req.body;
+  db.prepare(`
+    INSERT INTO textbooks (id, title, meta, image, descriptor, content, quiz_q, quiz_a)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, title, meta, image, descriptor, content, quiz_q, quiz_a);
+  res.json({ status: 'success' });
+});
+
+// Upload custom course thumbnail
+app.post('/api/upload/thumbnail', upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No image file uploaded' });
+  }
+  const fileUrl = `/uploads/${req.file.filename}`;
+  res.json({ success: true, url: fileUrl, filename: req.file.filename });
+});
+
+app.delete('/api/admin/textbooks/:tb_id', (req, res) => {
+  db.prepare('DELETE FROM textbooks WHERE id = ?').run(req.params.tb_id);
+  res.json({ success: true });
+});
+
+// Instructor dashboard overall statistics
+app.get('/api/admin/stats', (req, res) => {
+  try {
+    const studentCount = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'student'").get().count;
+    const courseCount = db.prepare("SELECT COUNT(*) as count FROM textbooks").get().count;
+    const homeworkCount = db.prepare("SELECT COUNT(*) as count FROM homework").get().count;
+    const accommodations = db.prepare("SELECT disability, COUNT(*) as count FROM users WHERE role = 'student' GROUP BY disability").all();
+    res.json({
+      students: studentCount,
+      courses: courseCount,
+      homework: homeworkCount,
+      accommodations: accommodations
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/announcement', (req, res) => {
+  global_announcement = req.body.message || '';
+  res.json({ success: true, announcement: global_announcement });
+});
+
+app.get('/api/announcement', (req, res) => {
+  res.json({ announcement: global_announcement });
+});
+
+// --- ADMIN DATABASE VIEWER API ---
+// 1. Overview of tables, storage size, and schema
+app.get('/api/admin/database/overview', (req, res) => {
+  try {
+    const stat = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH) : { size: 0 };
+    const tablesRaw = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC").all();
+
+    let totalRows = 0;
+    const tables = tablesRaw.map(t => {
+      const count = db.prepare(`SELECT COUNT(*) as count FROM "${t.name}"`).get().count;
+      totalRows += count;
+      const columns = db.prepare(`PRAGMA table_info("${t.name}")`).all();
+      return {
+        name: t.name,
+        rowCount: count,
+        columns: columns.map(c => ({
+          name: c.name,
+          type: c.type,
+          pk: !!c.pk,
+          notnull: !!c.notnull,
+          default: c.dflt_value
+        }))
+      };
+    });
+
+    res.json({
+      databaseFile: path.basename(DB_PATH),
+      databasePath: DB_PATH,
+      sizeBytes: stat.size,
+      sizeFormatted: (stat.size / 1024).toFixed(1) + ' KB',
+      totalTables: tables.length,
+      totalRows,
+      tables
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2. Fetch records for a specific table with search, pagination, and sorting
+app.get('/api/admin/database/table/:name', (req, res) => {
+  try {
+    const tableName = req.params.name;
+    const checkTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(tableName);
+    if (!checkTable) {
+      return res.status(404).json({ error: `Table '${tableName}' does not exist.` });
+    }
+
+    const columns = db.prepare(`PRAGMA table_info("${tableName}")`).all();
+    const columnNames = columns.map(c => c.name);
+
+    let limit = parseInt(req.query.limit, 10);
+    if (isNaN(limit) || limit < 1) limit = 50;
+    if (limit > 500) limit = 500;
+
+    let offset = parseInt(req.query.offset, 10);
+    if (isNaN(offset) || offset < 0) offset = 0;
+
+    const search = (req.query.search || '').trim();
+    let sort = req.query.sort;
+    if (!columnNames.includes(sort)) {
+      const pkCol = columns.find(c => c.pk);
+      sort = pkCol ? pkCol.name : columnNames[0];
+    }
+    const order = (req.query.order || 'ASC').toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+    const totalCount = db.prepare(`SELECT COUNT(*) as count FROM "${tableName}"`).get().count;
+
+    let rows = [];
+    let filteredCount = totalCount;
+
+    if (search) {
+      const searchClauses = columnNames.map(col => `CAST("${col}" AS TEXT) LIKE ?`).join(' OR ');
+      const searchParam = `%${search}%`;
+      const searchParams = Array(columnNames.length).fill(searchParam);
+
+      filteredCount = db.prepare(`SELECT COUNT(*) as count FROM "${tableName}" WHERE ${searchClauses}`).get(...searchParams).count;
+      const queryStr = `SELECT * FROM "${tableName}" WHERE ${searchClauses} ORDER BY "${sort}" ${order} LIMIT ? OFFSET ?`;
+      rows = db.prepare(queryStr).all(...searchParams, limit, offset);
+    } else {
+      const queryStr = `SELECT * FROM "${tableName}" ORDER BY "${sort}" ${order} LIMIT ? OFFSET ?`;
+      rows = db.prepare(queryStr).all(limit, offset);
+    }
+
+    res.json({
+      tableName,
+      columns: columns.map(c => ({
+        name: c.name,
+        type: c.type,
+        pk: !!c.pk,
+        notnull: !!c.notnull,
+        default: c.dflt_value
+      })),
+      rows,
+      totalCount,
+      filteredCount,
+      limit,
+      offset,
+      sort,
+      order
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 3. Execute custom read-only SQL query
+app.post('/api/admin/database/query', (req, res) => {
+  try {
+    const rawSql = (req.body.query || '').trim();
+    if (!rawSql) {
+      return res.status(400).json({ error: 'SQL query cannot be empty.' });
+    }
+
+    const cleaned = rawSql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+    const firstWord = cleaned.split(/\s+/)[0].toUpperCase();
+    const allowed = ['SELECT', 'PRAGMA', 'EXPLAIN'];
+    if (!allowed.includes(firstWord)) {
+      return res.status(403).json({
+        error: 'Only read-only queries (SELECT, PRAGMA, EXPLAIN) are permitted in the instructor database viewer.'
+      });
+    }
+
+    const forbidden = /\b(DROP|DELETE|INSERT|UPDATE|ALTER|ATTACH|DETACH|CREATE|REPLACE|VACUUM|REINDEX|TRUNCATE)\b/i;
+    if (forbidden.test(cleaned)) {
+      return res.status(403).json({
+        error: 'Write or destructive operations (INSERT, UPDATE, DELETE, DROP, etc.) are restricted in this viewer to protect student records.'
+      });
+    }
+
+    const start = performance.now();
+    const rows = db.prepare(rawSql).all();
+    const durationMs = (performance.now() - start).toFixed(2);
+
+    const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+
+    res.json({
+      success: true,
+      columns,
+      rows,
+      rowCount: rows.length,
+      durationMs: parseFloat(durationMs)
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// 4. Export table data (CSV or JSON)
+app.get('/api/admin/database/export/:name', (req, res) => {
+  try {
+    const tableName = req.params.name;
+    const checkTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(tableName);
+    if (!checkTable) {
+      return res.status(404).json({ error: 'Table not found' });
+    }
+
+    const rows = db.prepare(`SELECT * FROM "${tableName}"`).all();
+    const format = (req.query.format || 'json').toLowerCase();
+
+    if (format === 'csv') {
+      if (rows.length === 0) {
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${tableName}.csv"`);
+        return res.send('');
+      }
+      const headers = Object.keys(rows[0]);
+      const csvLines = [headers.join(',')];
+      for (const row of rows) {
+        const line = headers.map(h => {
+          let val = row[h];
+          if (val === null || val === undefined) return '""';
+          val = String(val).replace(/"/g, '""');
+          return `"${val}"`;
+        }).join(',');
+        csvLines.push(line);
+      }
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="${tableName}.csv"`);
+      return res.send(csvLines.join('\n'));
+    } else {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${tableName}.json"`);
+      return res.send(JSON.stringify(rows, null, 2));
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- TEXTBOOKS API ---
+app.get('/api/textbooks', (req, res) => {
+  const textbooks = db.prepare('SELECT * FROM textbooks').all();
+  res.json(textbooks);
+});
+
+// --- WEB BOOKS API ---
+app.get('/api/web/search', async (req, res) => {
+  const query = req.query.q || '';
+  if (!query) return res.json([]);
+
+  const results = [];
+
+  try {
+    const fetchRes = await fetch(`https://gutendex.com/books/?search=${encodeURIComponent(query)}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (fetchRes.ok) {
+      const data = await fetchRes.json();
+      for (const book of (data.results || []).slice(0, 10)) {
+        results.push({
+          id: String(book.id),
+          title: book.title || 'Unknown Title',
+          author: book.authors && book.authors[0] ? book.authors[0].name : 'Unknown Author',
+          image: (book.formats && book.formats['image/jpeg']) || ''
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Gutendex search error:', err.message);
+  }
+  res.json(results);
+});
+
+app.post('/api/web/import/:book_id', async (req, res) => {
+  const bookId = req.params.book_id;
+
+  try {
+    const bookRes = await fetch(`https://gutendex.com/books/${bookId}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!bookRes.ok) return res.status(502).json({ error: 'Gutendex API is unresponsive.' });
+    const book = await bookRes.json();
+    const formats = book.formats || {};
+    const textUrl = formats['text/plain; charset=us-ascii'] || formats['text/plain; charset=utf-8'] || formats['text/plain'];
+    if (!textUrl) return res.status(400).json({ error: 'No text format available for this book.' });
+
+    const textRes = await fetch(textUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!textRes.ok) return res.status(502).json({ error: 'Gutenberg text API is unresponsive.' });
+    let content = await textRes.text();
+
+    const startMatch = content.match(/\*\*\* START OF THE PROJECT GUTENBERG EBOOK.*?\*\*\*/i);
+    if (startMatch && startMatch.index !== undefined) {
+      content = content.slice(startMatch.index + startMatch[0].length);
+    }
+    content = content.trim().slice(0, 100000);
+
+    const title = book.title || 'Unknown Title';
+    const author = book.authors && book.authors[0] ? book.authors[0].name : 'Unknown Author';
+    const image = formats['image/jpeg'] || 'assets/pyramids.jpg';
+    const descriptor = `A classic public domain book by ${author}.`;
+    const quiz_q = `Who is the author of the book '${title}'?`;
+    const quiz_a = author;
+    const lessonId = `gutenberg_${bookId}`;
+
+    db.prepare(`
+      INSERT OR REPLACE INTO textbooks (id, title, meta, image, descriptor, content, quiz_q, quiz_a)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(lessonId, title, 'Web Book', image, descriptor, content, quiz_q, quiz_a);
+
+    return res.json({ status: 'success', lesson_id: lessonId });
+  } catch (err) {
+    console.error('Import error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// --- USER PROFILE & DATA ---
+app.get('/api/users/:user_id', (req, res) => {
+  const userId = req.params.user_id;
+  try {
+    const user = db.prepare('SELECT id, username, school, reg_no, disability, role, quizzes_passed, current_streak, last_login_date, preferred_learning_mode FROM users WHERE id = ?').get(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/users/:user_id', (req, res) => {
+  const userId = req.params.user_id;
+  const { disability, preferred_learning_mode, school, reg_no } = req.body;
+  try {
+    const existing = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    if (!existing) return res.status(404).json({ error: 'User not found' });
+
+    const newDisability = disability !== undefined ? disability : existing.disability;
+    const newMode = preferred_learning_mode !== undefined ? preferred_learning_mode : existing.preferred_learning_mode;
+    const newSchool = school !== undefined ? school : existing.school;
+    const newRegNo = reg_no !== undefined ? reg_no : existing.reg_no;
+
+    db.prepare('UPDATE users SET disability = ?, preferred_learning_mode = ?, school = ?, reg_no = ? WHERE id = ?')
+      .run(newDisability, newMode, newSchool, newRegNo, userId);
+
+    const updatedUser = db.prepare('SELECT id, username, school, reg_no, disability, role, quizzes_passed, current_streak, last_login_date, preferred_learning_mode FROM users WHERE id = ?').get(userId);
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/notes', (req, res) => {
+  const userId = req.query.user_id;
+  if (!userId) return res.status(400).json({ error: 'user_id required' });
+  const notes = db.prepare('SELECT * FROM notes WHERE user_id = ? ORDER BY timestamp DESC').all(userId);
+  res.json(notes);
+});
+
+app.post('/api/notes', (req, res) => {
+  const userId = req.query.user_id || req.body.user_id;
+  const content = req.body.content;
+  if (!userId || !content) return res.status(400).json({ error: 'user_id and content required' });
+  db.prepare('INSERT INTO notes (user_id, content) VALUES (?, ?)').run(userId, content);
+  res.json({ status: 'success' });
+});
+
+app.get('/api/analytics/:user_id', (req, res) => {
+  const userId = req.params.user_id;
+  const user = db.prepare('SELECT quizzes_passed FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  const notesCount = db.prepare('SELECT COUNT(*) as count FROM notes WHERE user_id = ?').get(userId).count;
+  const filesCount = db.prepare('SELECT COUNT(*) as count FROM files WHERE user_id = ?').get(userId).count;
+
+  const quizzes = user.quizzes_passed || 0;
+  let rank = 'Novice';
+  if (quizzes >= 5) rank = 'Scholar';
+  if (quizzes >= 15) rank = 'Master';
+
+  res.json({
+    quizzes_passed: quizzes,
+    notes_saved: notesCount,
+    files_uploaded: filesCount,
+    rank,
+    next_rank_goal: quizzes < 5 ? 5 : (quizzes < 15 ? 15 : 'Max')
+  });
+});
+
+// --- COMPREHENSIVE QUIZ SYSTEM API ---
+
+// 1. Get quizzes visible to student (assigned to all or to specific student)
+app.get('/api/quizzes', (req, res) => {
+  const studentId = req.query.student_id ? parseInt(req.query.student_id, 10) : null;
+  try {
+    const allQuizzes = db.prepare('SELECT * FROM quizzes ORDER BY id DESC').all();
+
+    const filtered = allQuizzes.filter(q => {
+      if (!q.assigned_to || q.assigned_to === 'all') return true;
+      if (!studentId) return true;
+      try {
+        const ids = JSON.parse(q.assigned_to);
+        if (Array.isArray(ids)) {
+          return ids.map(Number).includes(Number(studentId));
+        }
+      } catch (e) {
+        return q.assigned_to.split(',').map(s => s.trim()).includes(String(studentId));
+      }
+      return false;
+    });
+
+    const result = filtered.map(q => {
+      let questions = [];
+      try { questions = JSON.parse(q.questions); } catch (e) {}
+      let submission = null;
+      if (studentId) {
+        submission = db.prepare('SELECT score, total, percentage, answers, submitted_at FROM quiz_submissions WHERE quiz_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1').get(q.id, studentId);
+      }
+      return {
+        id: q.id,
+        title: q.title,
+        subject: q.subject,
+        created_by: q.created_by,
+        assigned_to: q.assigned_to,
+        question_count: questions.length,
+        created_at: q.created_at,
+        submission: submission || null
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('Error fetching quizzes:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2. Get specific quiz details by ID (including questions)
+app.get('/api/quizzes/:id', (req, res) => {
+  try {
+    const quiz = db.prepare('SELECT * FROM quizzes WHERE id = ?').get(req.params.id);
+    if (!quiz) return res.status(404).json({ error: 'Quiz not found' });
+    let questions = [];
+    try { questions = JSON.parse(quiz.questions); } catch (e) {}
+    res.json({
+      ...quiz,
+      questions
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 3. AI Quiz Generator (powered by Antigravity / Gemini)
+app.post('/api/ai/generate-quiz', async (req, res) => {
+  const { topic = 'General Knowledge', count = 3, difficulty = 'intermediate', subject = '' } = req.body;
+  try {
+    const quiz = await antigravityTutor.generateQuiz({ topic, count, difficulty, subject });
+    res.json(quiz);
+  } catch (err) {
+    console.error('AI quiz generation error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 4. Submit student quiz answers & compute grading
+app.post('/api/quizzes/submit', (req, res) => {
+  const { quiz_id, student_id, answers, raw_quiz } = req.body;
+  if (!student_id || !answers) {
+    return res.status(400).json({ error: 'student_id and answers are required' });
+  }
+
+  try {
+    let quizData = null;
+    let actualQuizId = quiz_id;
+
+    if (quiz_id) {
+      quizData = db.prepare('SELECT * FROM quizzes WHERE id = ?').get(quiz_id);
+    }
+
+    let questions = [];
+    if (quizData) {
+      try { questions = JSON.parse(quizData.questions); } catch (e) {}
+    } else if (raw_quiz && Array.isArray(raw_quiz.questions)) {
+      questions = raw_quiz.questions;
+      // Auto-save dynamic AI quiz to maintain history in database
+      try {
+        const stmt = db.prepare(`
+          INSERT INTO quizzes (title, subject, created_by, assigned_to, questions)
+          VALUES (?, ?, 'ai', ?, ?)
+        `);
+        const info = stmt.run(
+          raw_quiz.title || 'AI Generated Quiz',
+          raw_quiz.subject || 'AI Knowledge Check',
+          JSON.stringify([Number(student_id)]),
+          JSON.stringify(questions)
+        );
+        actualQuizId = info.lastInsertRowid;
+      } catch (saveErr) {
+        console.warn('Could not auto-save AI quiz record:', saveErr.message);
+      }
+    }
+
+    if (!questions.length) {
+      return res.status(404).json({ error: 'Quiz questions not found' });
+    }
+
+    let score = 0;
+    const total = questions.length;
+    const answerBreakdown = questions.map((q, idx) => {
+      const selectedIndex = answers[idx] !== undefined ? parseInt(answers[idx], 10) : -1;
+      const correctIndex = parseInt(q.answerIndex, 10);
+      const isCorrect = selectedIndex === correctIndex;
+      if (isCorrect) score += 1;
+      return {
+        questionId: q.id || (idx + 1),
+        question: q.question,
+        options: q.options,
+        selectedIndex,
+        correctIndex,
+        isCorrect,
+        explanation: q.explanation || ''
+      };
+    });
+
+    const percentage = Math.round((score / total) * 100);
+    const passed = percentage >= 60;
+
+    const student = db.prepare('SELECT id, username, quizzes_passed FROM users WHERE id = ?').get(student_id);
+    const username = student ? student.username : 'Student';
+
+    if (actualQuizId) {
+      db.prepare(`
+        INSERT INTO quiz_submissions (quiz_id, student_id, student_username, score, total, percentage, answers)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(actualQuizId, student_id, username, score, total, percentage, JSON.stringify(answers));
+    }
+
+    if (passed && student) {
+      db.prepare('UPDATE users SET quizzes_passed = quizzes_passed + 1 WHERE id = ?').run(student_id);
+    }
+
+    const updatedUser = db.prepare('SELECT quizzes_passed FROM users WHERE id = ?').get(student_id);
+
+    res.json({
+      success: true,
+      quiz_id: actualQuizId,
+      score,
+      total,
+      percentage,
+      passed,
+      quizzes_passed_total: updatedUser ? updatedUser.quizzes_passed : 0,
+      breakdown: answerBreakdown
+    });
+  } catch (err) {
+    console.error('Quiz submission error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 5. Admin: Create custom quiz and assign to all or selected students
+app.post('/api/admin/quizzes', (req, res) => {
+  const { title, subject, target = 'all', student_ids = [], questions = [] } = req.body;
+  if (!title || !questions || !questions.length) {
+    return res.status(400).json({ error: 'Quiz title and at least one question are required' });
+  }
+
+  let assigned_to = 'all';
+  if (target === 'selected' && Array.isArray(student_ids) && student_ids.length > 0) {
+    assigned_to = JSON.stringify(student_ids.map(Number));
+  }
+
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO quizzes (title, subject, created_by, assigned_to, questions)
+      VALUES (?, ?, 'teacher', ?, ?)
+    `);
+    const info = stmt.run(title.trim(), (subject || 'General').trim(), assigned_to, JSON.stringify(questions));
+    res.json({ success: true, quiz_id: info.lastInsertRowid });
+  } catch (err) {
+    console.error('Error creating custom quiz:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6. Admin: Get all custom quizzes and their submission analytics
+app.get('/api/admin/quizzes', (req, res) => {
+  try {
+    const quizzes = db.prepare('SELECT * FROM quizzes ORDER BY id DESC').all();
+    const students = db.prepare("SELECT id, username, school, reg_no FROM users WHERE role = 'student'").all();
+    const studentMap = {};
+    students.forEach(s => { studentMap[s.id] = s; });
+
+    const result = quizzes.map(q => {
+      let questions = [];
+      try { questions = JSON.parse(q.questions); } catch (e) {}
+
+      let targetText = 'All Students';
+      let targetNames = [];
+      if (q.assigned_to && q.assigned_to !== 'all') {
+        try {
+          const ids = JSON.parse(q.assigned_to);
+          targetNames = ids.map(id => studentMap[id]?.username || `Student #${id}`);
+          targetText = `${targetNames.length} Selected Student${targetNames.length === 1 ? '' : 's'}`;
+        } catch (e) {
+          targetText = q.assigned_to;
+        }
+      }
+
+      const submissions = db.prepare(`
+        SELECT qs.*, u.username as student_name, u.reg_no
+        FROM quiz_submissions qs
+        LEFT JOIN users u ON qs.student_id = u.id
+        WHERE qs.quiz_id = ?
+        ORDER BY qs.submitted_at DESC
+      `).all(q.id);
+
+      const totalSubmissions = submissions.length;
+      const avgPercentage = totalSubmissions > 0
+        ? Math.round(submissions.reduce((acc, cur) => acc + (cur.percentage || 0), 0) / totalSubmissions)
+        : null;
+
+      return {
+        id: q.id,
+        title: q.title,
+        subject: q.subject,
+        created_by: q.created_by,
+        assigned_to: q.assigned_to,
+        target_display: targetText,
+        target_students: targetNames,
+        question_count: questions.length,
+        created_at: q.created_at,
+        submissions_count: totalSubmissions,
+        average_score: avgPercentage,
+        submissions: submissions
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 7. Admin: Delete quiz and its submissions
+app.delete('/api/admin/quizzes/:id', (req, res) => {
+  try {
+    db.prepare('DELETE FROM quiz_submissions WHERE quiz_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM quizzes WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- LOCAL FILES & HOMEWORK ---
+app.post('/api/files', upload.single('file'), (req, res) => {
+  const userId = req.body.user_id;
+  if (!req.file || !userId) {
+    return res.status(400).json({ error: 'File and user_id required' });
+  }
+  db.prepare('INSERT INTO files (user_id, filename, filepath) VALUES (?, ?, ?)').run(userId, req.file.originalname, req.file.filename);
+  res.json({ status: 'success', filename: req.file.filename });
+});
+
+app.get('/api/files', (req, res) => {
+  const userId = req.query.user_id;
+  if (!userId) return res.status(400).json({ error: 'user_id required' });
+  const files = db.prepare('SELECT * FROM files WHERE user_id = ?').all(userId);
+  res.json(files);
+});
+
+app.post('/api/homework', (req, res) => {
+  const { title, description, student_id } = req.body;
+  db.prepare('INSERT INTO homework (title, description, student_id) VALUES (?, ?, ?)').run(title, description, student_id);
+  res.json({ success: true });
+});
+
+app.get('/api/homework', (req, res) => {
+  const studentId = req.query.student_id;
+  if (!studentId) return res.json([]);
+  try {
+    const hws = db.prepare('SELECT * FROM homework WHERE student_id = ? ORDER BY id DESC').all(studentId);
+    res.json(hws);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/homework/:id/toggle', (req, res) => {
+  const hwId = req.params.id;
+  try {
+    const hw = db.prepare('SELECT * FROM homework WHERE id = ?').get(hwId);
+    if (!hw) return res.status(404).json({ error: 'Assignment not found' });
+    const newStatus = hw.status === 'completed' ? 'pending' : 'completed';
+    db.prepare('UPDATE homework SET status = ? WHERE id = ?').run(newStatus, hwId);
+    const updated = db.prepare('SELECT * FROM homework WHERE id = ?').get(hwId);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/homework/:id/submit', (req, res) => {
+  const hwId = req.params.id;
+  const { responseText } = req.body;
+  try {
+    const hw = db.prepare('SELECT * FROM homework WHERE id = ?').get(hwId);
+    if (!hw) return res.status(404).json({ error: 'Assignment not found' });
+    db.prepare('UPDATE homework SET status = ? WHERE id = ?').run('completed', hwId);
+    if (responseText && hw.student_id) {
+      db.prepare('INSERT INTO notes (user_id, content) VALUES (?, ?)').run(
+        hw.student_id,
+        `Assignment Completed [${hw.title}]: ${responseText}`
+      );
+    }
+    const updated = db.prepare('SELECT * FROM homework WHERE id = ?').get(hwId);
+    res.json({ success: true, assignment: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/homework/:id/upload', upload.single('submission_file'), (req, res) => {
+  const hwId = req.params.id;
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  try {
+    const hw = db.prepare('SELECT * FROM homework WHERE id = ?').get(hwId);
+    if (!hw) return res.status(404).json({ error: 'Assignment not found' });
+
+    db.prepare(`
+      UPDATE homework 
+      SET submission_file = ?, submission_filename = ?, submission_date = CURRENT_TIMESTAMP, status = 'completed' 
+      WHERE id = ?
+    `).run(req.file.filename, req.file.originalname, hwId);
+
+    // Also register in student's files so it appears in their course library
+    if (hw.student_id) {
+      try {
+        db.prepare('INSERT INTO files (user_id, filename, filepath) VALUES (?, ?, ?)').run(
+          hw.student_id,
+          req.file.originalname,
+          req.file.filename
+        );
+        db.prepare('INSERT INTO notes (user_id, content) VALUES (?, ?)').run(
+          hw.student_id,
+          `Assignment Submitted [${hw.title}]: File attached (${req.file.originalname})`
+        );
+      } catch (e) {
+        console.warn("Could not insert into files/notes:", e);
+      }
+    }
+
+    const updated = db.prepare('SELECT * FROM homework WHERE id = ?').get(hwId);
+    res.json({ success: true, assignment: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- ANTIGRAVITY AI MODEL API ---
+app.get('/api/tutor/info', (req, res) => {
+  res.json(antigravityTutor.getModelInfo());
+});
+
+app.post('/api/tutor/model', async (req, res) => {
+  const { prompt, persona, context, history } = req.body;
+  const result = await antigravityTutor.generateResponse({
+    message: prompt,
+    persona,
+    context,
+    history
+  });
+  res.json(result);
+});
+
+// --- CHAT API (Multi-Session Enabled) ---
+app.get('/api/chat/history', (req, res) => {
+  const userId = req.query.user_id;
+  const sessionId = req.query.session_id;
+  if (!userId) return res.json([]);
+  try {
+    let chats;
+    if (sessionId) {
+      chats = db.prepare("SELECT role, content, session_id FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default')) ORDER BY timestamp ASC").all(userId, sessionId, sessionId);
+    } else {
+      chats = db.prepare('SELECT role, content, session_id FROM chats WHERE user_id = ? ORDER BY timestamp ASC').all(userId);
+    }
+    res.json(chats || []);
+  } catch (err) {
+    console.error("Error fetching chat history:", err);
+    res.json([]);
+  }
+});
+
+app.get('/api/chat/sessions', (req, res) => {
+  const userId = req.query.user_id;
+  if (!userId) return res.json([]);
+  try {
+    const rows = db.prepare(`
+      SELECT session_id, MIN(timestamp) as created_at,
+             (SELECT content FROM chats c2 WHERE c2.user_id = chats.user_id AND c2.session_id = chats.session_id AND c2.role = 'user' ORDER BY timestamp ASC LIMIT 1) as first_question
+      FROM chats
+      WHERE user_id = ? AND session_id IS NOT NULL AND session_id != ''
+      GROUP BY session_id
+      ORDER BY created_at ASC
+    `).all(userId);
+    res.json(rows || []);
+  } catch (err) {
+    console.error("Error fetching chat sessions:", err);
+    res.json([]);
+  }
+});
+
+app.delete('/api/chat/session', (req, res) => {
+  const { user_id, session_id } = req.query;
+  if (user_id && session_id) {
+    try {
+      db.prepare('DELETE FROM chats WHERE user_id = ? AND session_id = ?').run(user_id, session_id);
+    } catch (err) {
+      console.error("Error deleting chat session:", err);
+    }
+  }
+  res.json({ success: true });
+});
+
+app.post('/api/chat', async (req, res) => {
+  const { message = '', persona = 'default', context = '', user_id, session_id = 'default' } = req.body;
+  if (!message) return res.status(400).json({ error: 'No message provided' });
+
+  if (user_id) {
+    try {
+      db.prepare('INSERT INTO chats (user_id, role, content, session_id) VALUES (?, ?, ?, ?)').run(user_id, 'user', message, session_id);
+    } catch (e) {
+      // Fallback if session_id column issue
+      db.prepare('INSERT INTO chats (user_id, role, content) VALUES (?, ?, ?)').run(user_id, 'user', message);
+    }
+  }
+
+  let history = [];
+  if (user_id) {
+    try {
+      const recent = db.prepare("SELECT role, content FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default')) ORDER BY timestamp DESC LIMIT 10").all(user_id, session_id, session_id);
+      if (recent && recent.length > 1) {
+        history = recent.reverse().slice(0, -1);
+      }
+    } catch (e) {
+      const recent = db.prepare('SELECT role, content FROM chats WHERE user_id = ? ORDER BY timestamp DESC LIMIT 10').all(user_id);
+      if (recent && recent.length > 1) {
+        history = recent.reverse().slice(0, -1);
+      }
+    }
+  }
+
+  const result = await antigravityTutor.generateResponse({
+    message,
+    persona,
+    context,
+    history
+  });
+
+  if (user_id && result.reply) {
+    try {
+      db.prepare('INSERT INTO chats (user_id, role, content, session_id) VALUES (?, ?, ?, ?)').run(user_id, 'model', result.reply, session_id);
+    } catch (e) {
+      db.prepare('INSERT INTO chats (user_id, role, content) VALUES (?, ?, ?)').run(user_id, 'model', result.reply);
+    }
+  }
+
+  return res.json({
+    reply: result.reply,
+    model: result.model,
+    persona: result.persona || persona,
+    session_id,
+    status: result.status || 'ok'
+  });
+});
+
+app.post('/api/log_error', (req, res) => {
+  console.log('CLIENT ERROR:', req.body);
+  res.json({ status: 'ok' });
+});
+
+// --- ElevenLabs Text-to-Speech Endpoints ---
+let elevenLabsQuotaExceeded = false;
+let elevenLabsQuotaMessage = "";
+
+app.get('/api/tts/status', (req, res) => {
+  res.json({
+    elevenlabs_configured: !!process.env.ELEVENLABS_API_KEY,
+    quota_exceeded: elevenLabsQuotaExceeded,
+    message: elevenLabsQuotaMessage
+  });
+});
+
+app.get('/api/tts/voices', async (req, res) => {
+  if (elevenLabsQuotaExceeded) {
+    return res.json({ voices: [], quota_exceeded: true, message: elevenLabsQuotaMessage });
+  }
+
+  try {
+    const response = await getElevenLabs().voices.getAll();
+    const voices = (response.voices || []).map(v => ({
+      voice_id: v.voice_id,
+      name: v.name,
+      category: v.category,
+      labels: v.labels
+    }));
+    res.json({ voices, quota_exceeded: false });
+  } catch (err) {
+    const msg = err.message || "";
+    const isQuota = msg.includes('quota') || msg.includes('credit') || msg.includes('401') || msg.includes('402');
+    if (isQuota) {
+      elevenLabsQuotaExceeded = true;
+      elevenLabsQuotaMessage = msg;
+      console.warn("ElevenLabs credits exhausted:", msg);
+      return res.json({ voices: [], quota_exceeded: true, message: msg });
+    }
+    console.warn("Could not fetch remote ElevenLabs voices:", err.message);
+    res.json({ voices: [], quota_exceeded: false });
+  }
+});
+
+app.post('/api/tts', async (req, res) => {
+  const { text, voice_id, model_id = "eleven_flash_v2_5" } = req.body;
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return res.status(400).json({ error: "Text is required" });
+  }
+
+  if (elevenLabsQuotaExceeded) {
+    return res.status(402).json({
+      error: "quota_exceeded",
+      message: "ElevenLabs credits are exhausted. Switching to browser speech synthesis.",
+      fallback: true
+    });
+  }
+
+  let activeVoiceId = voice_id;
+  if (!activeVoiceId || activeVoiceId === "undefined" || activeVoiceId === "null" || typeof activeVoiceId !== 'string' || !activeVoiceId.trim()) {
+    activeVoiceId = "JBFqnCBsd6RMkjVDRZzb"; // Default: George
+  }
+
+  try {
+    // Strip markdown formatting for cleaner speech synthesis
+    const cleanText = text
+      .replace(/[*_#`~\[\]]/g, '')
+      .replace(/<[^>]+>/g, '')
+      .trim();
+
+    const audioStream = await getElevenLabs().textToSpeech.convert(activeVoiceId, {
+      text: cleanText,
+      modelId: model_id,
+      outputFormat: "mp3_44100_128"
+    });
+
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'no-cache');
+    Readable.fromWeb(audioStream).pipe(res);
+  } catch (err) {
+    console.error("ElevenLabs textToSpeech error:", err.message);
+    const msg = err.message || "";
+    const isQuota = msg.includes('quota') || msg.includes('credit') || msg.includes('401') || msg.includes('402');
+    if (isQuota) {
+      elevenLabsQuotaExceeded = true;
+      elevenLabsQuotaMessage = msg;
+      return res.status(402).json({
+        error: "quota_exceeded",
+        message: "ElevenLabs credits are exhausted. Switching to browser speech synthesis.",
+        fallback: true
+      });
+    }
+    res.status(500).json({ error: "Failed to generate speech with ElevenLabs", fallback: true });
+  }
+});
+
+// Initialize database and start server
+initDb();
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Gismo Accessible AI Learning server listening at http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

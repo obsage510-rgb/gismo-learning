@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Environment & Secrets
+.env
+.env.local
+.env.*
+
+# Vercel
+.vercel
+
+# Uploaded runtime files
+uploads/*
+!uploads/.gitkeep
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.log
