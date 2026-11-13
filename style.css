@@ -4867,11 +4867,19 @@ html, body {
 /* --- Redesigned AI Tutor Card (Editorial Warm Palette) --- */
 #tutor-panel.tutor-panel {
   border-radius: 22px !important;
-  border: 1px solid var(--border-color) !important;
-  background: var(--bg-card) !important;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16) !important;
+  border: 1px solid #e5dfd5 !important;
+  background: #fbf9f5 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.14) !important;
   overflow: hidden !important;
   transition: width 0.22s ease, height 0.22s ease, max-height 0.22s ease, opacity 0.2s ease, transform 0.2s ease !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel.tutor-panel {
+  background: #141918 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55) !important;
 }
 
 #tutor-panel.tutor-panel.tutor-expanded {
@@ -4881,40 +4889,57 @@ html, body {
 }
 
 #tutor-panel .tutor-header {
-  background: var(--bg-secondary) !important;
-  border-bottom: 1px solid var(--border-color) !important;
-  padding: 0.95rem 1.15rem !important;
+  background: #efece4 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: 1px solid #e2dbd0 !important;
+  padding: 0.9rem 1.15rem !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 0.75rem !important;
 }
 
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-header {
+  background: #1c2422 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
 #tutor-panel .tutor-avatar {
   width: 44px !important;
   height: 44px !important;
   border-radius: 14px !important;
-  background: rgba(15, 92, 77, 0.1) !important;
-  color: var(--accent-color) !important;
-  border: 1px solid rgba(15, 92, 77, 0.2) !important;
+  background: rgba(15, 92, 77, 0.08) !important;
+  color: #1e293b !important;
+  border: 1px solid #d9d2c5 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   flex-shrink: 0 !important;
 }
 
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-avatar {
+  background: rgba(15, 92, 77, 0.22) !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
 #tutor-panel .tutor-title-stack {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.22rem;
 }
 
 #tutor-panel .tutor-title {
   font-family: var(--font-display) !important;
-  font-size: 1.15rem !important;
+  font-size: 1.18rem !important;
   font-weight: 600 !important;
-  color: var(--text-primary) !important;
+  color: #1e293b !important;
   line-height: 1.15 !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-title {
+  color: #f8fafc !important;
 }
 
 #tutor-panel .tutor-meta-row {
@@ -4925,22 +4950,31 @@ html, body {
 }
 
 #tutor-panel .antigravity-pill {
-  background: rgba(15, 92, 77, 0.1) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-color) !important;
+  background: #e3dfd4 !important;
+  color: #334155 !important;
+  border: none !important;
   font-size: 0.7rem !important;
   font-weight: 600 !important;
-  padding: 0.12rem 0.5rem !important;
+  padding: 0.14rem 0.55rem !important;
   border-radius: 999px !important;
 }
 
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .antigravity-pill {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #e2e8f0 !important;
+}
+
 #tutor-panel .tutor-status {
-  font-size: 0.75rem !important;
+  font-size: 0.76rem !important;
   font-weight: 600 !important;
-  color: #10b981 !important;
+  color: #0f5c4d !important;
   display: inline-flex !important;
   align-items: center !important;
-  gap: 0.3rem !important;
+  gap: 0.32rem !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-status {
+  color: #34d399 !important;
 }
 
 #tutor-panel .tutor-header-actions {
@@ -4954,30 +4988,43 @@ html, body {
   width: 34px !important;
   height: 34px !important;
   border-radius: 10px !important;
-  background: var(--bg-card) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-color) !important;
+  background: rgba(255, 255, 255, 0.75) !important;
+  color: #1e293b !important;
+  border: 1px solid #d9d2c5 !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   padding: 0 !important;
+  box-shadow: none !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-header-actions button,
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-header-actions #btn-close-tutor {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f8fafc !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
 }
 
 #tutor-panel .tutor-header-actions button:hover,
 #tutor-panel .tutor-header-actions #btn-close-tutor:hover {
-  background: rgba(15, 92, 77, 0.12) !important;
-  color: var(--accent-color) !important;
-  border-color: var(--accent-color) !important;
+  background: #ffffff !important;
+  color: #0f5c4d !important;
+  border-color: #0f5c4d !important;
 }
 
 #tutor-panel .tutor-tabs-container {
-  background: var(--bg-card) !important;
-  border-bottom: 1px solid var(--border-color) !important;
+  background: #fbf9f5 !important;
+  border-bottom: 1px solid #e5dfd5 !important;
   padding: 0 1rem !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 0.5rem !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-tabs-container {
+  background: #141918 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 #tutor-panel .tutor-tabs-list {
@@ -4990,18 +5037,27 @@ html, body {
 #tutor-panel .tutor-tab {
   background: transparent !important;
   border: none !important;
-  border-bottom: 2px solid transparent !important;
+  border-bottom: 2.5px solid transparent !important;
   border-radius: 0 !important;
   padding: 0.65rem 0.75rem !important;
-  font-size: 0.84rem !important;
+  font-size: 0.85rem !important;
   font-weight: 600 !important;
-  color: var(--text-secondary) !important;
+  color: #64748b !important;
 }
 
 #tutor-panel .tutor-tab.active {
-  color: var(--text-primary) !important;
-  border-bottom-color: var(--accent-color) !important;
+  color: #0f172a !important;
+  border-bottom-color: #0f5c4d !important;
   background: transparent !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-tab {
+  color: #94a3b8 !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-tab.active {
+  color: #f8fafc !important;
+  border-bottom-color: #34d399 !important;
 }
 
 #tutor-panel .tutor-new-tab-btn {
@@ -5010,43 +5066,121 @@ html, body {
   gap: 0.3rem !important;
   background: transparent !important;
   border: none !important;
-  color: var(--text-primary) !important;
+  color: #1e293b !important;
   font-size: 0.82rem !important;
   font-weight: 600 !important;
-  padding: 0.45rem 0.5rem !important;
+  padding: 0.45rem 0.55rem !important;
   border-radius: 8px !important;
   width: auto !important;
   height: auto !important;
   flex-shrink: 0 !important;
 }
 
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-new-tab-btn {
+  color: #e2e8f0 !important;
+}
+
 #tutor-panel .tutor-new-tab-btn:hover {
   background: rgba(15, 92, 77, 0.08) !important;
-  color: var(--accent-color) !important;
+  color: #0f5c4d !important;
 }
 
 #tutor-panel .chat-messages {
-  background: var(--bg-primary) !important;
+  background: #fbf9f5 !important;
   padding: 1rem 1.1rem !important;
+  gap: 0.85rem !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-messages {
+  background: #141918 !important;
+}
+
+#tutor-panel .message {
+  box-shadow: none !important;
 }
 
 #tutor-panel .message-user {
   background: #0f5c4d !important;
   color: #ffffff !important;
-  border-radius: 16px 16px 4px 16px !important;
-  padding: 0.75rem 1rem !important;
-  font-size: 0.92rem !important;
-  box-shadow: 0 4px 12px rgba(15, 92, 77, 0.16) !important;
+  border-radius: 14px 14px 4px 14px !important;
+  padding: 0.7rem 1rem !important;
+  font-size: 0.91rem !important;
+  box-shadow: 0 3px 10px rgba(15, 92, 77, 0.14) !important;
 }
 
 #tutor-panel .message-ai {
-  background: var(--bg-card) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-color) !important;
-  border-radius: 16px 16px 16px 4px !important;
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color: #1e293b !important;
+  border: 1px solid #e5dfd5 !important;
+  border-radius: 16px !important;
   padding: 0.95rem 1.05rem !important;
-  font-size: 0.92rem !important;
+  font-size: 0.91rem !important;
   line-height: 1.55 !important;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04) !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .message-ai {
+  background: #1c2422 !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+#tutor-panel .message-timestamp {
+  color: #64748b !important;
+  font-size: 0.73rem !important;
+  margin-top: 0.45rem !important;
+  display: inline-block !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .message-timestamp {
+  color: #94a3b8 !important;
+}
+
+/* Keep live captions accessible to screen readers without eating card height */
+#tutor-panel .tutor-feedback-module {
+  background: #f3efe7 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-top: 1px solid #e5dfd5 !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  padding: 0.22rem 1rem !important;
+  gap: 0.5rem !important;
+  min-height: 24px !important;
+  max-height: 28px !important;
+  flex-shrink: 0 !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-feedback-module {
+  background: #19201e !important;
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+#tutor-panel .tutor-feedback-module .audio-visualizer-container {
+  height: 12px !important;
+  gap: 2px !important;
+  flex-shrink: 0 !important;
+  align-items: center !important;
+}
+
+#tutor-panel .tutor-feedback-module .visualizer-bar {
+  width: 2px !important;
+  max-height: 12px !important;
+  background: #0f5c4d !important;
+}
+
+#tutor-panel .tutor-feedback-module .live-caption-display {
+  font-size: 0.72rem !important;
+  font-weight: 500 !important;
+  color: #64748b !important;
+  text-shadow: none !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  line-height: 1.2 !important;
 }
 
 #tutor-panel .tutor-quick-chips {
@@ -5054,10 +5188,16 @@ html, body {
   align-items: center;
   gap: 0.45rem;
   padding: 0.55rem 1rem 0.35rem;
-  background: var(--bg-card);
-  border-top: 1px solid var(--border-color);
+  background: #fbf9f5;
+  border-top: 1px solid #e5dfd5;
   overflow-x: auto;
   scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-quick-chips {
+  background: #141918;
+  border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 #tutor-panel .tutor-quick-chips::-webkit-scrollbar {
@@ -5065,11 +5205,11 @@ html, body {
 }
 
 #tutor-panel .tutor-chip-btn {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  background: #efece4;
+  color: #1e293b;
+  border: 1px solid #dcd5c7;
   border-radius: 999px;
-  padding: 0.32rem 0.75rem;
+  padding: 0.32rem 0.78rem;
   font-size: 0.76rem;
   font-weight: 600;
   white-space: nowrap;
@@ -5077,16 +5217,28 @@ html, body {
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-chip-btn {
+  background: #1c2422;
+  color: #e2e8f0;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
 #tutor-panel .tutor-chip-btn:hover {
-  border-color: var(--accent-color);
-  color: var(--accent-color);
-  background: rgba(15, 92, 77, 0.08);
+  border-color: #0f5c4d;
+  color: #0f5c4d;
+  background: #e6f0ec;
 }
 
 #tutor-panel .chat-input-bar {
-  background: var(--bg-card) !important;
-  padding: 0.55rem 1rem 0.9rem !important;
+  background: #fbf9f5 !important;
+  backdrop-filter: none !important;
+  padding: 0.5rem 1rem 0.9rem !important;
   border-top: none !important;
+  flex-shrink: 0 !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-bar {
+  background: #141918 !important;
 }
 
 #tutor-panel .chat-input-pill {
@@ -5094,15 +5246,20 @@ html, body {
   align-items: center;
   gap: 0.45rem;
   width: 100%;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border: 1px solid #ddd6c9;
   border-radius: 999px;
   padding: 0.3rem 0.35rem;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-pill {
+  background: #1c2422;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
 #tutor-panel .chat-input-pill:focus-within {
-  border-color: var(--accent-color);
+  border-color: #0f5c4d;
   box-shadow: 0 0 0 3px rgba(15, 92, 77, 0.12);
 }
 
@@ -5110,9 +5267,9 @@ html, body {
   width: 36px !important;
   height: 36px !important;
   border-radius: 50% !important;
-  background: var(--bg-secondary) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-color) !important;
+  background: #efece4 !important;
+  color: #1e293b !important;
+  border: none !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -5120,15 +5277,24 @@ html, body {
   padding: 0 !important;
 }
 
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-pill .btn-voice {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #f8fafc !important;
+}
+
 #tutor-panel .chat-input-pill .chat-input {
   flex: 1 !important;
   border: none !important;
   background: transparent !important;
-  color: var(--text-primary) !important;
+  color: #1e293b !important;
   padding: 0.4rem 0.35rem !important;
-  font-size: 0.92rem !important;
+  font-size: 0.91rem !important;
   outline: none !important;
   box-shadow: none !important;
+}
+
+body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-pill .chat-input {
+  color: #f8fafc !important;
 }
 
 #tutor-panel .chat-input-pill #btn-chat-send {
@@ -5143,44 +5309,9 @@ html, body {
   justify-content: center !important;
   flex-shrink: 0 !important;
   padding: 0 !important;
+  box-shadow: none !important;
 }
 
 #tutor-panel .chat-input-pill #btn-chat-send:hover {
   background: #0a4237 !important;
-}
-
-#tutor-panel .tutor-feedback-module {
-  background: var(--bg-secondary) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border-top: 1px solid var(--border-color) !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  padding: 0.28rem 1rem !important;
-  gap: 0.55rem !important;
-  min-height: 28px !important;
-}
-
-#tutor-panel .tutor-feedback-module .audio-visualizer-container {
-  height: 14px !important;
-  gap: 2px !important;
-  flex-shrink: 0 !important;
-  align-items: center !important;
-}
-
-#tutor-panel .tutor-feedback-module .visualizer-bar {
-  width: 2.5px !important;
-  max-height: 14px !important;
-}
-
-#tutor-panel .tutor-feedback-module .live-caption-display {
-  font-size: 0.74rem !important;
-  font-weight: 500 !important;
-  color: var(--text-secondary) !important;
-  text-shadow: none !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  line-height: 1.2 !important;
 }
