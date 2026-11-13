@@ -217,18 +217,23 @@
 
           <div class="donation-card">
             <div class="payment-method-tabs" role="tablist" aria-label="Payment method">
-              <button type="button" class="pm-tab-btn active" id="tab-pm-paystack" role="tab" aria-selected="true">
-                💳 Paystack (Card / Bank)
+              <button type="button" class="pm-tab-btn active" id="tab-pm-paystack" role="tab" aria-selected="true" style="display:inline-flex; align-items:center; justify-content:center; gap:0.45rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                <span>Paystack (Card / Bank)</span>
               </button>
-              <button type="button" class="pm-tab-btn" id="tab-pm-crypto" role="tab" aria-selected="false">
-                ⛓️ QuickNode (Crypto)
+              <button type="button" class="pm-tab-btn" id="tab-pm-crypto" role="tab" aria-selected="false" style="display:inline-flex; align-items:center; justify-content:center; gap:0.45rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                <span>QuickNode (Crypto)</span>
               </button>
             </div>
 
             <!-- Paystack Panel -->
             <div id="panel-pm-paystack">
               <div class="paystack-header-bar">
-                <span class="paystack-badge">🔒 Paystack Checkout</span>
+                <span class="paystack-badge">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                  <span>Paystack Checkout</span>
+                </span>
                 <div class="currency-toggle" role="group" aria-label="Currency selector">
                   <button type="button" class="currency-btn active" data-currency="NGN">NGN ₦</button>
                   <button type="button" class="currency-btn" data-currency="USD">USD $</button>
@@ -277,7 +282,10 @@
             <!-- QuickNode Crypto Panel -->
             <div id="panel-pm-crypto" class="hidden">
               <div class="paystack-header-bar">
-                <span class="paystack-badge">⛓️ QuickNode On-Chain Verification</span>
+                <span class="paystack-badge">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+                  <span>QuickNode On-Chain Verification</span>
+                </span>
               </div>
 
               <div class="crypto-wallet-box">
@@ -321,8 +329,9 @@
                   <textarea id="crypto-quick-note" class="form-control" rows="2" maxlength="500" placeholder="Leave an encouraging note for students..."></textarea>
                 </div>
 
-                <button type="button" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem;" id="btn-web3-donate">
-                  🦊 Connect Wallet &amp; Send Crypto
+                <button type="button" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;" id="btn-web3-donate">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>
+                  <span>Connect Wallet &amp; Send Crypto</span>
                 </button>
 
                 <div class="form-field">
