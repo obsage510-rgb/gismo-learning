@@ -1854,36 +1854,44 @@
       <!-- Tutor Header Bar -->
       <div class="tutor-header" id="tutor-header" title="Drag to move tutor anywhere on your screen">
         <div class="tutor-info">
-          <div class="tutor-avatar" title="Gismo AI Assistant">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="11" width="18" height="10" rx="2"></rect>
-              <circle cx="12" cy="5" r="2"></circle>
-              <path d="M12 7v4"></path>
-              <line x1="8" y1="16" x2="8" y2="16"></line>
-              <line x1="16" y1="16" x2="16" y2="16"></line>
+          <div class="tutor-avatar" title="Gismo AI Assistant" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 12c0-2.5 2-4 7-4s7 1.5 7 4v5a7 7 0 0 1-14 0v-5z"></path>
+              <circle cx="13" cy="14.5" r="2"></circle>
+              <circle cx="19" cy="14.5" r="2"></circle>
+              <path d="M15 17.5l1 1.2 1-1.2"></path>
+              <path d="M6 6l1.2 2.4L9.6 9.6 7.2 10.8 6 13.2 4.8 10.8 2.4 9.6 4.8 8.4 6 6z" fill="currentColor" stroke="none"></path>
             </svg>
           </div>
-          <div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <span class="tutor-title">Gismo AI Tutor</span>
+          <div class="tutor-title-stack">
+            <span class="tutor-title">Gismo AI Tutor</span>
+            <div class="tutor-meta-row">
               <span class="antigravity-pill" id="tutor-model-badge" title="Powered by Antigravity AI Engine">Antigravity AI</span>
-            </div>
-            <div class="tutor-status online" id="tutor-status-text">
-              <span class="status-dot"></span>
-              <span>Online &bull; Flash-2.5</span>
+              <div class="tutor-status online" id="tutor-status-text">
+                <span class="status-dot"></span>
+                <span>Online</span>
+              </div>
             </div>
           </div>
         </div>
 
         <div class="tutor-header-actions">
           <button id="btn-mute-tutor" class="btn-icon theme-btn" aria-label="Mute Tutor TTS feedback" onclick="toggleTutorMute()" title="Toggle Voice Output (Alt + M)">
-            <svg id="mute-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg id="mute-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
               <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
             </svg>
           </button>
+          <button id="btn-expand-tutor" class="btn-icon theme-btn" aria-label="Expand or restore AI Tutor size" onclick="toggleTutorExpand()" title="Expand / Restore">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <polyline points="9 21 3 21 3 15"></polyline>
+              <line x1="21" y1="3" x2="14" y2="10"></line>
+              <line x1="3" y1="21" x2="10" y2="14"></line>
+            </svg>
+          </button>
           <button id="btn-close-tutor" class="btn-icon theme-btn" aria-label="Minimize AI Tutor" onclick="toggleTutorPanel()" title="Minimize AI Tutor">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
       </div>
@@ -1894,10 +1902,11 @@
           <!-- Dynamically populated conversation tabs -->
         </div>
         <button class="tutor-new-tab-btn" id="btn-tutor-new-tab" onclick="createNewChatSession()" title="Start New Conversation (+)" aria-label="Start New Conversation">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
+          <span>New Chat</span>
         </button>
       </div>
 
@@ -1922,8 +1931,8 @@
       <div id="chat-box" class="chat-messages" role="log" aria-live="polite" aria-label="AI Tutor Chat Transcript">
         <div class="message message-ai">
           <div>
-            <p><strong>Hello! I am Gismo AI</strong>, your accessible learning companion powered by the <strong>Google Antigravity AI Engine</strong>.</p>
-            <p>I can explain difficult concepts, answer questions about your textbooks, or quiz you. How can I help you today?</p>
+            <p><strong>Hello! I am Gismo AI</strong>, your accessible learning companion powered by the <strong>Antigravity AI Engine</strong>.</p>
+            <p>I can explain difficult concepts, walk through examples, or quiz you on your lessons. How can I help you today?</p>
           </div>
           <span class="message-timestamp">Antigravity AI Model</span>
         </div>
@@ -1945,18 +1954,26 @@
         </div>
       </div>
 
+      <!-- Quick-Action Prompt Chips -->
+      <div class="tutor-quick-chips" aria-label="Quick tutor prompts">
+        <button type="button" class="tutor-chip-btn" onclick="sendQuickTutorPrompt('Explain this concept simply in bullet points')">Explain Simply</button>
+        <button type="button" class="tutor-chip-btn" onclick="sendQuickTutorPrompt('Give me a clear real-world example')">Give an Example</button>
+        <button type="button" class="tutor-chip-btn" onclick="sendQuickTutorPrompt('Quiz me on what we are studying')">Quiz Me on This</button>
+      </div>
+
       <!-- Interactive Input Controls -->
       <div class="chat-input-bar">
-        <!-- Voice Input dictation button -->
-        <button id="btn-mic-input" class="btn-voice" aria-label="Start voice typing questions" title="Voice Typing (Alt + V)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-        </button>
+        <div class="chat-input-pill">
+          <button id="btn-mic-input" class="btn-voice" aria-label="Start voice typing questions" title="Voice Typing (Alt + V)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+          </button>
 
-        <input type="text" id="chat-user-input" class="chat-input" placeholder="Ask a question or use Mic..." aria-label="Type your message to Gismo AI tutor">
-        
-        <button id="btn-chat-send" class="btn-primary btn-icon-only" aria-label="Send message to tutor" title="Send (Enter)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:-2px; margin-top:2px;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-        </button>
+          <input type="text" id="chat-user-input" class="chat-input" placeholder="Ask anything or speak..." aria-label="Type your message to Gismo AI tutor">
+          
+          <button id="btn-chat-send" class="btn-primary btn-icon-only" aria-label="Send message to tutor" title="Send (Enter)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </button>
+        </div>
       </div>
 
     </section>

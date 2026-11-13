@@ -6119,6 +6119,22 @@ async function loadTutorModelInfo() {
 }
 
 // --- Floating AI Tutor Logic & Draggable Capability ---
+function toggleTutorExpand() {
+  const panel = document.getElementById('tutor-panel') || document.querySelector('.tutor-panel');
+  const btn = document.getElementById('btn-expand-tutor');
+  if (!panel) return;
+  const expanded = panel.classList.toggle('tutor-expanded');
+  if (btn) btn.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+}
+
+function sendQuickTutorPrompt(promptText) {
+  const input = document.getElementById('chat-user-input');
+  const sendBtn = document.getElementById('btn-chat-send');
+  if (!input || !sendBtn) return;
+  input.value = promptText;
+  sendBtn.click();
+}
+
 function toggleTutorPanel() {
   const panel = document.getElementById('tutor-panel') || document.querySelector('.tutor-panel');
   const fab = document.getElementById('fab-tutor');
