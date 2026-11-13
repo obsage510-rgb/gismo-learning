@@ -186,7 +186,6 @@ window.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   fetchTextbooks();
   setupInteractiveHighlighting();
-  handleWebSearch(true);
 
   // Restore active session on page refresh so users are not logged out
   const savedUserJson = localStorage.getItem('gismoSessionUser') || sessionStorage.getItem('gismoSessionUser');
@@ -830,10 +829,6 @@ function switchView(viewName) {
     elements.libraryPanel.classList.remove('hidden');
     fetchTextbooks();
     loadLibraryFiles();
-    const resultsDiv = document.getElementById('web-search-results');
-    if (resultsDiv && !resultsDiv.children.length) {
-      handleWebSearch(true);
-    }
   } else if (viewName === 'admin') {
     elements.adminPanel?.classList.remove('hidden');
     if (elements.btnAdminToggle) elements.btnAdminToggle.classList.add('active');
@@ -5572,7 +5567,7 @@ async function handleWebSearch(loadFeatured = false) {
             <h4 class="mb-1" style="font-size:1.05rem;">${escapeHtml(book.title)}</h4>
             <p class="text-secondary small mb-2" style="font-weight:600;">${escapeHtml(book.author || 'Unknown Author')}</p>
             ${descHtml}
-            <button class="theme-btn w-100 mt-auto" onclick="importWebBook('${book.id}', this)">
+            <button class="theme-btn w-100 mt-auto" data-title="${escapeHtml(book.title)}" data-author="${escapeHtml(book.author || 'Unknown Author')}" onclick="importWebBook('${book.id}', this)">
               ${getAppSvgIcon('download', 15)} Import to Library
             </button>
           </div>
@@ -5594,6 +5589,9 @@ async function importWebBook(bookId, btnElement) {
     return;
   }
 
+  const title = btnElement ? (btnElement.getAttribute('data-title') || '') : '';
+  const author = btnElement ? (btnElement.getAttribute('data-author') || '') : '';
+
   if (btnElement) {
     btnElement.disabled = true;
     btnElement.textContent = 'Importing...';
@@ -5603,7 +5601,7 @@ async function importWebBook(bookId, btnElement) {
     const res = await fetch(`/api/web/import/${encodeURIComponent(bookId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId })
+      body: JSON.stringify({ user_id: userId, title, author })
     });
     const data = await res.json();
     if (res.ok) {

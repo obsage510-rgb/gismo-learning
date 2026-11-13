@@ -1054,33 +1054,81 @@ app.get('/api/web/search', async (req, res) => {
 
   const catalogMatches = searchGutenbergCatalog(query);
   const results = [...catalogMatches];
-  const seenIds = new Set(results.map(b => String(b.id)));
+  const seenKeys = new Set(results.map(b => `${String(b.id)}`));
+  const seenTitles = new Set(results.map(b => String(b.title || '').toLowerCase().trim()));
 
-  try {
-    const fetchRes = await fetch(`https://gutendex.com/books/?search=${encodeURIComponent(query)}`, {
-      headers: {
-        'User-Agent': 'GismoLearning/1.0',
-        'Accept': 'application/json'
-      },
-      signal: AbortSignal.timeout(7000)
-    });
-    if (fetchRes.ok) {
-      const data = await fetchRes.json();
-      for (const book of (data.results || []).slice(0, 12)) {
-        const idStr = String(book.id);
-        if (!seenIds.has(idStr)) {
-          seenIds.add(idStr);
-          results.push({
-            id: idStr,
-            title: book.title || 'Unknown Title',
-            author: book.authors && book.authors[0] ? book.authors[0].name : 'Unknown Author',
-            image: (book.formats && book.formats['image/jpeg']) || 'assets/pyramids.jpg'
-          });
-        }
-      }
+  const addResult = (item) => {
+    const idKey = String(item.id);
+    const titleKey = String(item.title || '').toLowerCase().trim();
+    if (!idKey || !titleKey || seenKeys.has(idKey) || seenTitles.has(titleKey)) return;
+    seenKeys.add(idKey);
+    seenTitles.add(titleKey);
+    results.push(item);
+  };
+
+  const opdsPromise = fetch(`https://www.gutenberg.org/ebooks/search.opds/?query=${encodeURIComponent(query)}`, {
+    headers: { 'User-Agent': 'GismoLearning/1.0' },
+    signal: AbortSignal.timeout(6500)
+  }).then(async (r) => {
+    if (!r.ok) return [];
+    const xml = await r.text();
+    const entries = xml.match(/<entry>[\s\S]*?<\/entry>/g) || [];
+    return entries.slice(0, 12).map((entry) => {
+      const titleMatch = entry.match(/<title>([\s\S]*?)<\/title>/i);
+      const idMatch = entry.match(/ebooks\/(\d+)/i);
+      const authorMatch = entry.match(/<author>[\s\S]*?<name>([\s\S]*?)<\/name>[\s\S]*?<\/author>/i);
+      const decodeXml = (s) => (s || '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+      if (!idMatch || !titleMatch) return null;
+      return {
+        id: idMatch[1],
+        title: decodeXml(titleMatch[1]),
+        author: decodeXml(authorMatch ? authorMatch[1] : 'Project Gutenberg Author'),
+        subject: 'Project Gutenberg',
+        image: 'assets/pyramids.jpg'
+      };
+    }).filter(Boolean);
+  }).catch(() => []);
+
+  const gutendexPromise = fetch(`https://gutendex.com/books?search=${encodeURIComponent(query)}`, {
+    headers: { 'User-Agent': 'GismoLearning/1.0', 'Accept': 'application/json' },
+    signal: AbortSignal.timeout(6500)
+  }).then(async (r) => {
+    if (!r.ok) return [];
+    const data = await r.json();
+    return (data.results || []).slice(0, 10).map((book) => ({
+      id: String(book.id),
+      title: book.title || 'Unknown Title',
+      author: book.authors && book.authors[0] ? book.authors[0].name : 'Unknown Author',
+      subject: 'Project Gutenberg',
+      image: (book.formats && book.formats['image/jpeg']) || 'assets/pyramids.jpg'
+    }));
+  }).catch(() => []);
+
+  const openLibraryPromise = fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=10`, {
+    headers: { 'User-Agent': 'GismoLearning/1.0', 'Accept': 'application/json' },
+    signal: AbortSignal.timeout(6500)
+  }).then(async (r) => {
+    if (!r.ok) return [];
+    const data = await r.json();
+    return (data.docs || []).slice(0, 10).map((doc) => {
+      const workId = String(doc.key || '').replace('/works/', '');
+      if (!workId) return null;
+      return {
+        id: `ol_${workId}`,
+        title: doc.title || 'Unknown Title',
+        author: Array.isArray(doc.author_name) && doc.author_name[0] ? doc.author_name[0] : 'Unknown Author',
+        subject: 'Open Library',
+        descriptor: doc.first_publish_year ? `First published in ${doc.first_publish_year}.` : 'Public catalog book.',
+        image: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : 'assets/pyramids.jpg'
+      };
+    }).filter(Boolean);
+  }).catch(() => []);
+
+  const settled = await Promise.allSettled([opdsPromise, gutendexPromise, openLibraryPromise]);
+  for (const outcome of settled) {
+    if (outcome.status === 'fulfilled' && Array.isArray(outcome.value)) {
+      outcome.value.forEach(addResult);
     }
-  } catch (err) {
-    console.warn('Gutendex search warning:', err.message);
   }
 
   res.json(results);
@@ -1095,18 +1143,47 @@ app.post('/api/web/import/:book_id', async (req, res) => {
 
   const bookId = String(req.params.book_id).replace(/^gutenberg_/, '').replace(/_u\d+$/, '');
   const catalogBook = getGutenbergBookById(bookId);
+  const bodyTitle = (req.body && req.body.title) ? String(req.body.title).trim() : '';
+  const bodyAuthor = (req.body && req.body.author) ? String(req.body.author).trim() : '';
 
   try {
-    let title = catalogBook ? catalogBook.title : 'Classic Public Domain Work';
-    let author = catalogBook ? catalogBook.author : 'Project Gutenberg Author';
+    let title = (catalogBook && catalogBook.title) || bodyTitle || 'Classic Public Domain Work';
+    let author = (catalogBook && catalogBook.author) || bodyAuthor || 'Project Gutenberg Author';
     let image = (catalogBook && catalogBook.image) || 'assets/pyramids.jpg';
-    let descriptor = (catalogBook && catalogBook.descriptor) || `A classic public domain book by ${author}.`;
+    let descriptor = (catalogBook && catalogBook.descriptor) || `A classic work by ${author}.`;
     let content = catalogBook ? catalogBook.content : '';
     let quiz_q = (catalogBook && catalogBook.quiz_q) || `Who is the author of the book '${title}'?`;
     let quiz_a = (catalogBook && catalogBook.quiz_a) || author;
 
+    // Open Library work import
+    if (bookId.startsWith('ol_') && !content) {
+      const workId = bookId.slice(3);
+      try {
+        const olRes = await fetch(`https://openlibrary.org/works/${encodeURIComponent(workId)}.json`, {
+          headers: { 'User-Agent': 'GismoLearning/1.0', 'Accept': 'application/json' },
+          signal: AbortSignal.timeout(5000)
+        });
+        if (olRes.ok) {
+          const work = await olRes.json();
+          title = work.title || title;
+          const descText = typeof work.description === 'string'
+            ? work.description
+            : (work.description && work.description.value ? work.description.value : '');
+          const subjects = Array.isArray(work.subjects) ? work.subjects.slice(0, 8).join(', ') : '';
+          content = [
+            title,
+            `By ${author}`,
+            '',
+            descText || `Study edition of "${title}" by ${author}.`,
+            subjects ? `\nKey Topics: ${subjects}` : '',
+            '\nUse the Gismo AI Tutor on the right to explore chapters, summarize key ideas, or generate a practice quiz!'
+          ].filter(Boolean).join('\n');
+        }
+      } catch (_) {}
+    }
+
     // If not in local curated catalog, try direct Gutenberg cache or Gutendex with fast timeout
-    if (!content) {
+    if (!content && /^\d+$/.test(bookId)) {
       try {
         const directUrl = `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.txt`;
         const directRes = await fetch(directUrl, {
@@ -1124,7 +1201,7 @@ app.post('/api/web/import/:book_id', async (req, res) => {
       } catch (_) {}
     }
 
-    if (!content) {
+    if (!content && /^\d+$/.test(bookId)) {
       try {
         const bookRes = await fetch(`https://gutendex.com/books/${bookId}`, {
           headers: { 'User-Agent': 'GismoLearning/1.0', 'Accept': 'application/json' },
@@ -1159,7 +1236,7 @@ app.post('/api/web/import/:book_id', async (req, res) => {
     }
 
     if (!content) {
-      content = `${title}\nBy ${author}\n\nProject Gutenberg Study Edition (Book #${bookId}).\n\nThis classic work explores foundational themes in literature and human inquiry. Use the Gismo AI Tutor on the right to ask questions, summarize chapters, or generate a comprehension quiz!`;
+      content = `${title}\nBy ${author}\n\nGismo Study Edition (Book #${bookId}).\n\nThis work explores foundational themes and key concepts. Use the Gismo AI Tutor on the right to ask questions, summarize chapters, or generate a comprehension quiz!`;
     }
 
     const lessonId = `gutenberg_${bookId}_u${userId}`;
