@@ -372,108 +372,95 @@ app.post('/api/newsletter', async (req, res) => {
 app.get('/api/donations/config', (req, res) => {
   const publicKey = (process.env.PAYSTACK_PUBLIC_KEY || '').trim();
   const secretKey = (process.env.PAYSTACK_SECRET_KEY || '').trim();
-  const quicknodeUrl = (process.env.QUICKNODE_RPC_URL || '').trim();
-  const cryptoWallet = (process.env.CRYPTO_DONATION_WALLET || '0x8794a89C64f465A4a2E148fC535D8E2643FD1646').trim();
+  const zecNodeUrl = (process.env.ZEC_ROCKS_URL || 'https://zec.rocks:443').trim();
+  const zecWallet = (process.env.ZEC_DONATION_ADDRESS || '').trim();
   res.json({
     paystackConfigured: !!(publicKey && secretKey),
     paystackPublicKey: publicKey,
     defaultCurrency: (process.env.PAYSTACK_CURRENCY || 'NGN').toUpperCase(),
-    quicknodeConfigured: !!quicknodeUrl,
-    cryptoWallet
+    zecNodeUrl,
+    zecWallet,
+    cryptoWallet: zecWallet
   });
 });
 
 app.post('/api/donations/crypto/verify', async (req, res) => {
   const {
     tx_hash = '',
-    network = 'Ethereum',
-    token = 'ETH',
+    network = 'Zcash Shielded (Unified)',
+    token = 'ZEC',
     amount = 0,
-    name = 'Crypto Supporter',
+    name = 'ZEC Supporter',
     email = '',
     quick_note = ''
   } = req.body || {};
 
-  const cleanHash = String(tx_hash || '').trim();
-  const cleanName = String(name || 'Crypto Supporter').trim() || 'Crypto Supporter';
-  const cleanEmail = String(email || '').trim() || 'crypto-donor@gismo.org';
+  const cleanHash = String(tx_hash || '').trim().replace(/^0x/i, '');
+  const cleanName = String(name || 'ZEC Supporter').trim() || 'ZEC Supporter';
+  const cleanEmail = String(email || '').trim() || 'zec-donor@gismo.org';
   const cleanNote = String(quick_note || '').trim().slice(0, 500);
   const numericAmount = Number(amount) || 0;
 
-  if (!cleanHash || !/^0x[a-fA-F0-9]{16,128}$/.test(cleanHash)) {
-    return res.status(400).json({ error: 'Please enter a valid transaction hash starting with 0x.' });
+  if (!cleanHash || !/^[a-fA-F0-9]{64}$/.test(cleanHash)) {
+    return res.status(400).json({ error: 'Please enter a valid 64-character Zcash transaction ID (txid).' });
   }
 
-  const quicknodeUrl = (process.env.QUICKNODE_RPC_URL || '').trim();
   let status = 'recorded';
   let verifiedOnChain = false;
-  let blockNumber = null;
+  let blockHeight = null;
 
-  if (quicknodeUrl) {
-    try {
-      const rpcRes = await fetch(quicknodeUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'eth_getTransactionReceipt',
-          params: [cleanHash]
-        }),
-        signal: AbortSignal.timeout(7000)
-      });
-      const rpcData = await rpcRes.json();
-      if (rpcData && rpcData.result) {
-        blockNumber = rpcData.result.blockNumber ? parseInt(rpcData.result.blockNumber, 16) : null;
-        if (rpcData.result.status === '0x1') {
+  try {
+    const expRes = await fetch(`https://mainnet.zcashexplorer.app/api/v1/tx/${cleanHash}`, {
+      headers: { 'User-Agent': 'GismoLearning/1.0', 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (expRes.ok) {
+      const txData = await expRes.json();
+      if (txData && (txData.txid || txData.hash)) {
+        blockHeight = txData.blockHeight || txData.height || null;
+        if (blockHeight || (txData.confirmations && txData.confirmations > 0)) {
           status = 'success';
           verifiedOnChain = true;
-        } else if (rpcData.result.status === '0x0') {
-          return res.status(400).json({ error: 'This transaction reverted/failed on-chain according to QuickNode.' });
-        }
-      } else {
-        // Check if transaction is still pending in mempool
-        const txRes = await fetch(quicknodeUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
-            id: 2,
-            method: 'eth_getTransactionByHash',
-            params: [cleanHash]
-          }),
-          signal: AbortSignal.timeout(5000)
-        });
-        const txData = await txRes.json();
-        if (txData && txData.result) {
-          status = 'pending_confirmation';
         } else {
-          return res.status(404).json({
-            error: 'Transaction hash not found on the configured QuickNode network yet. Please double-check the network or wait a few seconds.'
-          });
+          status = 'pending_confirmation';
         }
       }
-    } catch (err) {
-      return res.status(502).json({ error: 'Could not reach QuickNode RPC: ' + err.message });
     }
+  } catch (_) {
+    // Fallback to Blockchair Zcash API if zcashexplorer is slow
+    try {
+      const bcRes = await fetch(`https://api.blockchair.com/zcash/dashboards/transaction/${cleanHash}`, {
+        headers: { 'User-Agent': 'GismoLearning/1.0' },
+        signal: AbortSignal.timeout(6000)
+      });
+      if (bcRes.ok) {
+        const bcData = await bcRes.json();
+        const txEntry = bcData && bcData.data && bcData.data[cleanHash] && bcData.data[cleanHash].transaction;
+        if (txEntry) {
+          blockHeight = txEntry.block_id && txEntry.block_id > 0 ? txEntry.block_id : null;
+          status = blockHeight ? 'success' : 'pending_confirmation';
+          verifiedOnChain = !!blockHeight;
+        }
+      }
+    } catch (_) {}
   }
 
   try {
     db.prepare(`
       INSERT OR REPLACE INTO donations (donor_name, donor_email, amount, currency, frequency, quick_note, payment_method, reference, status)
       VALUES (?, ?, ?, ?, 'one-time', ?, ?, ?, ?)
-    `).run(cleanName, cleanEmail, numericAmount, `${token} (${network})`, cleanNote, 'quicknode_crypto', cleanHash, status);
+    `).run(cleanName, cleanEmail, numericAmount, `${token} (${network})`, cleanNote, 'zec.rocks', cleanHash, status);
   } catch (_) {}
 
   return res.json({
     success: true,
     verifiedOnChain,
     status,
-    blockNumber,
+    blockHeight,
     reference: cleanHash,
     message: verifiedOnChain
-      ? `On-chain donation verified via QuickNode (Block #${blockNumber})! Thank you, ${cleanName}, for your ${numericAmount ? `${numericAmount} ${token} ` : ''}gift${cleanNote ? ` ("${cleanNote}")` : ''}.`
-      : `Crypto donation recorded (Tx: ${cleanHash.slice(0, 12)}...).${quicknodeUrl ? ' Waiting for block confirmation.' : ' Add QUICKNODE_RPC_URL in Vercel for live on-chain verification.'}`
+      ? `ZEC donation verified on-chain via Zec.rocks (Block #${blockHeight})! Thank you, ${cleanName}, for your ${numericAmount ? `${numericAmount} ZEC ` : ''}gift${cleanNote ? ` ("${cleanNote}")` : ''}.`
+      : `ZEC donation recorded via Zec.rocks (Tx: ${cleanHash.slice(0, 12)}...). Confirmation will finalize once mined on Zcash mainnet.`
   });
 });
 

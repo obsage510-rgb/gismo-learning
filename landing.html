@@ -219,8 +219,8 @@
                 <span>Paystack (Card / Bank)</span>
               </button>
               <button type="button" class="pm-tab-btn" id="tab-pm-crypto" role="tab" aria-selected="false" style="display:inline-flex; align-items:center; justify-content:center; gap:0.45rem;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                <span>QuickNode (Crypto)</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span>Zec.rocks (ZEC)</span>
               </button>
             </div>
 
@@ -276,19 +276,20 @@
               </form>
             </div>
 
-            <!-- QuickNode Crypto Panel -->
+            <!-- Zec.rocks (Zcash) Crypto Panel -->
             <div id="panel-pm-crypto" class="hidden">
               <div class="paystack-header-bar">
                 <span class="paystack-badge">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
-                  <span>QuickNode On-Chain Verification</span>
+                  <span>Zec.rocks • Zcash (ZEC)</span>
                 </span>
+                <span style="font-size:0.78rem; color:var(--text-secondary); font-weight:600;" id="zec-node-label">Node: zec.rocks:443</span>
               </div>
 
               <div class="crypto-wallet-box">
-                <div style="font-size:0.78rem; font-weight:700; color:var(--text-secondary);">Gismo Receiving Wallet (EVM: ETH / Base / Polygon)</div>
+                <div style="font-size:0.78rem; font-weight:700; color:var(--text-secondary);">Gismo Zcash Receiving Address (ZEC • Shielded / Unified)</div>
                 <div class="crypto-wallet-row">
-                  <span class="crypto-wallet-addr" id="crypto-wallet-address">Configure CRYPTO_DONATION_WALLET in Vercel</span>
+                  <span class="crypto-wallet-addr" id="crypto-wallet-address">Configure ZEC_DONATION_ADDRESS in Vercel</span>
                   <button type="button" class="btn-copy-wallet" id="btn-copy-wallet">Copy</button>
                 </div>
               </div>
@@ -296,17 +297,16 @@
               <form id="crypto-donation-form">
                 <div class="form-row-2">
                   <div class="form-field">
-                    <label for="crypto-network">Network</label>
+                    <label for="crypto-network">Zcash Pool</label>
                     <select id="crypto-network" class="form-control">
-                      <option value="Ethereum">Ethereum (ETH)</option>
-                      <option value="Base">Base (ETH)</option>
-                      <option value="Polygon">Polygon (MATIC)</option>
-                      <option value="BNB Chain">BNB Chain (BNB)</option>
+                      <option value="Zcash Shielded (Unified)">Zcash Shielded (Unified)</option>
+                      <option value="Zcash Sapling">Zcash Sapling</option>
+                      <option value="Zcash Transparent">Zcash Transparent</option>
                     </select>
                   </div>
                   <div class="form-field">
-                    <label for="crypto-amount">Amount</label>
-                    <input type="number" id="crypto-amount" class="form-control" step="0.0001" min="0.0001" value="0.01" required>
+                    <label for="crypto-amount">Amount (ZEC)</label>
+                    <input type="number" id="crypto-amount" class="form-control" step="0.001" min="0.001" value="0.1" required>
                   </div>
                 </div>
 
@@ -328,16 +328,16 @@
 
                 <button type="button" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;" id="btn-web3-donate">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>
-                  <span>Connect Wallet &amp; Send Crypto</span>
+                  <span>Open in Zcash Wallet (Zashi / Zingo)</span>
                 </button>
 
                 <div class="form-field">
-                  <label for="crypto-tx-hash">Or Paste Transaction Hash (0x...) to Verify via QuickNode</label>
-                  <input type="text" id="crypto-tx-hash" class="form-control" placeholder="0x...">
+                  <label for="crypto-tx-hash">Or Paste Zcash Transaction ID (txid) to Verify via Zec.rocks</label>
+                  <input type="text" id="crypto-tx-hash" class="form-control" placeholder="64-character ZEC txid...">
                 </div>
 
                 <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-verify-crypto">
-                  Verify &amp; Record Crypto Donation
+                  Verify &amp; Record ZEC Donation
                 </button>
                 <div id="crypto-donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
               </form>
@@ -583,7 +583,7 @@
       });
     }
 
-    // Payment Method Tab Switching (Paystack vs QuickNode Crypto)
+    // Payment Method Tab Switching (Paystack vs Zec.rocks ZEC)
     const tabPaystack = document.getElementById('tab-pm-paystack');
     const tabCrypto = document.getElementById('tab-pm-crypto');
     const panelPaystack = document.getElementById('panel-pm-paystack');
@@ -621,26 +621,30 @@
       });
     }
 
-    // Load Paystack & QuickNode config
+    // Load Paystack & Zec.rocks config
     fetch('/api/donations/config')
       .then(r => r.json())
       .then(cfg => {
         if (cfg && cfg.paystackPublicKey) paystackPublicKey = cfg.paystackPublicKey;
-        if (cfg && cfg.cryptoWallet) {
-          cryptoReceivingWallet = cfg.cryptoWallet;
+        const zecAddr = cfg && (cfg.zecWallet || cfg.cryptoWallet);
+        if (zecAddr) {
+          cryptoReceivingWallet = zecAddr;
           const walletEl = document.getElementById('crypto-wallet-address');
-          if (walletEl) walletEl.textContent = cfg.cryptoWallet;
+          if (walletEl) walletEl.textContent = zecAddr;
+        }
+        if (cfg && cfg.zecNodeUrl) {
+          const nodeLabel = document.getElementById('zec-node-label');
+          if (nodeLabel) nodeLabel.textContent = 'Node: ' + cfg.zecNodeUrl.replace(/^https?:\/\//, '');
         }
       })
       .catch(() => {});
 
     async function submitCryptoVerification(txHash) {
       const statusEl = document.getElementById('crypto-donation-status');
-      const network = document.getElementById('crypto-network')?.value || 'Ethereum';
-      const tokenMap = { 'Ethereum': 'ETH', 'Base': 'ETH', 'Polygon': 'MATIC', 'BNB Chain': 'BNB' };
-      const token = tokenMap[network] || 'ETH';
+      const network = document.getElementById('crypto-network')?.value || 'Zcash Shielded (Unified)';
+      const token = 'ZEC';
       const amount = Number(document.getElementById('crypto-amount')?.value) || 0;
-      const name = document.getElementById('crypto-donor-name')?.value.trim() || 'Crypto Supporter';
+      const name = document.getElementById('crypto-donor-name')?.value.trim() || 'ZEC Supporter';
       const email = document.getElementById('crypto-donor-email')?.value.trim() || '';
       const quickNote = document.getElementById('crypto-quick-note')?.value.trim() || '';
 
@@ -666,43 +670,25 @@
 
     const web3Btn = document.getElementById('btn-web3-donate');
     if (web3Btn) {
-      web3Btn.addEventListener('click', async () => {
+      web3Btn.addEventListener('click', () => {
         const statusEl = document.getElementById('crypto-donation-status');
         if (!cryptoReceivingWallet) {
           if (statusEl) {
-            statusEl.textContent = 'Please configure CRYPTO_DONATION_WALLET in Vercel environment variables first.';
+            statusEl.textContent = 'Please configure ZEC_DONATION_ADDRESS in Vercel environment variables first.';
             statusEl.classList.remove('hidden');
           }
           return;
         }
-        if (typeof window.ethereum === 'undefined') {
-          if (statusEl) {
-            statusEl.textContent = 'No Web3 wallet detected (MetaMask / Coinbase Wallet). Send crypto to the address above and paste your 0x transaction hash below.';
-            statusEl.classList.remove('hidden');
-          }
-          return;
-        }
-        try {
-          web3Btn.disabled = true;
-          web3Btn.textContent = 'Confirm in Wallet...';
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          const amountEth = Number(document.getElementById('crypto-amount')?.value) || 0.01;
-          const weiHex = '0x' + BigInt(Math.round(amountEth * 1e18)).toString(16);
-          const txHash = await window.ethereum.request({
-            method: 'eth_sendTransaction',
-            params: [{ from: accounts[0], to: cryptoReceivingWallet, value: weiHex }]
-          });
-          const txInput = document.getElementById('crypto-tx-hash');
-          if (txInput) txInput.value = txHash;
-          await submitCryptoVerification(txHash);
-        } catch (err) {
-          if (statusEl) {
-            statusEl.textContent = err.message || 'Wallet transaction cancelled.';
-            statusEl.classList.remove('hidden');
-          }
-        } finally {
-          web3Btn.disabled = false;
-          web3Btn.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg><span>Connect Wallet &amp; Send Crypto</span>';
+        const amountZec = Number(document.getElementById('crypto-amount')?.value) || 0.1;
+        const quickNote = document.getElementById('crypto-quick-note')?.value.trim() || 'Gismo Learning Donation';
+        const memoBytes = new TextEncoder().encode(quickNote);
+        const memoBase64Url = btoa(String.fromCharCode(...memoBytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const zcashUri = `zcash:${encodeURIComponent(cryptoReceivingWallet)}?amount=${amountZec}&memo=${memoBase64Url}`;
+
+        window.location.href = zcashUri;
+        if (statusEl) {
+          statusEl.textContent = 'Opening your Zcash wallet (Zashi / Zingo / YWallet). After sending, paste your 64-character txid below to verify via Zec.rocks.';
+          statusEl.classList.remove('hidden');
         }
       });
     }
