@@ -252,7 +252,8 @@ function setupInteractiveHighlighting() {
 // --- API Calls ---
 async function fetchTextbooks() {
   try {
-    const res = await fetch('/api/textbooks');
+    const uid = appState.currentUser && appState.currentUser.id ? `?user_id=${encodeURIComponent(appState.currentUser.id)}` : '';
+    const res = await fetch(`/api/textbooks${uid}`);
     const data = await res.json();
     lessonsDb = {};
     if (!elements.modulesList) return;
@@ -818,6 +819,7 @@ function switchView(viewName) {
   } else if (viewName === 'dashboard') {
     elements.mainContent.classList.remove('hidden');
     showDashboard();
+    fetchTextbooks();
   } else if (viewName === 'profile') {
     elements.profilePanel.classList.remove('hidden');
     loadStudentProfile();
@@ -826,6 +828,7 @@ function switchView(viewName) {
     fetchNotes();
   } else if (viewName === 'library') {
     elements.libraryPanel.classList.remove('hidden');
+    fetchTextbooks();
     loadLibraryFiles();
     const resultsDiv = document.getElementById('web-search-results');
     if (resultsDiv && !resultsDiv.children.length) {
@@ -5551,7 +5554,7 @@ async function handleWebSearch(loadFeatured = false) {
   
   const resultsDiv = document.getElementById('web-search-results');
   if (!resultsDiv) return;
-  resultsDiv.innerHTML = '<div class="col-12 text-center py-3 text-secondary">Loading Project Gutenberg classics...</div>';
+  resultsDiv.innerHTML = `<div class="col-12 text-center py-3 text-secondary">${query === 'featured' ? 'Loading Project Gutenberg classics...' : `Searching Project Gutenberg for "${escapeHtml(query)}"...`}</div>`;
   
   try {
     const res = await fetch(`/api/web/search?q=${encodeURIComponent(query)}`);
@@ -5561,7 +5564,7 @@ async function handleWebSearch(loadFeatured = false) {
       data.forEach(book => {
         const div = document.createElement('div');
         div.className = 'col-12 col-md-6 col-lg-4';
-        const subjectBadge = book.subject ? `<span class="badge mb-2" style="align-self:flex-start; background:rgba(139,92,246,0.18); color:var(--accent-primary); font-size:0.72rem; border-radius:8px; padding:0.25rem 0.55rem;">${escapeHtml(book.subject)}</span>` : '';
+        const subjectBadge = book.subject ? `<span class="badge mb-2" style="align-self:flex-start; background:rgba(15,92,77,0.14); color:var(--accent-color); font-size:0.72rem; border-radius:8px; padding:0.25rem 0.55rem;">${escapeHtml(book.subject)}</span>` : '';
         const descHtml = book.descriptor ? `<p class="text-secondary small mb-3 flex-grow-1" style="font-size:0.82rem; opacity:0.85;">${escapeHtml(book.descriptor)}</p>` : '<div class="flex-grow-1"></div>';
         div.innerHTML = `
           <div class="profile-card h-100 d-flex flex-column m-0" style="padding:1.25rem;">
@@ -5577,7 +5580,7 @@ async function handleWebSearch(loadFeatured = false) {
         resultsDiv.appendChild(div);
       });
     } else {
-      resultsDiv.innerHTML = '<div class="col-12 text-center py-3 text-secondary">No matching books found. Click "Show All Classics" to browse the full catalog.</div>';
+      resultsDiv.innerHTML = `<div class="col-12 text-center py-3 text-secondary">No matching books found for "${escapeHtml(query)}". Try another title or author, or click "Show All Classics".</div>`;
     }
   } catch (err) {
     resultsDiv.innerHTML = '<div class="col-12 text-center py-3" style="color: var(--error-color);">Could not load books right now. Please try again.</div>';
@@ -5585,16 +5588,26 @@ async function handleWebSearch(loadFeatured = false) {
 }
 
 async function importWebBook(bookId, btnElement) {
+  const userId = appState.currentUser && appState.currentUser.id ? appState.currentUser.id : null;
+  if (!userId) {
+    showToast('Please sign in to import books into your library.', 'warning');
+    return;
+  }
+
   if (btnElement) {
     btnElement.disabled = true;
     btnElement.textContent = 'Importing...';
   }
   
   try {
-    const res = await fetch(`/api/web/import/${bookId}`, { method: 'POST' });
+    const res = await fetch(`/api/web/import/${encodeURIComponent(bookId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId })
+    });
     const data = await res.json();
     if (res.ok) {
-      if (btnElement) btnElement.textContent = 'Imported to Library!';
+      if (btnElement) btnElement.innerHTML = `${getAppSvgIcon('check', 15)} Imported to Library!`;
       showToast(`Imported "${(data.book && data.book.title) || 'Book'}"!`, 'book');
       announceTTS("Book successfully imported to the library.");
       // Reload lessons to show the new book in dashboard and library
@@ -5605,6 +5618,7 @@ async function importWebBook(bookId, btnElement) {
         btnElement.disabled = false;
         btnElement.textContent = 'Import Failed — Retry';
       }
+      showToast(data.error || 'Failed to import book.', 'warning');
       announceTTS("Failed to import the book.");
     }
   } catch (err) {

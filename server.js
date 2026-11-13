@@ -108,7 +108,8 @@ function initDb() {
       descriptor TEXT,
       content TEXT,
       quiz_q TEXT,
-      quiz_a TEXT
+      quiz_a TEXT,
+      user_id INTEGER DEFAULT NULL
     );
 
     CREATE TABLE IF NOT EXISTS files (
@@ -197,6 +198,12 @@ function initDb() {
   } catch (_) {}
   try {
     db.prepare("ALTER TABLE homework ADD COLUMN submission_date DATETIME").run();
+  } catch (_) {}
+  try {
+    db.prepare("ALTER TABLE textbooks ADD COLUMN user_id INTEGER DEFAULT NULL").run();
+  } catch (_) {}
+  try {
+    db.prepare("DELETE FROM textbooks WHERE user_id IS NULL").run();
   } catch (_) {}
 
   // Default presentation admin user (username: admin, password: admin123 or admin)
@@ -1029,53 +1036,64 @@ app.get('/api/admin/database/export/:name', (req, res) => {
 
 // --- TEXTBOOKS API ---
 app.get('/api/textbooks', (req, res) => {
-  const textbooks = db.prepare('SELECT * FROM textbooks').all();
+  const userId = req.query.user_id ? Number(req.query.user_id) : null;
+  if (!userId || Number.isNaN(userId)) {
+    return res.json([]);
+  }
+  const textbooks = db.prepare('SELECT * FROM textbooks WHERE user_id = ?').all(userId);
   res.json(textbooks);
 });
 
 // --- WEB BOOKS API ---
 app.get('/api/web/search', async (req, res) => {
   const query = (req.query.q || '').trim();
+  const isFeatured = !query || query === 'featured' || query === 'all';
+  if (isFeatured) {
+    return res.json(searchGutenbergCatalog('featured'));
+  }
+
   const catalogMatches = searchGutenbergCatalog(query);
   const results = [...catalogMatches];
   const seenIds = new Set(results.map(b => String(b.id)));
 
-  if (query && query !== 'featured' && query !== 'all') {
-    try {
-      const fetchRes = await fetch(`https://gutendex.com/books/?search=${encodeURIComponent(query)}`, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        signal: AbortSignal.timeout(3500)
-      });
-      if (fetchRes.ok) {
-        const data = await fetchRes.json();
-        for (const book of (data.results || []).slice(0, 10)) {
-          const idStr = String(book.id);
-          if (!seenIds.has(idStr)) {
-            seenIds.add(idStr);
-            results.push({
-              id: idStr,
-              title: book.title || 'Unknown Title',
-              author: book.authors && book.authors[0] ? book.authors[0].name : 'Unknown Author',
-              image: (book.formats && book.formats['image/jpeg']) || 'assets/pyramids.jpg'
-            });
-          }
+  try {
+    const fetchRes = await fetch(`https://gutendex.com/books/?search=${encodeURIComponent(query)}`, {
+      headers: {
+        'User-Agent': 'GismoLearning/1.0',
+        'Accept': 'application/json'
+      },
+      signal: AbortSignal.timeout(7000)
+    });
+    if (fetchRes.ok) {
+      const data = await fetchRes.json();
+      for (const book of (data.results || []).slice(0, 12)) {
+        const idStr = String(book.id);
+        if (!seenIds.has(idStr)) {
+          seenIds.add(idStr);
+          results.push({
+            id: idStr,
+            title: book.title || 'Unknown Title',
+            author: book.authors && book.authors[0] ? book.authors[0].name : 'Unknown Author',
+            image: (book.formats && book.formats['image/jpeg']) || 'assets/pyramids.jpg'
+          });
         }
       }
-    } catch (_) {
-      // Gutendex slow or unreachable; built-in Project Gutenberg catalog is already in results
     }
-
-    // If a custom search query didn't match the curated catalog and Gutendex timed out, return featured classics
-    if (results.length === 0) {
-      return res.json(searchGutenbergCatalog('featured'));
-    }
+  } catch (err) {
+    console.warn('Gutendex search warning:', err.message);
   }
 
   res.json(results);
 });
 
 app.post('/api/web/import/:book_id', async (req, res) => {
-  const bookId = String(req.params.book_id).replace(/^gutenberg_/, '');
+  const rawUserId = (req.body && req.body.user_id) || req.query.user_id;
+  const userId = rawUserId ? Number(rawUserId) : null;
+  if (!userId || Number.isNaN(userId)) {
+    return res.status(400).json({ error: 'Please sign in to import books into your personal library.' });
+  }
+
+  const bookId = String(req.params.book_id).replace(/^gutenberg_/, '').replace(/_u\d+$/, '');
   const catalogBook = getGutenbergBookById(bookId);
 
   try {
@@ -1093,7 +1111,7 @@ app.post('/api/web/import/:book_id', async (req, res) => {
         const directUrl = `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.txt`;
         const directRes = await fetch(directUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0' },
-          signal: AbortSignal.timeout(4500)
+          signal: AbortSignal.timeout(5000)
         });
         if (directRes.ok) {
           let raw = await directRes.text();
@@ -1109,8 +1127,8 @@ app.post('/api/web/import/:book_id', async (req, res) => {
     if (!content) {
       try {
         const bookRes = await fetch(`https://gutendex.com/books/${bookId}`, {
-          headers: { 'User-Agent': 'Mozilla/5.0' },
-          signal: AbortSignal.timeout(4000)
+          headers: { 'User-Agent': 'GismoLearning/1.0', 'Accept': 'application/json' },
+          signal: AbortSignal.timeout(5000)
         });
         if (bookRes.ok) {
           const book = await bookRes.json();
@@ -1144,12 +1162,12 @@ app.post('/api/web/import/:book_id', async (req, res) => {
       content = `${title}\nBy ${author}\n\nProject Gutenberg Study Edition (Book #${bookId}).\n\nThis classic work explores foundational themes in literature and human inquiry. Use the Gismo AI Tutor on the right to ask questions, summarize chapters, or generate a comprehension quiz!`;
     }
 
-    const lessonId = `gutenberg_${bookId}`;
+    const lessonId = `gutenberg_${bookId}_u${userId}`;
 
     db.prepare(`
-      INSERT OR REPLACE INTO textbooks (id, title, meta, image, descriptor, content, quiz_q, quiz_a)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(lessonId, title, 'Web Book', image, descriptor, content, quiz_q, quiz_a);
+      INSERT OR REPLACE INTO textbooks (id, title, meta, image, descriptor, content, quiz_q, quiz_a, user_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(lessonId, title, 'Web Book', image, descriptor, content, quiz_q, quiz_a, userId);
 
     return res.json({ status: 'success', lesson_id: lessonId, title, author, book: { id: lessonId, title, author } });
   } catch (err) {
