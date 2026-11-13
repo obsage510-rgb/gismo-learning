@@ -8,10 +8,13 @@ const crypto = require('crypto');
 const { DatabaseSync } = require('node:sqlite');
 const { Readable } = require('stream');
 
-// Load environment variables (.env.local for ElevenLabs, .env for Google/others)
+// Load environment variables (.env.local and .env)
 try {
   require('dotenv').config({ path: path.join(__dirname, '.env.local') });
+  require('dotenv').config({ path: path.join(__dirname, '.env') });
 } catch (_) {}
+
+const { SupabaseDatabaseBridge } = require('./supabase_db');
 
 let elevenlabs = null;
 function getElevenLabs() {
@@ -59,8 +62,9 @@ if (fs.existsSync(path.join(__dirname, '.env'))) {
   }
 }
 
-// Initialize SQLite
+// Initialize SQLite + Supabase Bridge
 const db = new DatabaseSync(DB_PATH);
+const supabaseBridge = new SupabaseDatabaseBridge(db);
 
 // Initialize Antigravity AI Model
 const AntigravityTutorModel = require('./antigravity_model');
@@ -178,6 +182,10 @@ function initDb() {
       VALUES (?, ?, ?, ?, ?, ?)
     `).run('admin', hPw, '', '', 'None', 'admin');
   }
+
+  supabaseBridge.ensureReady().catch(err => {
+    console.warn('Supabase initialization warning:', err.message);
+  });
 }
 
 // Password helpers (compatible with Werkzeug scrypt)
@@ -235,6 +243,24 @@ app.use((req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '-1');
+  next();
+});
+
+// Ensure Supabase is hydrated on cold starts and flush any writes before Vercel freezes the function
+app.use('/api', async (req, res, next) => {
+  if (supabaseBridge.configured) {
+    try {
+      await supabaseBridge.ensureReady();
+    } catch (_) {}
+
+    const origJson = res.json.bind(res);
+    res.json = function wrappedJson(body) {
+      if (supabaseBridge.hasPendingWrites()) {
+        return supabaseBridge.flushWrites().finally(() => origJson(body));
+      }
+      return origJson(body);
+    };
+  }
   next();
 });
 
@@ -410,10 +436,32 @@ app.get('/api/announcement', (req, res) => {
   res.json({ announcement: global_announcement });
 });
 
+// --- SUPABASE STATUS & SYNC API ---
+app.get('/api/supabase/status', async (req, res) => {
+  await supabaseBridge.checkPostgresTables();
+  res.json(supabaseBridge.getStatus());
+});
+
+app.post('/api/supabase/sync', async (req, res) => {
+  try {
+    const status = await supabaseBridge.init();
+    res.json({ success: true, status });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- ADMIN DATABASE VIEWER API ---
 // 1. Overview of tables, storage size, and schema
-app.get('/api/admin/database/overview', (req, res) => {
+app.get('/api/admin/database/overview', async (req, res) => {
   try {
+    if (supabaseBridge.configured) {
+      await supabaseBridge.checkPostgresTables();
+      if (supabaseBridge.postgresTablesReady) {
+        await supabaseBridge.pullFromPostgresToSqlite();
+      }
+    }
+
     const stat = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH) : { size: 0 };
     const tablesRaw = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC").all();
 
@@ -435,9 +483,12 @@ app.get('/api/admin/database/overview', (req, res) => {
       };
     });
 
+    const sbStatus = supabaseBridge.getStatus();
     res.json({
-      databaseFile: path.basename(DB_PATH),
-      databasePath: DB_PATH,
+      provider: sbStatus.configured ? 'supabase' : 'sqlite',
+      supabase: sbStatus,
+      databaseFile: sbStatus.configured ? sbStatus.host : path.basename(DB_PATH),
+      databasePath: sbStatus.configured ? sbStatus.supabaseUrl : DB_PATH,
       sizeBytes: stat.size,
       sizeFormatted: (stat.size / 1024).toFixed(1) + ' KB',
       totalTables: tables.length,

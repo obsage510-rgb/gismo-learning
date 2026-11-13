@@ -1,7 +1,7 @@
 {
   "functions": {
     "server.js": {
-      "includeFiles": "{index.html,style.css,app.js,antigravity_model.js,gismo.db,assets/**}"
+      "includeFiles": "{index.html,style.css,app.js,antigravity_model.js,supabase_db.js,gismo.db,assets/**}"
     }
   }
 }

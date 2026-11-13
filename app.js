@@ -2893,7 +2893,11 @@ async function loadAdminDatabase() {
     if (statRecords) statRecords.textContent = data.totalRows || 0;
     if (statSize) statSize.textContent = data.sizeFormatted || '0 KB';
     if (counterBadge) counterBadge.textContent = `${data.totalTables || 6} tables`;
-    if (connBadge) connBadge.textContent = `● SQLite Online (${data.databaseFile || 'gismo.db'})`;
+    if (connBadge) {
+      connBadge.textContent = data.provider === 'supabase'
+        ? `● Supabase Connected (${data.databaseFile})`
+        : `● SQLite Online (${data.databaseFile || 'gismo.db'})`;
+    }
 
     // Render table pill buttons
     renderDbTablePills(data.tables || []);
