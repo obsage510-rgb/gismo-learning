@@ -628,7 +628,7 @@ function askTutorForPractice() {
     input.value = "Can you give me an interactive science practice question or explain a fascinating concept?";
     input.focus();
   }
-  showToast("AI Tutor opened for practice!", "✓");
+  showToast("AI Tutor opened for practice!", "check");
   announceTTS("AI Tutor is ready to quiz you and practice with you.");
 }
 window.askTutorForPractice = askTutorForPractice;
@@ -1087,7 +1087,7 @@ async function handleDeleteCourse(tbId) {
   try {
     const res = await fetch(`/api/admin/textbooks/${encodeURIComponent(tbId)}`, { method: 'DELETE' });
     if (res.ok) {
-      showToast(`Course deleted: ${tbId}`, "✓");
+      showToast(`Course deleted: ${tbId}`, "check");
       playEarcon('click');
       await Promise.all([loadAdminCourses(), loadAdminStats(), fetchTextbooks()]);
     }
@@ -1149,7 +1149,7 @@ function handlePreviewError() {
   if (previewImg) previewImg.style.display = 'none';
   if (placeholder) {
     placeholder.style.display = 'flex';
-    placeholder.innerHTML = `<span style="color:var(--warning-color); font-size:0.75rem;">⚠️ Unable to load image preview</span>`;
+    placeholder.innerHTML = `<span style="color:var(--warning-color); font-size:0.75rem;">${getAppSvgIcon('warning', 14)} Unable to load image preview</span>`;
   }
 }
 window.handlePreviewError = handlePreviewError;
@@ -1184,7 +1184,7 @@ async function handleThumbnailUpload(e) {
         imgEl.value = fileUrl;
         updateThumbnailPreview();
       }
-      showToast("Thumbnail uploaded successfully!", "✓");
+      showToast("Thumbnail uploaded successfully!", "check");
     } else {
       alert("Failed to upload image: " + (data.error || 'Server error'));
     }
@@ -1237,7 +1237,7 @@ async function handleAddTextbook() {
       body: JSON.stringify(data)
     });
     if (res.ok) {
-      showToast(`Course published: ${title}`, "✓");
+      showToast(`Course published: ${title}`, "check");
       playEarcon('success');
       if (idEl) idEl.value = '';
       if (titleEl) titleEl.value = '';
@@ -1277,7 +1277,7 @@ async function handleDispatchHomework() {
       body: JSON.stringify({ student_id: sId, title, description: desc })
     });
     if (res.ok) {
-      showToast("Coursework successfully assigned!", "✓");
+      showToast("Coursework successfully assigned!", "check");
       playEarcon('success');
       if (titleInput) titleInput.value = '';
       if (descInput) descInput.value = '';
@@ -1443,7 +1443,7 @@ async function loadStudentQuizzes() {
         const color = passed ? '#10b981' : '#f59e0b';
         statusBadge = `
           <span class="badge" style="background:${passed ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'}; color:${color}; border:1px solid ${color}; border-radius:12px; font-size:0.75rem; padding:0.3rem 0.65rem;">
-            ${passed ? '✓ Passed' : 'Completed'} (${q.submission.score}/${q.submission.total} • ${q.submission.percentage}%)
+            ${passed ? 'Passed' : 'Completed'} (${q.submission.score}/${q.submission.total} • ${q.submission.percentage}%)
           </span>
         `;
         actionBtn = `
@@ -1510,23 +1510,23 @@ window.selectQuickQuizTopic = selectQuickQuizTopic;
 function startVoiceQuizTopicDictation() {
   const input = document.getElementById('ai-quiz-topic-input');
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    showToast("Voice speech recognition not supported in this browser.", "⚠️");
+    showToast("Voice speech recognition not supported in this browser.", "warning");
     return;
   }
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognition = new SpeechRecognition();
   recognition.lang = 'en-US';
-  showToast("Listening for your quiz topic...", "🎙️");
+  showToast("Listening for your quiz topic...", "mic");
   announceTTS("Listening for your quiz topic. Please speak now.");
 
   recognition.onresult = (e) => {
     const text = e.results[0][0].transcript;
     if (input) input.value = text;
-    showToast(`Topic captured: "${text}"`, "✓");
+    showToast(`Topic captured: "${text}"`, "check");
     announceTTS(`Topic captured: ${text}`);
   };
   recognition.onerror = () => {
-    showToast("Could not capture speech. Please type your topic.", "⚠️");
+    showToast("Could not capture speech. Please type your topic.", "warning");
   };
   recognition.start();
 }
@@ -1556,7 +1556,7 @@ async function handleTriggerAiQuiz(topicOverride) {
     `;
   }
 
-  showToast(`Generating AI quiz on "${topic}"...`, "🤖");
+  showToast(`Generating AI quiz on "${topic}"...`, "bot");
   announceTTS(`Generating an accessible quiz on ${topic}. Please wait a moment.`);
   playEarcon('click');
 
@@ -1590,21 +1590,21 @@ async function handleTriggerAiQuiz(topicOverride) {
         <span>Generate AI Quiz &amp; Start</span>
       `;
     }
-    showToast(`Quiz generation error: ${err.message}`, "⚠️");
+    showToast(`Quiz generation error: ${err.message}`, "warning");
   }
 }
 window.handleTriggerAiQuiz = handleTriggerAiQuiz;
 
 async function startQuizById(quizId) {
   try {
-    showToast("Loading quiz...", "⌛");
+    showToast("Loading quiz...", "loading");
     const res = await fetch(`/api/quizzes/${quizId}`);
     if (!res.ok) throw new Error("Quiz not found");
     const quiz = await res.json();
     startInteractiveQuiz(quiz, quiz.created_by === 'ai' ? 'AI Quiz' : 'Instructor Assigned');
   } catch (err) {
     console.error("startQuizById error:", err);
-    showToast("Could not load quiz details.", "⚠️");
+    showToast("Could not load quiz details.", "warning");
   }
 }
 window.startQuizById = startQuizById;
@@ -1665,13 +1665,12 @@ function updateQuizVoiceUI(state = 'idle', title = '', subtext = '') {
   }
 
   if (titleEl) {
-    if (title) {
-      titleEl.textContent = title;
-    } else if (isVoiceActive) {
-      titleEl.textContent = '🎙️ Listening for Your Answer...';
-    } else {
-      titleEl.textContent = '🎙️ Speak Your Answer (Hands-Free)';
-    }
+    const iconName = state === 'matched' ? 'check' : (state === 'error' ? 'warning' : 'mic');
+    const displayTitle = title || (isVoiceActive ? 'Listening for Your Answer...' : 'Speak Your Answer (Hands-Free)');
+    titleEl.style.display = 'flex';
+    titleEl.style.alignItems = 'center';
+    titleEl.style.gap = '0.4rem';
+    titleEl.innerHTML = `${getAppSvgIcon(iconName, 16)}<span>${escapeHtml(displayTitle)}</span>`;
   }
 
   if (subtextEl) {
@@ -1689,7 +1688,7 @@ window.updateQuizVoiceUI = updateQuizVoiceUI;
 function toggleQuizVoiceAutoAdvance(checked) {
   quizVoiceState.autoAdvance = !!checked;
   localStorage.setItem('gismo_quiz_voice_auto_advance', quizVoiceState.autoAdvance ? 'true' : 'false');
-  showToast(quizVoiceState.autoAdvance ? 'Auto-Next enabled for voice answers' : 'Auto-Next disabled', '🎙️');
+  showToast(quizVoiceState.autoAdvance ? 'Auto-Next enabled for voice answers' : 'Auto-Next disabled', "mic");
 }
 window.toggleQuizVoiceAutoAdvance = toggleQuizVoiceAutoAdvance;
 
@@ -1738,7 +1737,7 @@ function initQuizVoiceRecognition() {
     }
 
     if (interimTranscript && !finalTranscript) {
-      updateQuizVoiceUI('listening', '🎙️ Hearing your voice...', `Heard: <em>"${escapeHtml(displayPhrase)}"</em>`);
+      updateQuizVoiceUI('listening', 'Hearing your voice...', `Heard: <em>"${escapeHtml(displayPhrase)}"</em>`);
     }
 
     if (finalTranscript.trim()) {
@@ -1752,7 +1751,7 @@ function initQuizVoiceRecognition() {
     if (event.error === 'not-allowed') {
       quizVoiceState.enabled = false;
       quizVoiceState.isListening = false;
-      updateQuizVoiceUI('error', '⚠️ Microphone Permission Needed', 'Please allow microphone access in your browser to speak quiz answers.');
+      updateQuizVoiceUI('error', 'Microphone Permission Needed', 'Please allow microphone access in your browser to speak quiz answers.');
     }
   };
 
@@ -1773,8 +1772,8 @@ function initQuizVoiceRecognition() {
 function startQuizVoiceMode() {
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRec) {
-    showToast('Voice recognition is not supported in this browser.', '⚠️');
-    updateQuizVoiceUI('error', '⚠️ Voice Not Supported', 'Your browser does not support Web Speech Recognition. Try Chrome or Edge.');
+    showToast('Voice recognition is not supported in this browser.', "warning");
+    updateQuizVoiceUI('error', 'Voice Not Supported', 'Your browser does not support Web Speech Recognition. Try Chrome or Edge.');
     return;
   }
 
@@ -1804,8 +1803,8 @@ function startQuizVoiceMode() {
   }
 
   playEarcon('listening');
-  updateQuizVoiceUI('listening', '🎙️ Listening for Your Answer...', 'Say <strong>"Option A, B, C, or D"</strong>, speak the answer text, or say <strong>"Next"</strong> / <strong>"Submit"</strong>.');
-  showToast('Voice Answer Mode Active — Speak your answer!', '🎙️');
+  updateQuizVoiceUI('listening', 'Listening for Your Answer...', 'Say <strong>"Option A, B, C, or D"</strong>, speak the answer text, or say <strong>"Next"</strong> / <strong>"Submit"</strong>.');
+  showToast('Voice Answer Mode Active — Speak your answer!', "mic");
 }
 window.startQuizVoiceMode = startQuizVoiceMode;
 
@@ -1823,7 +1822,7 @@ function stopQuizVoiceMode(silent = false) {
   }
   if (!silent) {
     playEarcon('click');
-    showToast('Voice Answer Mode Off', 'ℹ️');
+    showToast('Voice Answer Mode Off', "info");
   }
   updateQuizVoiceUI('idle');
 }
@@ -2055,7 +2054,7 @@ function handleQuizVoiceCommand(rawTranscript) {
     t.includes('read options') || t.includes('what is the question')
   ) {
     playEarcon('click');
-    updateQuizVoiceUI('listening', '🔊 Reading Question Aloud...', 'Listening will resume automatically after reading.');
+    updateQuizVoiceUI('listening', 'Reading Question Aloud...', 'Listening will resume automatically after reading.');
     speakCurrentQuizQuestion();
     return true;
   }
@@ -2065,7 +2064,7 @@ function handleQuizVoiceCommand(rawTranscript) {
     t === 'go next' || t === 'skip' || t === 'forward'
   ) {
     playEarcon('click');
-    updateQuizVoiceUI('matched', '⏭️ Moving to Next Question...', `Heard: "${escapeHtml(rawTranscript)}"`);
+    updateQuizVoiceUI('matched', 'Moving to Next Question...', `Heard: "${escapeHtml(rawTranscript)}"`);
     goToNextQuizQuestion(true);
     return true;
   }
@@ -2075,7 +2074,7 @@ function handleQuizVoiceCommand(rawTranscript) {
     t === 'back' || t === 'prior question'
   ) {
     playEarcon('click');
-    updateQuizVoiceUI('matched', '⏮️ Moving to Previous Question...', `Heard: "${escapeHtml(rawTranscript)}"`);
+    updateQuizVoiceUI('matched', 'Moving to Previous Question...', `Heard: "${escapeHtml(rawTranscript)}"`);
     goToPrevQuizQuestion();
     return true;
   }
@@ -2085,7 +2084,7 @@ function handleQuizVoiceCommand(rawTranscript) {
     t === 'submit my answers' || t === 'finish quiz' || t === 'grade quiz' || t === 'done'
   ) {
     playEarcon('click');
-    updateQuizVoiceUI('matched', '✅ Submitting Quiz...', `Heard: "${escapeHtml(rawTranscript)}"`);
+    updateQuizVoiceUI('matched', 'Submitting Quiz...', `Heard: "${escapeHtml(rawTranscript)}"`);
     submitActiveQuiz(true);
     return true;
   }
@@ -2123,13 +2122,13 @@ function handleQuizVoiceCommand(rawTranscript) {
     const wantsImmediateNext = /\b(?:and\s+)?(?:next|next question|continue|submit|submit answers)\s*$/i.test(t);
 
     if (typeof updateVoiceHudState === 'function') {
-      updateVoiceHudState('matched', `✓ Selected Option ${letter}`, chosenText);
+      updateVoiceHudState('matched', `Selected Option ${letter}`, chosenText);
     }
 
     if (quizVoiceState.autoAdvance || wantsImmediateNext) {
       updateQuizVoiceUI(
         'matched',
-        `✓ Selected Option ${letter}: "${chosenText}"`,
+        `Selected Option ${letter}: "${chosenText}"`,
         `Heard: <em>"${escapeHtml(rawTranscript)}"</em> — ${isLast ? 'Submitting quiz...' : 'Advancing to next question...'}`
       );
       announceTTS(`Selected Option ${letter}: ${chosenText}.`, () => {
@@ -2142,7 +2141,7 @@ function handleQuizVoiceCommand(rawTranscript) {
       const nextActionWord = isLast ? 'Submit' : 'Next';
       updateQuizVoiceUI(
         'matched',
-        `✓ Selected Option ${letter}`,
+        `Selected Option ${letter}`,
         `Heard: <em>"${escapeHtml(rawTranscript)}"</em> — Say <strong>"${nextActionWord}"</strong> to continue, or say another option to change.`
       );
       announceTTS(`Selected Option ${letter}: ${chosenText}. Say ${nextActionWord} to continue.`);
@@ -2156,7 +2155,7 @@ function handleQuizVoiceCommand(rawTranscript) {
     playEarcon('error');
     updateQuizVoiceUI(
       'error',
-      `🤔 Didn't catch an option for "${rawTranscript}"`,
+      `Didn't catch an option for "${rawTranscript}"`,
       `Try saying <strong>"Option A"</strong>, <strong>"Option B"</strong>, <strong>"Option C"</strong>, <strong>"Option D"</strong>, or <strong>"Next"</strong>.`
     );
     return true;
@@ -2234,7 +2233,7 @@ function renderCurrentQuizQuestion() {
   if (prevBtn) prevBtn.disabled = activeQuizCurrentIndex === 0;
   if (nextBtn) {
     if (activeQuizCurrentIndex === total - 1) {
-      nextBtn.innerHTML = `Submit Answers ✓`;
+      nextBtn.innerHTML = `Submit Answers ${getAppSvgIcon('check', 14)}`;
       nextBtn.style.background = 'var(--accent-gradient, var(--accent-color))';
     } else {
       nextBtn.innerHTML = `Next Question →`;
@@ -2259,7 +2258,7 @@ function renderCurrentQuizQuestion() {
       btn.innerHTML = `
         <span class="quiz-option-letter">${letters[idx]}</span>
         <span style="flex:1;">${escapeHtml(opt)}</span>
-        ${currentSelected === idx ? '<span style="color:var(--accent-color); font-weight:bold; font-size:1.1rem;">✓</span>' : ''}
+        ${currentSelected === idx ? '<span style="color:var(--accent-color); display:inline-flex; align-items:center;">' + getAppSvgIcon("check", 18) + '</span>' : ''}
       `;
       optionsContainer.appendChild(btn);
     });
@@ -2327,7 +2326,7 @@ async function submitActiveQuiz(fromVoice = false, forceSubmit = false) {
       quizVoiceState.pendingUnansweredConfirm = true;
       updateQuizVoiceUI(
         'error',
-        `⚠️ ${unanswered} Unanswered Question${unanswered === 1 ? '' : 's'}`,
+        `${unanswered} Unanswered Question${unanswered === 1 ? '' : 's'}`,
         `Say <strong>"Confirm"</strong> or <strong>"Submit"</strong> again to submit anyway, or say <strong>"Previous"</strong> to go back.`
       );
       announceTTS(`You still have ${unanswered} unanswered question${unanswered === 1 ? '' : 's'}. Say Confirm or Submit again to submit anyway, or say Previous to go back.`);
@@ -2339,7 +2338,7 @@ async function submitActiveQuiz(fromVoice = false, forceSubmit = false) {
   }
 
   quizVoiceState.pendingUnansweredConfirm = false;
-  showToast("Grading your quiz...", "⌛");
+  showToast("Grading your quiz...", "loading");
   try {
     const payload = {
       quiz_id: activeQuizData.id || null,
@@ -2397,7 +2396,7 @@ function displayQuizResults(result) {
   }
 
   if (heading) {
-    heading.textContent = passed ? 'Assessment Passed! 🎉' : 'Assessment Completed';
+    heading.textContent = passed ? 'Assessment Passed!' : 'Assessment Completed';
   }
   if (subtext) {
     subtext.textContent = `You scored ${result.score} out of ${result.total} questions correctly (${result.percentage}%). ${passed ? 'Great mastery of this curriculum!' : 'Review the explanations below to strengthen your understanding.'}`;
@@ -2442,7 +2441,7 @@ function displayQuizResults(result) {
         <div class="d-flex justify-content-between align-items-center">
           <strong style="color:var(--text-primary); font-size:1rem;">Q${idx + 1}: ${escapeHtml(item.question)}</strong>
           <span class="badge" style="background:${item.isCorrect ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}; color:${item.isCorrect ? '#10b981' : '#ef4444'}; border-radius:10px; font-size:0.75rem; padding:0.25rem 0.6rem;">
-            ${item.isCorrect ? '✓ Correct' : '✕ Incorrect'}
+            ${item.isCorrect ? `${getAppSvgIcon('check', 14)} Correct` : `${getAppSvgIcon('close', 14)} Incorrect`}
           </span>
         </div>
         <div style="font-size:0.9rem; margin-top:0.35rem;">
@@ -2620,7 +2619,7 @@ function addAdminQuizQuestionField(qData = {}) {
     <div class="d-flex justify-content-between align-items-center">
       <span class="admin-quiz-q-header-label" style="font-size:0.9rem; font-weight:700; color:var(--accent-color);">Question</span>
       <button type="button" class="btn-icon theme-btn" onclick="removeAdminQuizQuestionField(this)" title="Delete Question" style="padding:0.25rem 0.5rem; font-size:0.75rem; border-radius:6px; color:var(--warning-color); border-color:var(--warning-color);">
-        ✕ Remove
+        ${getAppSvgIcon('close', 13)} Remove
       </button>
     </div>
 
@@ -2768,7 +2767,7 @@ async function handleCreateAdminQuiz() {
   };
 
   try {
-    showToast("Publishing custom quiz...", "⌛");
+    showToast("Publishing custom quiz...", "loading");
     const res = await fetch('/api/admin/quizzes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2778,7 +2777,7 @@ async function handleCreateAdminQuiz() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    showToast(`Quiz "${title}" published and assigned!`, "✓");
+    showToast(`Quiz "${title}" published and assigned!`, "check");
     playEarcon('success');
 
     initAdminQuizForm();
@@ -2884,7 +2883,7 @@ function openAdminQuizSubmissions(quizId) {
         <td style="padding:0.6rem 0.5rem; font-weight:700;">${sub.score} / ${sub.total} (${sub.percentage}%)</td>
         <td style="padding:0.6rem 0.5rem;">
           <span class="badge" style="background:${passed ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color:${passed ? '#10b981' : '#ef4444'}; border-radius:8px; font-size:0.75rem; padding:0.25rem 0.6rem;">
-            ${passed ? '✓ Passed' : '✕ Needs Review'}
+            ${passed ? `${getAppSvgIcon('check', 13)} Passed` : `${getAppSvgIcon('close', 13)} Needs Review`}
           </span>
         </td>
         <td style="padding:0.6rem 0.5rem; color:var(--text-secondary); font-size:0.8rem;">${sub.submitted_at ? sub.submitted_at.replace('T', ' ').slice(0, 16) : 'Just now'}</td>
@@ -2907,10 +2906,10 @@ async function handleDeleteAdminQuiz(quizId) {
   if (!confirm("Are you sure you want to delete this custom quiz and all associated student submissions?")) return;
 
   try {
-    showToast("Deleting quiz...", "⌛");
+    showToast("Deleting quiz...", "loading");
     const res = await fetch(`/api/admin/quizzes/${quizId}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    showToast("Quiz deleted.", "✓");
+    showToast("Quiz deleted.", "check");
     playEarcon('click');
     await loadAdminQuizzes();
   } catch (err) {
@@ -2935,7 +2934,7 @@ async function handleBroadcastAnnouncement() {
       body: JSON.stringify({ message: msg })
     });
     if (res.ok) {
-      showToast("Global announcement broadcasted to all students!", "✓");
+      showToast("Global announcement broadcasted to all students!", "check");
       playEarcon('success');
       announceTTS(`Broadcast announcement dispatched: ${msg}`);
       if (input) input.value = '';
@@ -3003,7 +3002,7 @@ async function loadAdminDatabase() {
     await loadCurrentTableData(0);
   } catch (err) {
     console.error("loadAdminDatabase error:", err);
-    showToast("Failed to connect to database API", "⚠️");
+    showToast("Failed to connect to database API", "warning");
   }
 }
 window.loadAdminDatabase = loadAdminDatabase;
@@ -3373,7 +3372,7 @@ async function executeCustomSqlQuery() {
 
     if (statusBadge) {
       statusBadge.innerHTML = `
-        <span style="color:#10b981; font-weight:600;">✓ ${data.rowCount} rows</span>
+        <span style="color:#10b981; font-weight:600; display:inline-flex; align-items:center; gap:0.25rem;">${getAppSvgIcon('check', 14)} ${data.rowCount} rows</span>
         <span style="color:var(--text-secondary); margin-left:6px;">(${data.durationMs} ms)</span>
       `;
     }
@@ -3440,7 +3439,7 @@ function exportCurrentTable(format = 'csv') {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  showToast(`Exporting '${table}' as ${format.toUpperCase()}...`, "✓");
+  showToast(`Exporting '${table}' as ${format.toUpperCase()}...`, "check");
   playEarcon('success');
 }
 window.exportCurrentTable = exportCurrentTable;
@@ -3467,10 +3466,10 @@ function copyDbDetailContent() {
   const contentEl = document.getElementById('db-detail-content');
   if (!contentEl) return;
   navigator.clipboard.writeText(contentEl.textContent).then(() => {
-    showToast("Copied to clipboard!", "✓");
+    showToast("Copied to clipboard!", "check");
     playEarcon('click');
   }).catch(() => {
-    showToast("Failed to copy", "⚠️");
+    showToast("Failed to copy", "warning");
   });
 }
 window.copyDbDetailContent = copyDbDetailContent;
@@ -3507,10 +3506,10 @@ async function loadLibraryFiles() {
     li.onclick = () => window.open(`/uploads/${f.filepath}`, '_blank');
     
     const ext = f.filename.split('.').pop().toLowerCase();
-    let icon = '📄';
-    if (['jpg', 'png', 'gif', 'jpeg'].includes(ext)) icon = '🖼️';
-    if (['mp3', 'wav', 'ogg'].includes(ext)) icon = '🎵';
-    if (ext === 'pdf') icon = '📕';
+    let icon = getAppSvgIcon('file', 22);
+    if (['jpg', 'png', 'gif', 'jpeg'].includes(ext)) icon = getAppSvgIcon('image', 22);
+    if (['mp3', 'wav', 'ogg'].includes(ext)) icon = getAppSvgIcon('music', 22);
+    if (ext === 'pdf') icon = getAppSvgIcon('book', 22);
 
     li.innerHTML = `
       <div style="font-size: 2rem; background: var(--bg-primary); padding: 0.5rem; border-radius: 8px;">${icon}</div>
@@ -3542,7 +3541,7 @@ function populateBrowserVoices() {
   list.forEach(voice => {
     const opt = document.createElement('option');
     opt.value = `browser:${voice.name}`;
-    opt.textContent = `🔊 ${voice.name} (${voice.lang})`;
+    opt.textContent = `${voice.name} (${voice.lang})`;
     if (savedBrowserVoice === voice.name || (!savedBrowserVoice && voice.default)) {
       opt.selected = true;
       appState.selectedVoice = voice;
@@ -3612,7 +3611,7 @@ async function setupVoices() {
         data.voices.forEach(voice => {
           const option = document.createElement('option');
           option.value = voice.voice_id;
-          option.textContent = `🎙️ ${voice.name} (ElevenLabs AI)`;
+          option.textContent = `${voice.name} (ElevenLabs AI)`;
           if (voice.voice_id === savedVoice) option.selected = true;
           elGroup.appendChild(option);
         });
@@ -3625,7 +3624,7 @@ async function setupVoices() {
           sysVoices.forEach(v => {
             const opt = document.createElement('option');
             opt.value = `browser:${v.name}`;
-            opt.textContent = `🔊 ${v.name} (${v.lang})`;
+            opt.textContent = `${v.name} (${v.lang})`;
             sysGroup.appendChild(opt);
           });
           if (sysVoices.length > 0) elements.voiceSelect.appendChild(sysGroup);
@@ -3728,7 +3727,7 @@ function notifyTTSEnded(onEndCallback = null) {
         voiceNavState.recognition.start();
       } catch (_) {}
       if (typeof updateVoiceHudState === 'function') {
-        updateVoiceHudState('listening', '🎙️ Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
+        updateVoiceHudState('listening', 'Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
       }
     } else if (typeof quizVoiceState !== 'undefined' && quizVoiceState.enabled && quizVoiceState.recognition && isQuizModalOpen()) {
       try {
@@ -4322,7 +4321,7 @@ function createNewChatSession() {
   renderChatTabs();
   renderActiveChatSession();
   saveChatSessions();
-  showToast(`Started new conversation (Chat ${count})`, '✓');
+  showToast(`Started new conversation (Chat ${count})`, 'check');
 
   const input = document.getElementById('chat-user-input') || elements.chatInput;
   if (input) input.focus();
@@ -4363,7 +4362,7 @@ async function deleteChatSession(sessionId) {
   renderChatTabs();
   renderActiveChatSession();
   saveChatSessions();
-  showToast(`Deleted ${targetTitle}`, '✓');
+  showToast(`Deleted ${targetTitle}`, "check");
 }
 window.deleteChatSession = deleteChatSession;
 
@@ -4428,7 +4427,7 @@ async function respondAsTutor(question) {
           .replace(/\s+/g, ' ')
           .trim();
         const hudSnippet = cleanSnippet.length > 70 ? cleanSnippet.substring(0, 70) + '...' : cleanSnippet;
-        updateVoiceHudState('matched', '💡 Gismo AI Answered', hudSnippet);
+        updateVoiceHudState('matched', 'Gismo AI Answered', hudSnippet);
       }
 
       announceTTS(reply);
@@ -4457,7 +4456,7 @@ async function respondAsTutor(question) {
       }
 
       if (typeof updateVoiceHudState === 'function') {
-        updateVoiceHudState('matched', '💡 Gismo AI Answered', 'Offline study response ready');
+        updateVoiceHudState('matched', 'Gismo AI Answered', 'Offline study response ready');
       }
 
       announceTTS(fallbackReply);
@@ -4565,10 +4564,10 @@ function toggleTutorMute() {
   if (appState.tutorMuted) {
     stopAllTTS();
     setCaption("Tutor audio muted.");
-    showToast("AI Tutor voice muted", "🔇");
+    showToast("AI Tutor voice muted", "muted");
   } else {
     setCaption("Ready.");
-    showToast("AI Tutor voice unmuted", "🔊");
+    showToast("AI Tutor voice unmuted", "speaker");
   }
   updateMuteButtonUI();
 }
@@ -4866,7 +4865,7 @@ function verifyStudentVoiceInput(rawTranscript) {
   if (observedLevel < threshold) {
     console.log(`[Voice Isolation] Far-field speech/noise ignored. Peak: ${observedLevel.toFixed(1)}dB < Threshold: ${threshold}dB`);
     if (typeof updateVoiceHudState === 'function') {
-      updateVoiceHudState('error', '🔇 Background Sound Filtered', 'Distant noise filtered out. Please speak closer to microphone.');
+      updateVoiceHudState('error', 'Background Sound Filtered', 'Distant noise filtered out. Please speak closer to microphone.');
     }
     return false;
   }
@@ -4881,7 +4880,7 @@ function verifyStudentVoiceInput(rawTranscript) {
     if (pitch < lowerBound || pitch > upperBound) {
       console.log(`[Voice Isolation] Speaker pitch ${pitch.toFixed(1)}Hz out of profile bounds (${lowerBound.toFixed(1)}Hz - ${upperBound.toFixed(1)}Hz)`);
       if (typeof updateVoiceHudState === 'function') {
-        updateVoiceHudState('error', '🛡️ Other Speaker Filtered', 'Voiceprint does not match the calibrated student profile.');
+        updateVoiceHudState('error', 'Other Speaker Filtered', 'Voiceprint does not match the calibrated student profile.');
       }
       return false;
     }
@@ -4898,7 +4897,7 @@ function toggleVoiceIsolation(enabled) {
     setupVoiceIsolationAudioStream();
   }
   refreshVoiceIsolationUI();
-  showToast(voiceIsolationState.enabled ? "Student Voice Isolation enabled" : "Voice Isolation disabled", "🎙️");
+  showToast(voiceIsolationState.enabled ? "Student Voice Isolation enabled" : "Voice Isolation disabled", "mic");
 }
 window.toggleVoiceIsolation = toggleVoiceIsolation;
 
@@ -4947,7 +4946,7 @@ function refreshVoiceIsolationUI() {
 
   if (statusPill && resetBtn && calibBtnText) {
     if (voiceIsolationState.enrolledProfile) {
-      statusPill.innerHTML = '<span style="color:var(--success-color); font-weight:600;">✓ Calibrated (' + Math.round(voiceIsolationState.enrolledProfile.meanPitch) + ' Hz)</span>';
+      statusPill.innerHTML = '<span style="color:var(--success-color); font-weight:600; display:inline-flex; align-items:center; gap:0.25rem;">' + getAppSvgIcon('check', 14) + ' Calibrated (' + Math.round(voiceIsolationState.enrolledProfile.meanPitch) + ' Hz)</span>';
       resetBtn.style.display = 'inline-block';
       calibBtnText.textContent = 'Recalibrate Voice';
     } else {
@@ -4967,7 +4966,7 @@ async function startVoiceCalibration() {
   const calibBtn = document.getElementById('btn-calibrate-voice');
 
   if (!ready && !navigator.mediaDevices) {
-    showToast("Microphone not available for calibration.", "⚠️");
+    showToast("Microphone not available for calibration.", "warning");
     return;
   }
 
@@ -5030,7 +5029,7 @@ function finishVoiceCalibration() {
   if (progressBox) progressBox.style.display = 'none';
   refreshVoiceIsolationUI();
   playEarcon('success');
-  showToast("Student Voice Profile Calibrated!", "✓");
+  showToast("Student Voice Profile Calibrated!", "check");
   announceTTS("Voice calibration complete. Your unique vocal profile is now active.");
 }
 window.finishVoiceCalibration = finishVoiceCalibration;
@@ -5040,7 +5039,7 @@ function resetVoiceProfile() {
   localStorage.removeItem('gismo_student_voiceprint');
   refreshVoiceIsolationUI();
   playEarcon('click');
-  showToast("Student Voice Profile Reset", "ℹ️");
+  showToast("Student Voice Profile Reset", "info");
   announceTTS("Student voice profile has been reset.");
 }
 window.resetVoiceProfile = resetVoiceProfile;
@@ -5073,7 +5072,7 @@ function initVoiceNavigator() {
   
   rec.onstart = () => {
     voiceNavState.isListening = true;
-    updateVoiceHudState('listening', '🎙️ Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
+    updateVoiceHudState('listening', 'Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
     const btn = document.getElementById('btn-voice-nav');
     if (btn) btn.classList.add('listening');
     playEarcon('click');
@@ -5112,7 +5111,7 @@ function initVoiceNavigator() {
     
     updateVoiceHudTranscript(displayPhrase);
     if (typeof isQuizModalOpen === 'function' && isQuizModalOpen() && interimTranscript && !finalTranscript) {
-      updateQuizVoiceUI('listening', '🎙️ Hearing your voice...', `Heard: <em>"${escapeHtml(displayPhrase)}"</em>`);
+      updateQuizVoiceUI('listening', 'Hearing your voice...', `Heard: <em>"${escapeHtml(displayPhrase)}"</em>`);
     }
     
     if (finalTranscript.trim()) {
@@ -5159,7 +5158,7 @@ window.toggleVoiceNavigator = toggleVoiceNavigator;
 
 function startVoiceNavigator() {
   if (!voiceNavState.speechSupported) {
-    showToast("Speech Recognition not supported in this browser.", "⚠️");
+    showToast("Speech Recognition not supported in this browser.", "warning");
     return;
   }
   
@@ -5231,7 +5230,13 @@ function updateVoiceHudState(mode, title, message) {
       setTimeout(() => hud.classList.remove('action-matched'), 1600);
     }
   }
-  if (titleEl && title) titleEl.textContent = title;
+  if (titleEl && title) {
+    const iconName = mode === 'matched' ? 'zap' : (mode === 'error' ? 'shield' : 'mic');
+    titleEl.style.display = 'flex';
+    titleEl.style.alignItems = 'center';
+    titleEl.style.gap = '0.35rem';
+    titleEl.innerHTML = `${getAppSvgIcon(iconName, 15)}<span>${escapeHtml(title)}</span>`;
+  }
   if (transcriptEl && message) transcriptEl.textContent = message;
 }
 
@@ -5257,7 +5262,7 @@ function executeVoiceCommand(rawTranscript) {
   // 1. Navigation Commands
   if (t === 'home' || t === 'dashboard' || t.includes('go home') || t.includes('open dashboard') || t.includes('open home')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Navigating to Home Dashboard');
+    updateVoiceHudState('matched', 'Executing Command', 'Navigating to Home Dashboard');
     switchView('dashboard');
     announceTTS("Navigated to Home Dashboard.");
     return;
@@ -5265,7 +5270,7 @@ function executeVoiceCommand(rawTranscript) {
   
   if (t.includes('profile') || t.includes('my account') || t.includes('student profile')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Opening Student Profile');
+    updateVoiceHudState('matched', 'Executing Command', 'Opening Student Profile');
     switchView('profile');
     announceTTS("Opened Student Profile.");
     return;
@@ -5273,7 +5278,7 @@ function executeVoiceCommand(rawTranscript) {
   
   if (t.includes('library') || t.includes('books') || t.includes('textbook') || t.includes('read book')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Opening Course Library');
+    updateVoiceHudState('matched', 'Executing Command', 'Opening Course Library');
     switchView('library');
     announceTTS("Opened Course Library.");
     return;
@@ -5281,7 +5286,7 @@ function executeVoiceCommand(rawTranscript) {
   
   if (t.includes('quizzes') || t.includes('quiz') || t.includes('open quiz') || t.includes('take quiz')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Opening Quizzes');
+    updateVoiceHudState('matched', 'Executing Command', 'Opening Quizzes');
     switchView('quizzes');
     announceTTS("Opened Quizzes.");
     return;
@@ -5289,7 +5294,7 @@ function executeVoiceCommand(rawTranscript) {
   
   if (t.includes('database') || t.includes('db') || t.includes('view database') || t.includes('database explorer')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Opening Database Explorer');
+    updateVoiceHudState('matched', 'Executing Command', 'Opening Database Explorer');
     switchView('admin-db');
     announceTTS("Opened Database Explorer.");
     return;
@@ -5297,7 +5302,7 @@ function executeVoiceCommand(rawTranscript) {
   
   if (t.includes('admin') || t.includes('teacher') || t.includes('instructor') || t.includes('educator')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Opening Educator Workspace');
+    updateVoiceHudState('matched', 'Executing Command', 'Opening Educator Workspace');
     switchView('admin');
     announceTTS("Opened Educator Workspace.");
     return;
@@ -5305,7 +5310,7 @@ function executeVoiceCommand(rawTranscript) {
   
   if (t.includes('open setting') || t === 'settings' || t.includes('preferences')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Opening Settings Modal');
+    updateVoiceHudState('matched', 'Executing Command', 'Opening Settings Modal');
     openSettingsModal();
     announceTTS("Opened Settings Modal.");
     return;
@@ -5313,14 +5318,14 @@ function executeVoiceCommand(rawTranscript) {
   
   if (t.includes('close setting') || t.includes('dismiss setting')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Closed Settings');
+    updateVoiceHudState('matched', 'Executing Command', 'Closed Settings');
     closeSettingsModal();
     return;
   }
   
   if (t.includes('log out') || t.includes('logout') || t.includes('sign out')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Logging out of session');
+    updateVoiceHudState('matched', 'Executing Command', 'Logging out of session');
     handleLogout();
     return;
   }
@@ -5328,7 +5333,7 @@ function executeVoiceCommand(rawTranscript) {
   // 2. Themes & Accessibility
   if (t.includes('dark mode') || t.includes('theme dark')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Switched to Dark Theme');
+    updateVoiceHudState('matched', 'Executing Command', 'Switched to Dark Theme');
     setTheme('dark');
     const chk = document.getElementById('theme-checkbox');
     if (chk) chk.checked = false;
@@ -5338,7 +5343,7 @@ function executeVoiceCommand(rawTranscript) {
   
   if (t.includes('light mode') || t.includes('theme light')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Switched to Light Theme');
+    updateVoiceHudState('matched', 'Executing Command', 'Switched to Light Theme');
     setTheme('light');
     const chk = document.getElementById('theme-checkbox');
     if (chk) chk.checked = true;
@@ -5348,7 +5353,7 @@ function executeVoiceCommand(rawTranscript) {
   
   if (t.includes('high contrast') || t.includes('contrast mode')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Switched to High Contrast Theme');
+    updateVoiceHudState('matched', 'Executing Command', 'Switched to High Contrast Theme');
     setTheme('hc');
     announceTTS("High contrast theme enabled.");
     return;
@@ -5360,7 +5365,7 @@ function executeVoiceCommand(rawTranscript) {
     document.documentElement.style.setProperty('--font-scale', appState.fontScale);
     localStorage.setItem('fontScale', appState.fontScale);
     if (elements.slider) elements.slider.value = appState.fontScale;
-    updateVoiceHudState('matched', '⚡ Executing Command', `Text Scale: ${(appState.fontScale * 100).toFixed(0)}%`);
+    updateVoiceHudState('matched', 'Executing Command', `Text Scale: ${(appState.fontScale * 100).toFixed(0)}%`);
     announceTTS(`Text size increased to ${(appState.fontScale * 100).toFixed(0)} percent.`);
     return;
   }
@@ -5371,7 +5376,7 @@ function executeVoiceCommand(rawTranscript) {
     document.documentElement.style.setProperty('--font-scale', appState.fontScale);
     localStorage.setItem('fontScale', appState.fontScale);
     if (elements.slider) elements.slider.value = appState.fontScale;
-    updateVoiceHudState('matched', '⚡ Executing Command', `Text Scale: ${(appState.fontScale * 100).toFixed(0)}%`);
+    updateVoiceHudState('matched', 'Executing Command', `Text Scale: ${(appState.fontScale * 100).toFixed(0)}%`);
     announceTTS(`Text size decreased to ${(appState.fontScale * 100).toFixed(0)} percent.`);
     return;
   }
@@ -5382,7 +5387,7 @@ function executeVoiceCommand(rawTranscript) {
     document.documentElement.style.setProperty('--font-scale', 1.0);
     localStorage.setItem('fontScale', 1.0);
     if (elements.slider) elements.slider.value = 1.0;
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Text scale reset to 100%');
+    updateVoiceHudState('matched', 'Executing Command', 'Text scale reset to 100%');
     announceTTS("Text size reset to default.");
     return;
   }
@@ -5390,7 +5395,7 @@ function executeVoiceCommand(rawTranscript) {
   // 3. Audio & Reading
   if (t === 'read page' || t === 'read lesson' || t === 'read text' || t === 'narrate' || t === 'listen') {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Reading active lesson aloud');
+    updateVoiceHudState('matched', 'Executing Command', 'Reading active lesson aloud');
     if (elements.btnReadLesson && !elements.btnReadLesson.disabled) {
       elements.btnReadLesson.click();
     } else {
@@ -5402,7 +5407,7 @@ function executeVoiceCommand(rawTranscript) {
   if (t === 'stop' || t === 'stop reading' || t === 'stop speaking' || t === 'silence' || t === 'quiet' || t === 'pause') {
     playEarcon('click');
     if (window.speechSynthesis) window.speechSynthesis.cancel();
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Speech narration paused');
+    updateVoiceHudState('matched', 'Executing Command', 'Speech narration paused');
     return;
   }
   
@@ -5427,7 +5432,7 @@ function executeVoiceCommand(rawTranscript) {
     
     if (question.length > 0) {
       playEarcon('success');
-      updateVoiceHudState('matched', '⚡ Asking Gismo AI...', `"${question}"`);
+      updateVoiceHudState('matched', 'Asking Gismo AI...', `"${question}"`);
       openTutorPanel();
       const input = document.getElementById('chat-user-input') || document.getElementById('chat-input');
       if (input) {
@@ -5437,7 +5442,7 @@ function executeVoiceCommand(rawTranscript) {
       return;
     } else {
       playEarcon('click');
-      updateVoiceHudState('matched', '⚡ AI Tutor Opened', 'What would you like to ask?');
+      updateVoiceHudState('matched', 'AI Tutor Opened', 'What would you like to ask?');
       announceTTS("AI Tutor is ready. What would you like to ask?");
       return;
     }
@@ -5445,14 +5450,14 @@ function executeVoiceCommand(rawTranscript) {
   
   if (t.includes('open tutor') || t.includes('show tutor') || t.includes('expand tutor')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Opened AI Tutor Workspace');
+    updateVoiceHudState('matched', 'Executing Command', 'Opened AI Tutor Workspace');
     openTutorPanel();
     return;
   }
   
   if (t.includes('close tutor') || t.includes('hide tutor') || t.includes('minimize tutor')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Executing Command', 'Minimized AI Tutor');
+    updateVoiceHudState('matched', 'Executing Command', 'Minimized AI Tutor');
     closeTutorPanel();
     return;
   }
@@ -5460,7 +5465,7 @@ function executeVoiceCommand(rawTranscript) {
   // 5. Help Guide
   if (t === 'help' || t.includes('voice command') || t.includes('what can i say') || t.includes('show help')) {
     playEarcon('success');
-    updateVoiceHudState('matched', '⚡ Voice Commands Guide', 'Showing available voice commands');
+    updateVoiceHudState('matched', 'Voice Commands Guide', 'Showing available voice commands');
     openVoiceHelpModal();
     return;
   }
@@ -5565,7 +5570,7 @@ async function handleWebSearch(loadFeatured = false) {
             <p class="text-secondary small mb-2" style="font-weight:600;">${escapeHtml(book.author || 'Unknown Author')}</p>
             ${descHtml}
             <button class="theme-btn w-100 mt-auto" onclick="importWebBook('${book.id}', this)">
-              📥 Import to Library
+              ${getAppSvgIcon('download', 15)} Import to Library
             </button>
           </div>
         `;
@@ -5589,8 +5594,8 @@ async function importWebBook(bookId, btnElement) {
     const res = await fetch(`/api/web/import/${bookId}`, { method: 'POST' });
     const data = await res.json();
     if (res.ok) {
-      if (btnElement) btnElement.textContent = '✓ Imported to Library!';
-      showToast(`Imported "${(data.book && data.book.title) || 'Book'}"!`, '📚');
+      if (btnElement) btnElement.textContent = 'Imported to Library!';
+      showToast(`Imported "${(data.book && data.book.title) || 'Book'}"!`, 'book');
       announceTTS("Book successfully imported to the library.");
       // Reload lessons to show the new book in dashboard and library
       await fetchTextbooks();
@@ -5817,7 +5822,7 @@ async function handleHomeworkFileUpload(hwId, inputEl) {
   if (!inputEl || !inputEl.files || !inputEl.files[0]) return;
   const file = inputEl.files[0];
 
-  showToast(`Uploading ${file.name}...`, "⏳");
+  showToast(`Uploading ${file.name}...`, "loading");
   playEarcon('click');
 
   const formData = new FormData();
@@ -5839,7 +5844,7 @@ async function handleHomeworkFileUpload(hwId, inputEl) {
       }
       renderHomework();
       playEarcon('success');
-      showToast(`Submitted "${file.name}" successfully!`, "✓");
+      showToast(`Submitted "${file.name}" successfully!`, "check");
       announceTTS(`Assignment submitted successfully. File ${file.name} uploaded.`);
       // Refresh profile stats if available
       if (typeof fetchAnalytics === 'function' && appState.user) {
@@ -5847,12 +5852,12 @@ async function handleHomeworkFileUpload(hwId, inputEl) {
       }
     } else {
       const errData = await res.json().catch(() => ({}));
-      showToast(errData.error || "Failed to upload assignment file.", "⚠️");
+      showToast(errData.error || "Failed to upload assignment file.", "warning");
       playEarcon('error');
     }
   } catch (err) {
     console.error("handleHomeworkFileUpload error:", err);
-    showToast("Network error uploading assignment.", "⚠️");
+    showToast("Network error uploading assignment.", "warning");
     playEarcon('error');
   } finally {
     inputEl.value = '';
@@ -5871,7 +5876,7 @@ async function toggleHomeworkStatus(hwId) {
       }
       renderHomework();
       playEarcon(updated.status === 'completed' ? 'success' : 'click');
-      showToast(updated.status === 'completed' ? 'Assignment completed!' : 'Assignment reopened as pending.', "✓");
+      showToast(updated.status === 'completed' ? 'Assignment completed!' : 'Assignment reopened as pending.', "check");
       if (updated.status === 'completed') {
         announceTTS("Great job! Assignment marked as completed.");
       }
@@ -5890,7 +5895,7 @@ function askTutorAboutHomework(hwId) {
     input.value = `I am working on the assignment "${title}". Can you give me an overview and guide me on how to approach it?`;
     input.focus();
   }
-  showToast("AI Tutor opened for assignment help", "✓");
+  showToast("AI Tutor opened for assignment help", "check");
   announceTTS(`Opening AI Tutor to guide you on ${title}.`);
 }
 
@@ -6055,12 +6060,44 @@ async function saveSettings() {
   announceTTS("Preferences saved.");
 }
 
-function showToast(message, icon = '✓') {
+function getAppSvgIcon(name = 'check', size = 16) {
+  const s = Number(size) || 16;
+  const attrs = `width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0; vertical-align:middle;"`;
+  const icons = {
+    check: `<svg ${attrs} stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+    close: `<svg ${attrs} stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
+    warning: `<svg ${attrs}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`,
+    info: `<svg ${attrs}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`,
+    mic: `<svg ${attrs}><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>`,
+    speaker: `<svg ${attrs}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`,
+    muted: `<svg ${attrs}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>`,
+    loading: `<svg ${attrs}><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`,
+    book: `<svg ${attrs}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`,
+    bot: `<svg ${attrs}><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg>`,
+    zap: `<svg ${attrs}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`,
+    bulb: `<svg ${attrs}><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path></svg>`,
+    shield: `<svg ${attrs}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`,
+    next: `<svg ${attrs}><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>`,
+    prev: `<svg ${attrs}><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>`,
+    file: `<svg ${attrs}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`,
+    image: `<svg ${attrs}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`,
+    music: `<svg ${attrs}><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`,
+    download: `<svg ${attrs}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`,
+    award: `<svg ${attrs}><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>`
+  };
+  return icons[name] || icons.check;
+}
+
+function showToast(message, icon = 'check') {
   const toast = document.getElementById('toast-feedback');
   if (!toast) return;
   const iconEl = document.getElementById('toast-icon');
   const msgEl = document.getElementById('toast-msg');
-  if (iconEl) iconEl.textContent = icon;
+  if (iconEl) {
+    iconEl.style.display = 'inline-flex';
+    iconEl.style.alignItems = 'center';
+    iconEl.innerHTML = getAppSvgIcon(icon, 16);
+  }
   if (msgEl) msgEl.textContent = message;
   toast.classList.add('show');
   setTimeout(() => {
