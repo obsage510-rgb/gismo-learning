@@ -251,7 +251,8 @@ function setupInteractiveHighlighting() {
 // --- API Calls ---
 async function fetchTextbooks() {
   try {
-    const uid = appState.currentUser && appState.currentUser.id ? `?user_id=${encodeURIComponent(appState.currentUser.id)}` : '';
+    const activeUserId = (appState.user && appState.user.id) || sessionStorage.getItem('gismoUserId') || '';
+    const uid = activeUserId ? `?user_id=${encodeURIComponent(activeUserId)}` : '';
     const res = await fetch(`/api/textbooks${uid}`);
     const data = await res.json();
     lessonsDb = {};
@@ -5583,7 +5584,7 @@ async function handleWebSearch(loadFeatured = false) {
 }
 
 async function importWebBook(bookId, btnElement) {
-  const userId = appState.currentUser && appState.currentUser.id ? appState.currentUser.id : null;
+  const userId = (appState.user && appState.user.id) || sessionStorage.getItem('gismoUserId') || null;
   if (!userId) {
     showToast('Please sign in to import books into your library.', 'warning');
     return;
