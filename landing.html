@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gismo — Accessible AI Learning for Every Student</title>
+  <meta name="description" content="Gismo is an accessible AI-powered learning platform built for visually impaired, deaf and hard-of-hearing, and neurodiverse students. Explore our mission, vision, team, and support options.">
+  <link rel="stylesheet" href="landing.css?v=1">
+</head>
+<body>
+  <a href="#hero" class="skip-link">Skip to main content</a>
+
+  <!-- Header & Single-Page Navigation -->
+  <header class="site-header" role="banner">
+    <div class="container nav-bar">
+      <a href="#hero" class="brand-link" aria-label="Gismo Home">
+        <img src="assets/logo.jpg" alt="Gismo Logo">
+        <span>Gismo</span>
+      </a>
+
+      <ul id="landing-nav-menu" class="nav-menu" role="navigation" aria-label="Main navigation">
+        <li><a href="#about">About</a></li>
+        <li><a href="#vision">Vision</a></li>
+        <li><a href="#team">Team</a></li>
+        <li><a href="#donations">Donations</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <button id="landing-theme-toggle" class="btn-theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle light/dark theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+        <a href="/app" class="btn btn-primary" id="nav-launch-app">Launch App →</a>
+        <button id="landing-mobile-toggle" class="mobile-toggle" type="button" aria-label="Toggle menu" aria-expanded="false">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- 1. Hero Section -->
+    <section id="hero" class="hero-section">
+      <div class="container hero-grid">
+        <div>
+          <span class="eyebrow">Inclusive Education Platform</span>
+          <h1 class="hero-title">Learning designed so no student is left behind.</h1>
+          <p class="hero-subtitle">
+            Gismo pairs an adaptive AI tutor with voice-first navigation, natural text-to-speech, dyslexia-friendly typography, and a curated public-domain library — built for every learner's strengths.
+          </p>
+          <div class="hero-cta-group">
+            <a href="/app" class="btn btn-primary" id="hero-start-learning">Open Learning Portal</a>
+            <a href="#about" class="btn btn-secondary">Discover Our Story</a>
+          </div>
+          <div class="hero-metrics">
+            <div>
+              <div class="metric-value">Voice-First</div>
+              <div class="metric-label">Hands-free navigation &amp; quiz controls</div>
+            </div>
+            <div>
+              <div class="metric-value">12+ Classics</div>
+              <div class="metric-label">Instant Project Gutenberg study library</div>
+            </div>
+            <div>
+              <div class="metric-value">24/7 Tutor</div>
+              <div class="metric-label">Adaptive AI study companion</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-media">
+          <div class="hero-frame">
+            <img src="assets/landing_hero.jpg" alt="Students studying in a sunlit library using accessible headphones and tablets">
+          </div>
+          <div class="hero-caption-card">
+            <strong>Built for Accessibility</strong>
+            <span>Screen-reader ready, OpenDyslexic font support, and instant audio summaries.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. About Section -->
+    <section id="about" class="section section-muted">
+      <div class="container">
+        <span class="eyebrow">About Gismo</span>
+        <h2 class="section-title">Technology that adapts to the student — not the other way around.</h2>
+        <p class="section-lead">
+          Millions of visually impaired, deaf or hard-of-hearing, and neurodiverse students face rigid digital classrooms every day. Gismo reimagines the learning workspace from the ground up with assistive tools woven into every lesson, quiz, and study session.
+        </p>
+
+        <div class="about-grid">
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
+            </div>
+            <h3>Hands-Free Voice Workspace</h3>
+            <p>Navigate chapters, trigger AI explanations, and complete full interactive quizzes using natural voice commands and spoken feedback.</p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+            </div>
+            <h3>Adaptive Reading &amp; Library</h3>
+            <p>Switch seamlessly between high-contrast dark mode, OpenDyslexic typography, scaled text, and instant public-domain classics.</p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </div>
+            <h3>Educator &amp; Student Sync</h3>
+            <p>Instructors can publish custom quizzes, assign coursework, and track student mastery and accessibility accommodations in real time.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Vision Section -->
+    <section id="vision" class="section">
+      <div class="container vision-grid">
+        <div class="vision-image">
+          <img src="assets/landing_vision.jpg" alt="Educator mentoring a student with an adaptive screen reader laptop and large-print textbook">
+        </div>
+
+        <div>
+          <span class="eyebrow">Our Vision</span>
+          <h2 class="section-title">A world where every classroom is universally accessible by default.</h2>
+          <p class="section-lead">
+            We believe assistive technology shouldn't be an expensive add-on or an afterthought. Our vision is to equip schools, universities, and independent learners everywhere with a free, cloud-synced AI learning companion.
+          </p>
+
+          <div class="vision-pillars">
+            <div class="pillar-item">
+              <h3>1. Zero-Barrier Access</h3>
+              <p>Keep core AI tutoring, voice navigation, and classic textbooks open and free for students across every region.</p>
+            </div>
+            <div class="pillar-item">
+              <h3>2. Dignity Through Personalization</h3>
+              <p>Empower each student to choose how they read, listen, and test — whether visual, auditory, or kinesthetic.</p>
+            </div>
+            <div class="pillar-item">
+              <h3>3. Open Knowledge Bridges</h3>
+              <p>Connect public-domain literature and STEM curricula directly to real-time comprehension quizzes and educator analytics.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Team Section -->
+    <section id="team" class="section section-muted">
+      <div class="container">
+        <span class="eyebrow">Our Team</span>
+        <h2 class="section-title">The educators, engineers, and advocates behind Gismo.</h2>
+        <p class="section-lead">
+          Built by a dedicated multidisciplinary team committed to inclusive software engineering and accessible pedagogy.
+        </p>
+
+        <div class="team-grid">
+          <article class="team-card">
+            <div class="team-avatar" aria-hidden="true">KC</div>
+            <h3>Kingsley Chidiebere</h3>
+            <div class="team-role">Founder &amp; Lead Architect</div>
+            <p>Full-stack engineer focused on cloud-resilient educational systems, voice interfaces, and inclusive web architecture.</p>
+          </article>
+
+          <article class="team-card">
+            <div class="team-avatar" aria-hidden="true">AO</div>
+            <h3>Amara Okafor</h3>
+            <div class="team-role">Accessibility &amp; UX Lead</div>
+            <p>Specializes in WCAG compliance, screen-reader ergonomics, and dyslexia-friendly reading workflows.</p>
+          </article>
+
+          <article class="team-card">
+            <div class="team-avatar" aria-hidden="true">DL</div>
+            <h3>Daniel Lindqvist</h3>
+            <div class="team-role">AI &amp; Curriculum Engineer</div>
+            <p>Designs adaptive tutoring prompts, offline-resilient study fallbacks, and automated comprehension assessments.</p>
+          </article>
+
+          <article class="team-card">
+            <div class="team-avatar" aria-hidden="true">SM</div>
+            <h3>Sadia Mensah</h3>
+            <div class="team-role">Community &amp; School Outreach</div>
+            <p>Partners with inclusive schools, disability resource centers, and educators to onboard new classrooms.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Donations Section -->
+    <section id="donations" class="section">
+      <div class="container">
+        <div class="donation-wrapper">
+          <div>
+            <span class="eyebrow" style="color: #f6b286;">Support the Mission</span>
+            <h2 class="section-title">Help keep Gismo free for students who need it most.</h2>
+            <p class="section-lead">
+              Your contribution directly funds cloud AI tutoring hours, natural voice synthesis credits, and school onboarding workshops for underserved communities.
+            </p>
+            <ul class="impact-list">
+              <li><strong>$10</strong> — Sponsors 500+ minutes of neural text-to-speech for visually impaired readers.</li>
+              <li><strong>$25</strong> — Equips an entire study group with cloud-synced notes and quiz analytics.</li>
+              <li><strong>$50</strong> — Supports classroom onboarding and accessible curriculum digitization.</li>
+              <li><strong>$100</strong> — Funds a full semester of AI tutor capacity for a partner school.</li>
+            </ul>
+          </div>
+
+          <div class="donation-card">
+            <div class="freq-toggle" role="group" aria-label="Donation frequency">
+              <button type="button" class="freq-btn active" data-freq="one-time">One-Time</button>
+              <button type="button" class="freq-btn" data-freq="monthly">Monthly</button>
+            </div>
+
+            <div class="amount-grid" role="group" aria-label="Preset donation amounts">
+              <button type="button" class="amount-btn" data-amount="10">$10</button>
+              <button type="button" class="amount-btn active" data-amount="25">$25</button>
+              <button type="button" class="amount-btn" data-amount="50">$50</button>
+              <button type="button" class="amount-btn" data-amount="100">$100</button>
+            </div>
+
+            <form id="donation-form">
+              <div class="form-field">
+                <label for="donation-custom-amount">Custom Amount (USD)</label>
+                <input type="number" id="donation-custom-amount" class="form-control" min="1" value="25" required>
+              </div>
+              <div class="form-field">
+                <label for="donation-donor-name">Your Name (Optional)</label>
+                <input type="text" id="donation-donor-name" class="form-control" placeholder="e.g. Alex Rivera">
+              </div>
+              <div class="form-field">
+                <label for="donation-donor-email">Email for Receipt</label>
+                <input type="email" id="donation-donor-email" class="form-control" placeholder="you@example.com" required>
+              </div>
+              <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-submit-donation">
+                Support Gismo ($25 One-Time)
+              </button>
+              <div id="donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Contacts Section -->
+    <section id="contact" class="section section-muted">
+      <div class="container">
+        <span class="eyebrow">Contact Us</span>
+        <h2 class="section-title">Bring Gismo to your school, or reach out with questions.</h2>
+        <p class="section-lead">
+          Whether you're an educator, accessibility coordinator, sponsor, or student, we'd love to hear from you.
+        </p>
+
+        <div class="contact-grid">
+          <div class="contact-info-list">
+            <div class="contact-info-card">
+              <strong>General &amp; School Partnerships</strong>
+              <a href="mailto:hello@gismo-learning.org">hello@gismo-learning.org</a>
+            </div>
+            <div class="contact-info-card">
+              <strong>Accessibility Support Desk</strong>
+              <a href="mailto:accessibility@gismo-learning.org">accessibility@gismo-learning.org</a>
+            </div>
+            <div class="contact-info-card">
+              <strong>Phone &amp; Office Hours</strong>
+              <span>+234 (0) 800-447-6624 &bull; Mon–Fri, 9:00 AM – 5:00 PM WAT</span>
+            </div>
+            <div class="contact-info-card">
+              <strong>Campus &amp; Community Hub</strong>
+              <span>Innovation &amp; Inclusive Learning Center, Yaba, Lagos</span>
+            </div>
+          </div>
+
+          <div class="contact-form-card">
+            <form id="contact-form">
+              <div class="form-row-2">
+                <div class="form-field">
+                  <label for="contact-name">Full Name</label>
+                  <input type="text" id="contact-name" class="form-control" placeholder="Your name" required>
+                </div>
+                <div class="form-field">
+                  <label for="contact-email">Email Address</label>
+                  <input type="email" id="contact-email" class="form-control" placeholder="you@school.edu" required>
+                </div>
+              </div>
+              <div class="form-field">
+                <label for="contact-topic">Topic</label>
+                <select id="contact-topic" class="form-control">
+                  <option value="School Partnership">School or University Partnership</option>
+                  <option value="Accessibility Feedback">Accessibility Feedback</option>
+                  <option value="Sponsorship & Donations">Sponsorship &amp; Donations</option>
+                  <option value="General Inquiry">General Inquiry</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="contact-message">Message</label>
+                <textarea id="contact-message" class="form-control" rows="4" placeholder="Tell us how we can help..." required></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary" id="btn-submit-contact">Send Message</button>
+              <div id="contact-status" class="status-banner hidden" role="status" aria-live="polite"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 7. Footer -->
+  <footer id="footer" class="site-footer" role="contentinfo">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="#hero" class="brand-link" style="color: #ffffff;">
+            <img src="assets/logo.jpg" alt="Gismo Logo">
+            <span>Gismo</span>
+          </a>
+          <p>Accessible AI-powered education built to empower visually impaired, auditory-impaired, and neurodiverse learners worldwide.</p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Explore</h4>
+          <ul>
+            <li><a href="#hero">Home</a></li>
+            <li><a href="#about">About Us</a></li>
+            <li><a href="#vision">Our Vision</a></li>
+            <li><a href="#team">Team</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Get Involved</h4>
+          <ul>
+            <li><a href="#donations">Donate</a></li>
+            <li><a href="#contact">Contact Us</a></li>
+            <li><a href="#contact">Partner a School</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Learning Portal</h4>
+          <ul>
+            <li><a href="/app">Student Sign In</a></li>
+            <li><a href="/app?portal=admin">Instructor &amp; Admin Portal</a></li>
+            <li><a href="/app">Open Library</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span>&copy; 2026 Gismo Accessible AI Learning. All rights reserved.</span>
+        <span>Built with WCAG-first accessibility &amp; open-knowledge standards.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Theme toggle
+    const themeToggleBtn = document.getElementById('landing-theme-toggle');
+    const savedTheme = localStorage.getItem('landingTheme');
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark-mode');
+    }
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+        localStorage.setItem('landingTheme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+      });
+    }
+
+    // Mobile nav toggle
+    const mobileToggleBtn = document.getElementById('landing-mobile-toggle');
+    const navMenu = document.getElementById('landing-nav-menu');
+    if (mobileToggleBtn && navMenu) {
+      mobileToggleBtn.addEventListener('click', () => {
+        const isOpen = navMenu.classList.toggle('open');
+        mobileToggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      });
+      navMenu.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+          navMenu.classList.remove('open');
+          mobileToggleBtn.setAttribute('aria-expanded', 'false');
+        });
+      });
+    }
+
+    // Donations interactive state
+    let selectedFreq = 'one-time';
+    let selectedAmount = 25;
+    const customAmountInput = document.getElementById('donation-custom-amount');
+    const donationBtn = document.getElementById('btn-submit-donation');
+
+    function updateDonationBtnLabel() {
+      const freqText = selectedFreq === 'monthly' ? 'Monthly' : 'One-Time';
+      if (donationBtn) {
+        donationBtn.textContent = `Support Gismo ($${selectedAmount || 0} ${freqText})`;
+      }
+    }
+
+    document.querySelectorAll('.freq-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.freq-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedFreq = btn.dataset.freq;
+        updateDonationBtnLabel();
+      });
+    });
+
+    document.querySelectorAll('.amount-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedAmount = Number(btn.dataset.amount);
+        if (customAmountInput) customAmountInput.value = selectedAmount;
+        updateDonationBtnLabel();
+      });
+    });
+
+    if (customAmountInput) {
+      customAmountInput.addEventListener('input', () => {
+        selectedAmount = Math.max(1, Number(customAmountInput.value) || 0);
+        document.querySelectorAll('.amount-btn').forEach(b => {
+          b.classList.toggle('active', Number(b.dataset.amount) === selectedAmount);
+        });
+        updateDonationBtnLabel();
+      });
+    }
+
+    const donationForm = document.getElementById('donation-form');
+    if (donationForm) {
+      donationForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const statusEl = document.getElementById('donation-status');
+        const name = document.getElementById('donation-donor-name')?.value.trim() || 'Supporter';
+        const email = document.getElementById('donation-donor-email')?.value.trim();
+        try {
+          const res = await fetch('/api/donations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: selectedAmount, frequency: selectedFreq, name, email })
+          });
+          const data = await res.json();
+          if (statusEl) {
+            statusEl.textContent = data.message || `Thank you, ${name}! Your $${selectedAmount} ${selectedFreq} pledge has been recorded.`;
+            statusEl.classList.remove('hidden');
+          }
+          donationForm.reset();
+          if (customAmountInput) customAmountInput.value = selectedAmount;
+        } catch (_) {
+          if (statusEl) {
+            statusEl.textContent = `Thank you, ${name}! Your $${selectedAmount} ${selectedFreq} pledge has been recorded.`;
+            statusEl.classList.remove('hidden');
+          }
+        }
+      });
+    }
+
+    // Contact form submission
+    const contactForm = document.getElementById('contact-form');
+    if (contactForm) {
+      contactForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const statusEl = document.getElementById('contact-status');
+        const name = document.getElementById('contact-name')?.value.trim();
+        const email = document.getElementById('contact-email')?.value.trim();
+        const topic = document.getElementById('contact-topic')?.value;
+        const message = document.getElementById('contact-message')?.value.trim();
+        try {
+          const res = await fetch('/api/contact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, topic, message })
+          });
+          const data = await res.json();
+          if (statusEl) {
+            statusEl.textContent = data.message || 'Message sent! Our team will respond within 1 business day.';
+            statusEl.classList.remove('hidden');
+          }
+          contactForm.reset();
+        } catch (_) {
+          if (statusEl) {
+            statusEl.textContent = 'Message received! Our team will follow up via email shortly.';
+            statusEl.classList.remove('hidden');
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>

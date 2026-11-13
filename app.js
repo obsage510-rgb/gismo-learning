@@ -204,8 +204,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
   initChatSessions();
   switchView('login');
+  const requestedPortal = new URLSearchParams(window.location.search).get('portal');
   if (typeof selectLoginPortal === 'function') {
-    selectLoginPortal('student');
+    selectLoginPortal(requestedPortal === 'admin' ? 'admin' : 'student');
   }
   const fab = document.getElementById('fab-tutor');
   if (fab) fab.style.display = 'none';

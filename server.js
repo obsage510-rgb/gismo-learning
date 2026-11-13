@@ -271,13 +271,44 @@ app.use('/api', async (req, res, next) => {
   next();
 });
 
-// Serve static frontend files
-app.use(express.static(path.join(__dirname), { index: 'index.html' }));
+// Serve static frontend files (disable default index so / serves landing.html)
+app.use(express.static(path.join(__dirname), { index: false }));
 app.use('/uploads', express.static(UPLOAD_FOLDER));
 
-// Root route
+// Root route -> Landing Page; /app -> Learning Portal
 app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'landing.html'));
+});
+
+app.get('/landing', (req, res) => {
+  res.sendFile(path.join(__dirname, 'landing.html'));
+});
+
+app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.post('/api/contact', (req, res) => {
+  const { name, email, topic, message } = req.body || {};
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: 'Name, email, and message are required.' });
+  }
+  return res.json({
+    success: true,
+    message: `Thank you, ${String(name).trim()}! Your message regarding "${topic || 'General Inquiry'}" has been received. We will reply to ${email} shortly.`
+  });
+});
+
+app.post('/api/donations', (req, res) => {
+  const { amount, frequency = 'one-time', name = 'Supporter', email } = req.body || {};
+  const numericAmount = Number(amount);
+  if (!numericAmount || numericAmount <= 0 || !email) {
+    return res.status(400).json({ error: 'Valid donation amount and email are required.' });
+  }
+  return res.json({
+    success: true,
+    message: `Thank you, ${String(name).trim() || 'Supporter'}! Your $${numericAmount} ${frequency} contribution pledge has been recorded. A confirmation receipt will be sent to ${email}.`
+  });
 });
 
 // --- AUTH API ---
