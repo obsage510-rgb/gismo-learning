@@ -5148,3 +5148,39 @@ html, body {
 #tutor-panel .chat-input-pill #btn-chat-send:hover {
   background: #0a4237 !important;
 }
+
+#tutor-panel .tutor-feedback-module {
+  background: var(--bg-secondary) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-top: 1px solid var(--border-color) !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  padding: 0.28rem 1rem !important;
+  gap: 0.55rem !important;
+  min-height: 28px !important;
+}
+
+#tutor-panel .tutor-feedback-module .audio-visualizer-container {
+  height: 14px !important;
+  gap: 2px !important;
+  flex-shrink: 0 !important;
+  align-items: center !important;
+}
+
+#tutor-panel .tutor-feedback-module .visualizer-bar {
+  width: 2.5px !important;
+  max-height: 14px !important;
+}
+
+#tutor-panel .tutor-feedback-module .live-caption-display {
+  font-size: 0.74rem !important;
+  font-weight: 500 !important;
+  color: var(--text-secondary) !important;
+  text-shadow: none !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  line-height: 1.2 !important;
+}
