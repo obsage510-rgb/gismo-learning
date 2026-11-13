@@ -680,6 +680,10 @@ function loginSuccess(options = {}) {
     if (elements.btnLibraryToggle) elements.btnLibraryToggle.classList.remove('hidden');
     if (quizzesNav) quizzesNav.classList.remove('hidden');
     if (elements.btnProfileToggle) elements.btnProfileToggle.classList.add('hidden');
+    const streakCard = document.getElementById('analytics-streak');
+    if (streakCard && streakCard.parentNode && streakCard.parentNode.parentNode) {
+      streakCard.parentNode.parentNode.style.display = '';
+    }
     
     loadStudentProfile();
     fetchNotes();
@@ -944,22 +948,52 @@ function toggleMobileNav() {
 }
 window.toggleMobileNav = toggleMobileNav;
 
+function renderAnalyticsUI(quizzesPassed, streak, notesSaved) {
+  const quizzes = Math.max(0, Number(quizzesPassed) || 0);
+  const activeStreak = Math.max(1, Number(streak) || 1);
+  let rank = 'Novice';
+  if (quizzes >= 5) rank = 'Scholar';
+  if (quizzes >= 15) rank = 'Master';
+  const nextGoal = quizzes < 5 ? 5 : (quizzes < 15 ? 15 : 'Max');
+
+  const streakEl = elements.analyticsStreak || document.getElementById('analytics-streak');
+  const quizzesEl = elements.analyticsQuizzes || document.getElementById('analytics-quizzes');
+  const notesEl = elements.analyticsNotes || document.getElementById('analytics-notes');
+  const rankEl = elements.analyticsRank || document.getElementById('analytics-rank');
+  const progTextEl = elements.analyticsProgressText || document.getElementById('analytics-progress-text');
+  const progBarEl = elements.analyticsProgressBar || document.getElementById('analytics-progress-bar');
+
+  if (streakEl) streakEl.textContent = activeStreak;
+  if (quizzesEl) quizzesEl.textContent = quizzes;
+  if (notesEl && notesSaved !== undefined) notesEl.textContent = notesSaved;
+  if (rankEl) rankEl.textContent = rank;
+  if (progTextEl) {
+    progTextEl.textContent = `${quizzes} / ${nextGoal === 'Max' ? quizzes : nextGoal} Quizzes`;
+  }
+  if (progBarEl) {
+    const pct = nextGoal === 'Max' ? 100 : Math.min(100, Math.round((quizzes / (nextGoal || 5)) * 100));
+    progBarEl.style.width = `${pct}%`;
+  }
+}
+
 async function loadAnalytics() {
   if (!appState.user || !appState.user.id) return;
+  const localQuizzes = Number(appState.user.quizzes_passed) || 0;
+  const localStreak = Number(appState.user.current_streak) || 1;
+  renderAnalyticsUI(localQuizzes, localStreak);
+
   try {
-    const res = await fetch(`/api/analytics/${appState.user.id}`);
+    const res = await fetch(`/api/analytics/${appState.user.id}?username=${encodeURIComponent(appState.user.username || '')}`);
     if (res.ok) {
       const data = await res.json();
-      if (elements.analyticsQuizzes) elements.analyticsQuizzes.textContent = data.quizzes_passed ?? 0;
-      if (elements.analyticsNotes) elements.analyticsNotes.textContent = data.notes_saved ?? 0;
-      if (elements.analyticsRank) elements.analyticsRank.textContent = data.rank ?? 'Novice';
-      if (elements.analyticsProgressText) {
-        elements.analyticsProgressText.textContent = `${data.quizzes_passed || 0} / ${data.next_rank_goal === 'Max' ? data.quizzes_passed : data.next_rank_goal} Quizzes`;
+      const mergedQuizzes = Math.max(Number(data.quizzes_passed) || 0, Number(appState.user.quizzes_passed) || 0);
+      const mergedStreak = Math.max(Number(data.current_streak) || 1, Number(appState.user.current_streak) || 1);
+      appState.user.quizzes_passed = mergedQuizzes;
+      appState.user.current_streak = mergedStreak;
+      if (typeof persistUserSession === 'function') {
+        persistUserSession(appState.user);
       }
-      if (elements.analyticsProgressBar) {
-        const pct = data.next_rank_goal === 'Max' ? 100 : Math.min(100, Math.round(((data.quizzes_passed || 0) / (data.next_rank_goal || 5)) * 100));
-        elements.analyticsProgressBar.style.width = `${pct}%`;
-      }
+      renderAnalyticsUI(mergedQuizzes, mergedStreak, data.notes_saved ?? 0);
     }
   } catch (err) {
     console.warn("loadAnalytics error:", err);
@@ -2373,16 +2407,16 @@ function displayQuizResults(result) {
     triggerConfetti();
     if (appState.user) {
       const prevPassed = Number(appState.user.quizzes_passed) || 0;
+      const prevStreak = Number(appState.user.current_streak) || 0;
       const serverPassed = Number(result.quizzes_passed_total) || 0;
+      const serverStreak = Number(result.current_streak) || 0;
       appState.user.quizzes_passed = Math.max(serverPassed, prevPassed + 1);
-      if (result.current_streak) {
-        appState.user.current_streak = Math.max(Number(result.current_streak) || 1, Number(appState.user.current_streak) || 1);
-      }
+      appState.user.current_streak = Math.max(serverStreak, prevStreak + 1);
       if (typeof persistUserSession === 'function') {
         persistUserSession(appState.user);
       }
       if (typeof renderAnalyticsUI === 'function') {
-        renderAnalyticsUI(appState.user.quizzes_passed, appState.user.current_streak || 1);
+        renderAnalyticsUI(appState.user.quizzes_passed, appState.user.current_streak);
       }
       loadAnalytics();
     }

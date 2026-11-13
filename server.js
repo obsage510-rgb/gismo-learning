@@ -876,17 +876,25 @@ app.post('/api/notes', (req, res) => {
 
 app.get('/api/analytics/:user_id', (req, res) => {
   const userId = req.params.user_id;
-  const user = db.prepare('SELECT quizzes_passed FROM users WHERE id = ?').get(userId) || { quizzes_passed: 0 };
-  const notesCount = db.prepare('SELECT COUNT(*) as count FROM notes WHERE user_id = ?').get(userId).count;
-  const filesCount = db.prepare('SELECT COUNT(*) as count FROM files WHERE user_id = ?').get(userId).count;
+  const expectedUsername = (req.query.username || '').trim();
+  let user = db.prepare('SELECT id, username, quizzes_passed, current_streak FROM users WHERE id = ?').get(userId);
+  if (expectedUsername && (!user || (user.username || '').toLowerCase() !== expectedUsername.toLowerCase())) {
+    const byName = db.prepare('SELECT id, username, quizzes_passed, current_streak FROM users WHERE LOWER(username) = LOWER(?)').get(expectedUsername);
+    if (byName) user = byName;
+  }
+  const effectiveId = user ? user.id : userId;
+  const notesCount = db.prepare('SELECT COUNT(*) as count FROM notes WHERE user_id = ?').get(effectiveId).count;
+  const filesCount = db.prepare('SELECT COUNT(*) as count FROM files WHERE user_id = ?').get(effectiveId).count;
 
-  const quizzes = user.quizzes_passed || 0;
+  const quizzes = (user && Number(user.quizzes_passed)) || 0;
+  const streak = (user && Number(user.current_streak)) || 1;
   let rank = 'Novice';
   if (quizzes >= 5) rank = 'Scholar';
   if (quizzes >= 15) rank = 'Master';
 
   res.json({
     quizzes_passed: quizzes,
+    current_streak: streak,
     notes_saved: notesCount,
     files_uploaded: filesCount,
     rank,
@@ -972,7 +980,7 @@ app.post('/api/ai/generate-quiz', async (req, res) => {
 
 // 4. Submit student quiz answers & compute grading
 app.post('/api/quizzes/submit', (req, res) => {
-  const { quiz_id, student_id, student_username, current_quizzes_passed = 0, answers, raw_quiz } = req.body;
+  const { quiz_id, student_id, student_username, current_quizzes_passed = 0, current_streak = 0, answers, raw_quiz } = req.body;
   if (!answers || typeof answers !== 'object') {
     return res.status(400).json({ error: 'answers array or object is required' });
   }
@@ -1077,14 +1085,17 @@ app.post('/api/quizzes/submit', (req, res) => {
     }
 
     const clientBaseline = Math.max(0, Number(current_quizzes_passed) || 0);
+    const clientStreakBaseline = Math.max(0, Number(current_streak) || 0);
     let totalPassed = student ? Math.max(Number(student.quizzes_passed) || 0, clientBaseline) : clientBaseline;
+    let totalStreak = student ? Math.max(Number(student.current_streak) || 0, clientStreakBaseline) : clientStreakBaseline;
 
     if (passed) {
       totalPassed += 1;
+      totalStreak += 1;
       if (student) {
         try {
-          db.prepare('UPDATE users SET quizzes_passed = ?, current_streak = MAX(COALESCE(current_streak, 1), 1) WHERE id = ?')
-            .run(totalPassed, student.id);
+          db.prepare('UPDATE users SET quizzes_passed = ?, current_streak = ? WHERE id = ?')
+            .run(totalPassed, totalStreak, student.id);
         } catch (_) {}
       }
     }
@@ -1101,7 +1112,7 @@ app.post('/api/quizzes/submit', (req, res) => {
       percentage,
       passed,
       quizzes_passed_total: updatedUser ? Math.max(Number(updatedUser.quizzes_passed) || 0, totalPassed) : totalPassed,
-      current_streak: updatedUser ? Math.max(Number(updatedUser.current_streak) || 1, 1) : 1,
+      current_streak: updatedUser ? Math.max(Number(updatedUser.current_streak) || 0, totalStreak) : totalStreak,
       breakdown: answerBreakdown
     });
   } catch (err) {
