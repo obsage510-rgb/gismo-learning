@@ -972,7 +972,7 @@ app.post('/api/ai/generate-quiz', async (req, res) => {
 
 // 4. Submit student quiz answers & compute grading
 app.post('/api/quizzes/submit', (req, res) => {
-  const { quiz_id, student_id, student_username, answers, raw_quiz } = req.body;
+  const { quiz_id, student_id, student_username, current_quizzes_passed = 0, answers, raw_quiz } = req.body;
   if (!answers || typeof answers !== 'object') {
     return res.status(400).json({ error: 'answers array or object is required' });
   }
@@ -981,11 +981,24 @@ app.post('/api/quizzes/submit', (req, res) => {
     // Resolve student accurately by ID and/or username
     let student = null;
     if (student_id) {
-      student = db.prepare('SELECT id, username, quizzes_passed FROM users WHERE id = ?').get(student_id);
+      student = db.prepare('SELECT id, username, quizzes_passed, current_streak FROM users WHERE id = ?').get(student_id);
     }
     if (student_username && (!student || student.username.toLowerCase() !== String(student_username).toLowerCase())) {
-      const byName = db.prepare('SELECT id, username, quizzes_passed FROM users WHERE LOWER(username) = LOWER(?)').get(String(student_username).trim());
+      const byName = db.prepare('SELECT id, username, quizzes_passed, current_streak FROM users WHERE LOWER(username) = LOWER(?)').get(String(student_username).trim());
       if (byName) student = byName;
+    }
+
+    // If student doesn't exist yet in this serverless instance, provision them so progress is never lost or capped at 1
+    if (!student && student_username && String(student_username).trim()) {
+      try {
+        const cleanName = String(student_username).trim();
+        const baselinePassed = Math.max(0, Number(current_quizzes_passed) || 0);
+        const info = db.prepare(`
+          INSERT INTO users (username, password, school, reg_no, disability, role, quizzes_passed, current_streak)
+          VALUES (?, '', 'Gismo Academy', '', 'None', 'student', ?, 1)
+        `).run(cleanName, baselinePassed);
+        student = db.prepare('SELECT id, username, quizzes_passed, current_streak FROM users WHERE id = ?').get(Number(info.lastInsertRowid));
+      } catch (_) {}
     }
 
     const effectiveStudentId = student ? Number(student.id) : (Number(student_id) || 1);
@@ -1063,14 +1076,21 @@ app.post('/api/quizzes/submit', (req, res) => {
       }
     }
 
-    if (passed && student) {
-      try {
-        db.prepare('UPDATE users SET quizzes_passed = COALESCE(quizzes_passed, 0) + 1 WHERE id = ?').run(student.id);
-      } catch (_) {}
+    const clientBaseline = Math.max(0, Number(current_quizzes_passed) || 0);
+    let totalPassed = student ? Math.max(Number(student.quizzes_passed) || 0, clientBaseline) : clientBaseline;
+
+    if (passed) {
+      totalPassed += 1;
+      if (student) {
+        try {
+          db.prepare('UPDATE users SET quizzes_passed = ?, current_streak = MAX(COALESCE(current_streak, 1), 1) WHERE id = ?')
+            .run(totalPassed, student.id);
+        } catch (_) {}
+      }
     }
 
     const updatedUser = student
-      ? db.prepare('SELECT quizzes_passed FROM users WHERE id = ?').get(student.id)
+      ? db.prepare('SELECT quizzes_passed, current_streak FROM users WHERE id = ?').get(student.id)
       : null;
 
     res.json({
@@ -1080,7 +1100,8 @@ app.post('/api/quizzes/submit', (req, res) => {
       total,
       percentage,
       passed,
-      quizzes_passed_total: updatedUser ? updatedUser.quizzes_passed : (passed ? 1 : 0),
+      quizzes_passed_total: updatedUser ? Math.max(Number(updatedUser.quizzes_passed) || 0, totalPassed) : totalPassed,
+      current_streak: updatedUser ? Math.max(Number(updatedUser.current_streak) || 1, 1) : 1,
       breakdown: answerBreakdown
     });
   } catch (err) {

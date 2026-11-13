@@ -2310,6 +2310,7 @@ async function submitActiveQuiz(fromVoice = false, forceSubmit = false) {
       quiz_id: activeQuizData.id || null,
       student_id: (appState.user && appState.user.id) || 1,
       student_username: (appState.user && appState.user.username) || '',
+      current_quizzes_passed: (appState.user && Number(appState.user.quizzes_passed)) || 0,
       answers: activeQuizUserAnswers,
       raw_quiz: activeQuizData
     };
@@ -2371,9 +2372,17 @@ function displayQuizResults(result) {
     playEarcon('success');
     triggerConfetti();
     if (appState.user) {
-      appState.user.quizzes_passed = result.quizzes_passed_total;
+      const prevPassed = Number(appState.user.quizzes_passed) || 0;
+      const serverPassed = Number(result.quizzes_passed_total) || 0;
+      appState.user.quizzes_passed = Math.max(serverPassed, prevPassed + 1);
+      if (result.current_streak) {
+        appState.user.current_streak = Math.max(Number(result.current_streak) || 1, Number(appState.user.current_streak) || 1);
+      }
       if (typeof persistUserSession === 'function') {
         persistUserSession(appState.user);
+      }
+      if (typeof renderAnalyticsUI === 'function') {
+        renderAnalyticsUI(appState.user.quizzes_passed, appState.user.current_streak || 1);
       }
       loadAnalytics();
     }
