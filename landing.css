@@ -549,6 +549,60 @@ a {
   padding: 2rem;
 }
 
+.paystack-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.paystack-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--brand-primary);
+  background: rgba(15, 92, 77, 0.1);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+}
+
+.currency-toggle {
+  display: inline-flex;
+  background: var(--bg-muted);
+  padding: 0.25rem;
+  border-radius: 999px;
+  gap: 0.2rem;
+}
+
+.currency-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.currency-btn.active {
+  background: var(--bg-surface);
+  color: var(--text-main);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.paystack-methods-hint {
+  margin-top: 0.75rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
 .freq-toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;

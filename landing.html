@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gismo — Accessible AI Learning for Every Student</title>
   <meta name="description" content="Gismo is an accessible AI-powered learning platform built for visually impaired, deaf and hard-of-hearing, and neurodiverse students. Explore our mission, vision, team, and support options.">
-  <link rel="stylesheet" href="landing.css?v=1">
+  <link rel="stylesheet" href="landing.css?v=2">
+  <script src="https://js.paystack.co/v1/inline.js"></script>
 </head>
 <body>
   <a href="#hero" class="skip-link">Skip to main content</a>
@@ -215,34 +216,49 @@
           </div>
 
           <div class="donation-card">
+            <div class="paystack-header-bar">
+              <span class="paystack-badge">🔒 Paystack Checkout</span>
+              <div class="currency-toggle" role="group" aria-label="Currency selector">
+                <button type="button" class="currency-btn active" data-currency="NGN">NGN ₦</button>
+                <button type="button" class="currency-btn" data-currency="USD">USD $</button>
+              </div>
+            </div>
+
             <div class="freq-toggle" role="group" aria-label="Donation frequency">
               <button type="button" class="freq-btn active" data-freq="one-time">One-Time</button>
               <button type="button" class="freq-btn" data-freq="monthly">Monthly</button>
             </div>
 
-            <div class="amount-grid" role="group" aria-label="Preset donation amounts">
-              <button type="button" class="amount-btn" data-amount="10">$10</button>
-              <button type="button" class="amount-btn active" data-amount="25">$25</button>
-              <button type="button" class="amount-btn" data-amount="50">$50</button>
-              <button type="button" class="amount-btn" data-amount="100">$100</button>
+            <div class="amount-grid" id="donation-amount-grid" role="group" aria-label="Preset donation amounts">
+              <button type="button" class="amount-btn" data-amount="5000">₦5,000</button>
+              <button type="button" class="amount-btn active" data-amount="15000">₦15,000</button>
+              <button type="button" class="amount-btn" data-amount="30000">₦30,000</button>
+              <button type="button" class="amount-btn" data-amount="75000">₦75,000</button>
             </div>
 
             <form id="donation-form">
               <div class="form-field">
-                <label for="donation-custom-amount">Custom Amount (USD)</label>
-                <input type="number" id="donation-custom-amount" class="form-control" min="1" value="25" required>
+                <label for="donation-custom-amount" id="donation-amount-label">Custom Amount (NGN)</label>
+                <input type="number" id="donation-custom-amount" class="form-control" min="1" value="15000" required>
+              </div>
+              <div class="form-row-2">
+                <div class="form-field">
+                  <label for="donation-donor-name">Your Name (Optional)</label>
+                  <input type="text" id="donation-donor-name" class="form-control" placeholder="e.g. Alex Rivera">
+                </div>
+                <div class="form-field">
+                  <label for="donation-donor-email">Email for Receipt</label>
+                  <input type="email" id="donation-donor-email" class="form-control" placeholder="you@example.com" required>
+                </div>
               </div>
               <div class="form-field">
-                <label for="donation-donor-name">Your Name (Optional)</label>
-                <input type="text" id="donation-donor-name" class="form-control" placeholder="e.g. Alex Rivera">
-              </div>
-              <div class="form-field">
-                <label for="donation-donor-email">Email for Receipt</label>
-                <input type="email" id="donation-donor-email" class="form-control" placeholder="you@example.com" required>
+                <label for="donation-quick-note">Quick Note (Optional)</label>
+                <textarea id="donation-quick-note" class="form-control" rows="2" maxlength="500" placeholder="Leave an encouraging note for students or specify a school..."></textarea>
               </div>
               <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-submit-donation">
-                Support Gismo ($25 One-Time)
+                Pay with Paystack (₦15,000 One-Time)
               </button>
+              <div class="paystack-methods-hint">Supports Debit/Credit Cards, Bank Transfer, USSD &amp; Mobile Money</div>
               <div id="donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
             </form>
           </div>
@@ -391,18 +407,70 @@
       });
     }
 
-    // Donations interactive state
+    // Donations & Paystack interactive state
     let selectedFreq = 'one-time';
-    let selectedAmount = 25;
+    let selectedCurrency = 'NGN';
+    let selectedAmount = 15000;
+    let paystackPublicKey = '';
+
+    const currencyPresets = {
+      NGN: [5000, 15000, 30000, 75000],
+      USD: [10, 25, 50, 100]
+    };
+
     const customAmountInput = document.getElementById('donation-custom-amount');
     const donationBtn = document.getElementById('btn-submit-donation');
+    const amountGrid = document.getElementById('donation-amount-grid');
+    const amountLabel = document.getElementById('donation-amount-label');
+
+    function getCurrencySymbol(curr) {
+      return curr === 'NGN' ? '₦' : '$';
+    }
 
     function updateDonationBtnLabel() {
       const freqText = selectedFreq === 'monthly' ? 'Monthly' : 'One-Time';
+      const sym = getCurrencySymbol(selectedCurrency);
+      const formatted = Number(selectedAmount || 0).toLocaleString();
       if (donationBtn) {
-        donationBtn.textContent = `Support Gismo ($${selectedAmount || 0} ${freqText})`;
+        donationBtn.textContent = `Pay with Paystack (${sym}${formatted} ${freqText})`;
       }
     }
+
+    function renderAmountPresets(curr) {
+      const presets = currencyPresets[curr] || currencyPresets.NGN;
+      const sym = getCurrencySymbol(curr);
+      if (amountLabel) amountLabel.textContent = `Custom Amount (${curr})`;
+      if (amountGrid) {
+        amountGrid.innerHTML = '';
+        presets.forEach((amt, idx) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'amount-btn' + (idx === 1 ? ' active' : '');
+          btn.dataset.amount = String(amt);
+          btn.textContent = `${sym}${amt.toLocaleString()}`;
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedAmount = amt;
+            if (customAmountInput) customAmountInput.value = selectedAmount;
+            updateDonationBtnLabel();
+          });
+          amountGrid.appendChild(btn);
+        });
+      }
+      selectedAmount = presets[1];
+      if (customAmountInput) customAmountInput.value = selectedAmount;
+      updateDonationBtnLabel();
+    }
+
+    document.querySelectorAll('.currency-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.currency-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedCurrency = btn.dataset.currency || 'NGN';
+        renderAmountPresets(selectedCurrency);
+      });
+    });
 
     document.querySelectorAll('.freq-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -413,15 +481,8 @@
       });
     });
 
-    document.querySelectorAll('.amount-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        selectedAmount = Number(btn.dataset.amount);
-        if (customAmountInput) customAmountInput.value = selectedAmount;
-        updateDonationBtnLabel();
-      });
-    });
+    // Attach listeners to initial NGN buttons
+    renderAmountPresets('NGN');
 
     if (customAmountInput) {
       customAmountInput.addEventListener('input', () => {
@@ -433,6 +494,32 @@
       });
     }
 
+    // Load Paystack config and check if returning from a Paystack redirect
+    fetch('/api/donations/config')
+      .then(r => r.json())
+      .then(cfg => {
+        if (cfg && cfg.paystackPublicKey) paystackPublicKey = cfg.paystackPublicKey;
+      })
+      .catch(() => {});
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const returnedRef = urlParams.get('reference') || urlParams.get('trxref');
+    if (returnedRef) {
+      fetch(`/api/donations/verify/${encodeURIComponent(returnedRef)}`)
+        .then(r => r.json())
+        .then(v => {
+          const statusEl = document.getElementById('donation-status');
+          if (v && v.verified && statusEl) {
+            const d = v.donation || {};
+            const sym = getCurrencySymbol(d.currency || 'NGN');
+            statusEl.textContent = `Payment verified! Thank you, ${d.donor_name || 'Supporter'}, for your ${sym}${Number(d.amount || 0).toLocaleString()} contribution (Ref: ${returnedRef}).`;
+            statusEl.classList.remove('hidden');
+            document.getElementById('donations')?.scrollIntoView({ behavior: 'smooth' });
+          }
+        })
+        .catch(() => {});
+    }
+
     const donationForm = document.getElementById('donation-form');
     if (donationForm) {
       donationForm.addEventListener('submit', async (e) => {
@@ -440,23 +527,96 @@
         const statusEl = document.getElementById('donation-status');
         const name = document.getElementById('donation-donor-name')?.value.trim() || 'Supporter';
         const email = document.getElementById('donation-donor-email')?.value.trim();
+        const quickNote = document.getElementById('donation-quick-note')?.value.trim() || '';
+
+        if (donationBtn) {
+          donationBtn.disabled = true;
+          donationBtn.textContent = 'Initializing Paystack...';
+        }
+
         try {
-          const res = await fetch('/api/donations', {
+          const res = await fetch('/api/donations/initialize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: selectedAmount, frequency: selectedFreq, name, email })
+            body: JSON.stringify({
+              amount: selectedAmount,
+              currency: selectedCurrency,
+              frequency: selectedFreq,
+              name,
+              email,
+              quick_note: quickNote,
+              callback_url: window.location.origin + '/'
+            })
           });
           const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.error || 'Could not initialize donation.');
+          }
+
+          if (data.mode === 'paystack_live') {
+            const activeKey = data.publicKey || paystackPublicKey;
+            if (activeKey && typeof window.PaystackPop !== 'undefined') {
+              const handler = window.PaystackPop.setup({
+                key: activeKey,
+                email,
+                amount: Math.round(selectedAmount * 100),
+                currency: selectedCurrency,
+                ref: data.reference,
+                metadata: {
+                  custom_fields: [
+                    { display_name: 'Donor Name', variable_name: 'donor_name', value: name },
+                    { display_name: 'Frequency', variable_name: 'frequency', value: selectedFreq },
+                    { display_name: 'Quick Note', variable_name: 'quick_note', value: quickNote || 'None' }
+                  ]
+                },
+                callback: async function(response) {
+                  try {
+                    const verRes = await fetch(`/api/donations/verify/${encodeURIComponent(response.reference)}`);
+                    const verData = await verRes.json();
+                    const sym = getCurrencySymbol(selectedCurrency);
+                    if (statusEl) {
+                      statusEl.textContent = verData.verified
+                        ? `Payment successful! Thank you, ${name}, for your ${sym}${selectedAmount.toLocaleString()} gift${quickNote ? ` ("${quickNote}")` : ''}. Ref: ${response.reference}`
+                        : `Payment received (Ref: ${response.reference}). Verification in progress.`;
+                      statusEl.classList.remove('hidden');
+                    }
+                    donationForm.reset();
+                    if (customAmountInput) customAmountInput.value = selectedAmount;
+                  } catch (_) {}
+                },
+                onClose: function() {
+                  if (statusEl) {
+                    statusEl.textContent = 'Paystack checkout window closed. You can try again anytime.';
+                    statusEl.classList.remove('hidden');
+                  }
+                }
+              });
+              handler.openIframe();
+              return;
+            } else if (data.authorization_url) {
+              window.location.href = data.authorization_url;
+              return;
+            }
+          }
+
+          // Demo / pledge fallback when Paystack keys aren't set yet
           if (statusEl) {
-            statusEl.textContent = data.message || `Thank you, ${name}! Your $${selectedAmount} ${selectedFreq} pledge has been recorded.`;
+            const sym = getCurrencySymbol(selectedCurrency);
+            statusEl.textContent = data.message || `Thank you, ${name}! Your ${sym}${selectedAmount.toLocaleString()} ${selectedFreq} pledge${quickNote ? ` ("${quickNote}")` : ''} has been recorded.`;
             statusEl.classList.remove('hidden');
           }
           donationForm.reset();
           if (customAmountInput) customAmountInput.value = selectedAmount;
-        } catch (_) {
+        } catch (err) {
           if (statusEl) {
-            statusEl.textContent = `Thank you, ${name}! Your $${selectedAmount} ${selectedFreq} pledge has been recorded.`;
+            statusEl.textContent = err.message || 'Could not start Paystack checkout. Please check your details and try again.';
             statusEl.classList.remove('hidden');
+          }
+        } finally {
+          if (donationBtn) {
+            donationBtn.disabled = false;
+            updateDonationBtnLabel();
           }
         }
       });

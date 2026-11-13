@@ -160,6 +160,20 @@ function initDb() {
       FOREIGN KEY(quiz_id) REFERENCES quizzes(id),
       FOREIGN KEY(student_id) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS donations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      donor_name TEXT,
+      donor_email TEXT NOT NULL,
+      amount REAL NOT NULL,
+      currency TEXT DEFAULT 'NGN',
+      frequency TEXT DEFAULT 'one-time',
+      quick_note TEXT DEFAULT '',
+      payment_method TEXT DEFAULT 'paystack',
+      reference TEXT UNIQUE,
+      status TEXT DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   try {
@@ -299,15 +313,168 @@ app.post('/api/contact', (req, res) => {
   });
 });
 
+app.get('/api/donations/config', (req, res) => {
+  const publicKey = (process.env.PAYSTACK_PUBLIC_KEY || '').trim();
+  const secretKey = (process.env.PAYSTACK_SECRET_KEY || '').trim();
+  res.json({
+    paystackConfigured: !!(publicKey && secretKey),
+    paystackPublicKey: publicKey,
+    defaultCurrency: (process.env.PAYSTACK_CURRENCY || 'NGN').toUpperCase()
+  });
+});
+
+app.post('/api/donations/initialize', async (req, res) => {
+  const {
+    amount,
+    currency = 'NGN',
+    frequency = 'one-time',
+    name = 'Supporter',
+    email,
+    quick_note = '',
+    callback_url = ''
+  } = req.body || {};
+
+  const numericAmount = Number(amount);
+  const cleanEmail = (email || '').trim();
+  const cleanName = (name || 'Supporter').trim() || 'Supporter';
+  const cleanNote = String(quick_note || '').trim().slice(0, 500);
+  const cleanCurrency = (currency || 'NGN').toUpperCase();
+
+  if (!numericAmount || numericAmount <= 0 || !cleanEmail) {
+    return res.status(400).json({ error: 'A valid donation amount and email are required.' });
+  }
+
+  const reference = `GISMO-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const secretKey = (process.env.PAYSTACK_SECRET_KEY || '').trim();
+  const publicKey = (process.env.PAYSTACK_PUBLIC_KEY || '').trim();
+
+  if (secretKey) {
+    try {
+      const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${secretKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: cleanEmail,
+          amount: Math.round(numericAmount * 100), // Paystack expects kobo / cents
+          currency: cleanCurrency,
+          reference,
+          callback_url: callback_url || undefined,
+          metadata: {
+            donor_name: cleanName,
+            frequency,
+            quick_note: cleanNote,
+            custom_fields: [
+              { display_name: 'Donor Name', variable_name: 'donor_name', value: cleanName },
+              { display_name: 'Frequency', variable_name: 'frequency', value: frequency },
+              { display_name: 'Quick Note', variable_name: 'quick_note', value: cleanNote || 'None' }
+            ]
+          }
+        }),
+        signal: AbortSignal.timeout(8000)
+      });
+
+      const paystackData = await paystackRes.json();
+      if (paystackRes.ok && paystackData.status && paystackData.data) {
+        try {
+          db.prepare(`
+            INSERT INTO donations (donor_name, donor_email, amount, currency, frequency, quick_note, payment_method, reference, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'paystack', ?, 'pending')
+          `).run(cleanName, cleanEmail, numericAmount, cleanCurrency, frequency, cleanNote, reference);
+        } catch (_) {}
+
+        return res.json({
+          success: true,
+          mode: 'paystack_live',
+          reference,
+          publicKey,
+          access_code: paystackData.data.access_code,
+          authorization_url: paystackData.data.authorization_url
+        });
+      }
+      return res.status(400).json({
+        error: paystackData.message || 'Paystack initialization failed. Please verify your Paystack keys.'
+      });
+    } catch (err) {
+      return res.status(502).json({ error: 'Could not reach Paystack right now: ' + err.message });
+    }
+  }
+
+  // Fallback pledge/demo mode when PAYSTACK_SECRET_KEY is not yet configured in environment
+  try {
+    db.prepare(`
+      INSERT INTO donations (donor_name, donor_email, amount, currency, frequency, quick_note, payment_method, reference, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'paystack_pledge', ?, 'recorded')
+    `).run(cleanName, cleanEmail, numericAmount, cleanCurrency, frequency, cleanNote, reference);
+  } catch (_) {}
+
+  const symbol = cleanCurrency === 'NGN' ? '₦' : '$';
+  return res.json({
+    success: true,
+    mode: 'demo_pledge',
+    reference,
+    message: `Thank you, ${cleanName}! Your ${symbol}${numericAmount.toLocaleString()} ${frequency} contribution${cleanNote ? ` ("${cleanNote}")` : ''} has been recorded (Ref: ${reference}). Add PAYSTACK_PUBLIC_KEY & PAYSTACK_SECRET_KEY in Vercel to enable live card/bank checkout.`
+  });
+});
+
+app.get('/api/donations/verify/:reference', async (req, res) => {
+  const reference = String(req.params.reference || '').trim();
+  if (!reference) return res.status(400).json({ error: 'Reference required' });
+
+  const secretKey = (process.env.PAYSTACK_SECRET_KEY || '').trim();
+  if (secretKey) {
+    try {
+      const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+        headers: { Authorization: `Bearer ${secretKey}` },
+        signal: AbortSignal.timeout(8000)
+      });
+      const verifyData = await verifyRes.json();
+      if (verifyRes.ok && verifyData.status && verifyData.data && verifyData.data.status === 'success') {
+        try {
+          db.prepare("UPDATE donations SET status = 'success' WHERE reference = ?").run(reference);
+        } catch (_) {}
+        const row = db.prepare('SELECT * FROM donations WHERE reference = ?').get(reference);
+        return res.json({
+          verified: true,
+          status: 'success',
+          reference,
+          donation: row || {
+            donor_name: (verifyData.data.metadata && verifyData.data.metadata.donor_name) || 'Supporter',
+            amount: (verifyData.data.amount || 0) / 100,
+            currency: verifyData.data.currency || 'NGN',
+            quick_note: (verifyData.data.metadata && verifyData.data.metadata.quick_note) || ''
+          }
+        });
+      }
+      return res.json({ verified: false, status: (verifyData.data && verifyData.data.status) || 'pending', reference });
+    } catch (err) {
+      return res.status(502).json({ error: 'Could not verify Paystack transaction: ' + err.message });
+    }
+  }
+
+  const row = db.prepare('SELECT * FROM donations WHERE reference = ?').get(reference);
+  return res.json({ verified: !!row, status: row ? row.status : 'not_found', reference, donation: row || null });
+});
+
 app.post('/api/donations', (req, res) => {
-  const { amount, frequency = 'one-time', name = 'Supporter', email } = req.body || {};
+  const { amount, currency = 'NGN', frequency = 'one-time', name = 'Supporter', email, quick_note = '' } = req.body || {};
   const numericAmount = Number(amount);
   if (!numericAmount || numericAmount <= 0 || !email) {
     return res.status(400).json({ error: 'Valid donation amount and email are required.' });
   }
+  const reference = `GISMO-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  try {
+    db.prepare(`
+      INSERT INTO donations (donor_name, donor_email, amount, currency, frequency, quick_note, payment_method, reference, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'paystack_pledge', ?, 'recorded')
+    `).run(String(name).trim() || 'Supporter', String(email).trim(), numericAmount, currency, frequency, String(quick_note || '').trim(), reference);
+  } catch (_) {}
   return res.json({
     success: true,
-    message: `Thank you, ${String(name).trim() || 'Supporter'}! Your $${numericAmount} ${frequency} contribution pledge has been recorded. A confirmation receipt will be sent to ${email}.`
+    reference,
+    message: `Thank you, ${String(name).trim() || 'Supporter'}! Your ${currency === 'NGN' ? '₦' : '$'}${numericAmount} ${frequency} contribution pledge has been recorded (Ref: ${reference}).`
   });
 });
 
