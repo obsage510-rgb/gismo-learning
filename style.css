@@ -801,7 +801,7 @@ kbd,
 .kbd-badge {
   background: var(--bg-card);
   color: var(--text-primary);
-  padding: 0.1rem 0.45rem;
+  padding: 0.1rem 0.4rem;
   border-radius: 4px;
   border: 1px solid var(--border-color);
   font-size: 0.75rem;
