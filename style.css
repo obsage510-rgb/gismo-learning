@@ -16,7 +16,7 @@
   --text-secondary: #a0a0a0;
   --accent-color: #f6d365;
   --accent-secondary: #fda085;
-  --accent-gradient: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+  --accent-gradient: var(--accent-color);
   --success-color: #10b981;
   --warning-color: #f59e0b;
   --border-color: rgba(246, 211, 101, 0.1);
@@ -41,7 +41,7 @@
   --text-secondary: #475569;
   --accent-color: #0f5c4d;
   --accent-secondary: #d46528;
-  --accent-gradient: linear-gradient(135deg, #0f5c4d 0%, #d46528 100%);
+  --accent-gradient: var(--accent-color);
   --border-color: rgba(15, 23, 42, 0.08);
   --border-hover: rgba(15, 92, 77, 0.4);
   --shadow-main: 0 8px 30px rgba(0, 0, 0, 0.06);
@@ -155,8 +155,8 @@ header {
   font-weight: 700;
   letter-spacing: -0.025em;
   background: var(--accent-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text-primary);
+  background: none;
 }
 
 
@@ -284,7 +284,7 @@ main {
 }
 
 .welcome-banner {
-  background: linear-gradient(135deg, rgba(15, 92, 77, 0.1) 0%, rgba(212, 101, 40, 0.1) 100%);
+  background: var(--bg-accent);
   border: 1px solid var(--border-color);
   border-radius: 16px;
   padding: 2rem;
@@ -529,12 +529,12 @@ main {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0f5c4d, #d46528);
+  background: var(--accent-color);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  box-shadow: 0 0 12px rgba(15, 92, 77, 0.4);
+  box-shadow: 0 4px 12px rgba(15, 61, 52, 0.18);
   flex-shrink: 0;
 }
 
@@ -551,7 +551,7 @@ main {
   letter-spacing: 0.6px;
   padding: 2px 7px;
   border-radius: 9999px;
-  background: linear-gradient(135deg, #0f5c4d, #d46528);
+  background: var(--accent-color);
   color: #ffffff;
   box-shadow: 0 0 8px rgba(212, 101, 40, 0.4);
   display: inline-block;
@@ -638,7 +638,7 @@ main {
 }
 
 .message-user {
-  background: linear-gradient(135deg, #0f5c4d, #d46528);
+  background: var(--accent-color);
   color: #ffffff;
   align-self: flex-end;
   border-bottom-right-radius: 2px;
@@ -687,7 +687,7 @@ main {
 .visualizer-bar {
   width: 4px;
   height: 10px;
-  background: linear-gradient(180deg, #d46528, #0f5c4d);
+  background: var(--accent-color);
   border-radius: 2px;
   transition: height 0.05s ease;
 }
@@ -1037,8 +1037,8 @@ footer {
 
 .welcome-title {
   background: var(--accent-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text-primary);
+  background: none;
   display: inline-block;
 }
 
@@ -1359,9 +1359,9 @@ input:checked + .slider:before {
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, var(--accent-color), #ec4899);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  background: var(--accent-color);
+  color: var(--text-primary);
+  background: none;
   display: inline-block;
 }
 
@@ -1438,7 +1438,7 @@ input:checked + .slider:before {
 }
 
 .modern-submit-btn {
-  background: linear-gradient(135deg, var(--accent-color), #4338ca) !important;
+  background: var(--accent-color)!important;
   border: none !important;
   border-radius: 12px !important;
   padding: 1rem !important;
@@ -1598,7 +1598,7 @@ input:checked + .slider:before {
 }
 
 .message-ai {
-  background: linear-gradient(135deg, rgba(15, 92, 77, 0.15), rgba(15, 92, 77, 0.05)) !important;
+  background: var(--bg-accent)!important;
   border: 1px solid rgba(15, 92, 77, 0.2) !important;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
 }
@@ -1822,15 +1822,14 @@ input:checked + .slider:before {
   --border-color: rgba(243, 241, 236, 0.1);
   --accent-color: #2ca389;
   --accent-secondary: #e57c42;
-  --accent-gradient: linear-gradient(135deg, #2ca389 0%, #e57c42 100%);
+  --accent-gradient: var(--accent-color);
   --warning-color: #e57c42;
   --success-color: #10b981;
 }
 
 body {
   font-family: var(--font-main, 'Outfit', 'Inter', sans-serif);
-  background-image: radial-gradient(circle at 50% 0%, rgba(15, 92, 77, 0.08) 0%, transparent 50%),
-                    radial-gradient(circle at 0% 100%, rgba(212, 101, 40, 0.06) 0%, transparent 40%);
+  background-image: none;
   background-attachment: fixed;
 }
 
@@ -1902,7 +1901,7 @@ body {
 }
 .theme-dark #nav-links .theme-btn:hover {
   background: rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 0 15px rgba(212, 101, 40, 0.3);
+  box-shadow: var(--shadow-main);
   color: var(--accent-color);
 }
 
@@ -1920,7 +1919,7 @@ body {
 .theme-dark .learner-card:hover {
   transform: translateY(-8px) scale(1.02) !important;
   border-color: rgba(212, 101, 40, 0.4) !important;
-  box-shadow: 0 20px 40px -10px rgba(212, 101, 40, 0.2), 0 0 20px rgba(15, 92, 77, 0.1) !important;
+  box-shadow: var(--shadow-main);
 }
 
 .theme-dark .learner-body {
@@ -1935,7 +1934,7 @@ body {
   left: 0;
   width: 100%;
   height: 50%;
-  background: linear-gradient(to top, rgba(15, 23, 42, 1), transparent);
+  background: var(--bg-accent);
 }
 
 .learner-card .btn-primary {
@@ -2090,7 +2089,7 @@ main {
   
   border: 1px solid rgba(15, 92, 77, 0.35) !important;
   border-radius: 20px !important;
-  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.7), 0 0 35px rgba(212, 101, 40, 0.25) !important;
+  box-shadow: var(--shadow-main);
   z-index: 100000 !important;
   
   display: flex !important;
@@ -2219,7 +2218,7 @@ main {
 }
 
 .tutor-tab.active {
-  background: linear-gradient(135deg, rgba(15, 92, 77, 0.3), rgba(212, 101, 40, 0.22)) !important;
+  background: var(--bg-accent)!important;
   border-color: rgba(15, 92, 77, 0.65) !important;
   color: #ffffff !important;
   font-weight: 600 !important;
@@ -2301,7 +2300,7 @@ main {
 }
 
 .message-user {
-  background: linear-gradient(135deg, #0f5c4d, #d46528) !important;
+  background: var(--accent-color)!important;
   color: #ffffff !important;
   border-bottom-right-radius: 4px !important;
   border: none !important;
@@ -2355,7 +2354,7 @@ main {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  background: linear-gradient(135deg, #0f5c4d, #d46528) !important;
+  background: var(--accent-color)!important;
   box-shadow: 0 4px 15px rgba(212, 101, 40, 0.35) !important;
   border: none !important;
   cursor: pointer !important;
@@ -2386,7 +2385,7 @@ main {
 .chat-input-bar .btn-voice.listening {
   background: #ef4444 !important;
   border-color: #ef4444 !important;
-  box-shadow: 0 0 15px rgba(239, 68, 68, 0.5) !important;
+  box-shadow: var(--shadow-main);
 }
 
 /* 6. Typing Indicator Animation */
@@ -2422,10 +2421,10 @@ main {
   width: 58px !important;
   height: 58px !important;
   border-radius: 50% !important;
-  background: linear-gradient(135deg, #0f5c4d, #d46528) !important;
+  background: var(--accent-color)!important;
   color: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.25) !important;
-  box-shadow: 0 10px 25px rgba(212, 101, 40, 0.45), 0 0 20px rgba(15, 92, 77, 0.3) !important;
+  box-shadow: 0 8px 20px rgba(15, 61, 52, 0.22);
   z-index: 100001 !important; /* Above panel so it remains accessible */
   display: flex !important;
   align-items: center !important;
@@ -2445,7 +2444,7 @@ main {
 /* Morph launcher into close button when panel is open */
 #fab-tutor.tutor-open {
   transform: rotate(90deg) scale(1) !important;
-  background: linear-gradient(135deg, #ef4444, #f43f5e) !important;
+  background: var(--accent-color)!important;
   box-shadow: 0 10px 25px rgba(239, 68, 68, 0.5) !important;
   opacity: 1 !important;
   visibility: visible !important;
@@ -2490,7 +2489,7 @@ main {
 
 /* --- Student Profile Info & Pending Assignments Styling --- */
 .student-profile-hero {
-  background: linear-gradient(135deg, rgba(15, 92, 77, 0.15), rgba(212, 101, 40, 0.1));
+  background: var(--bg-accent);
   border: 1px solid var(--border-color);
   border-radius: 20px;
   padding: 2rem;
@@ -2794,7 +2793,7 @@ main {
   width: 96px;
   height: 96px;
   border-radius: 24px;
-  background: linear-gradient(135deg, rgba(15, 92, 77, 0.15), rgba(212, 101, 40, 0.15));
+  background: var(--bg-accent);
   border: 1px solid rgba(15, 92, 77, 0.3);
   display: flex;
   align-items: center;
@@ -2870,7 +2869,7 @@ main {
 }
 
 .portal-tab-btn.active {
-  background: linear-gradient(135deg, var(--accent-color), #4338ca);
+  background: var(--accent-color);
   color: #ffffff !important;
   box-shadow: 0 4px 14px rgba(15, 92, 77, 0.4);
 }
@@ -2914,7 +2913,7 @@ main {
    INSTRUCTOR DASHBOARD
    ======================================================= */
 .instructor-hero-banner {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
+  background: var(--bg-accent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(15, 92, 77, 0.35);
@@ -2927,7 +2926,7 @@ main {
 }
 
 .theme-light .instructor-hero-banner {
-  background: linear-gradient(135deg, #ffffff, #faf8f4);
+  background: var(--accent-color);
   border-color: rgba(15, 92, 77, 0.25);
   box-shadow: 0 15px 35px rgba(15, 92, 77, 0.1);
 }
@@ -2959,7 +2958,7 @@ main {
   width: 52px;
   height: 52px;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(15, 92, 77, 0.15), rgba(212, 101, 40, 0.15));
+  background: var(--bg-accent);
   border: 1px solid rgba(15, 92, 77, 0.3);
   display: flex;
   align-items: center;
@@ -3480,7 +3479,7 @@ main {
 }
 
 .db-pill-btn.active {
-  background: linear-gradient(135deg, rgba(15, 92, 77, 0.25), rgba(212, 101, 40, 0.2));
+  background: var(--bg-accent);
   border-color: var(--accent-color);
   color: var(--accent-color);
   box-shadow: 0 4px 12px rgba(15, 92, 77, 0.2);
@@ -4850,3 +4849,6 @@ html, body {
     justify-content: flex-end !important;
   }
 }
+
+/* Clean editorial surface without neon gradient blobs */
+.workspace-bg, .bg-shape { display: none !important; }
