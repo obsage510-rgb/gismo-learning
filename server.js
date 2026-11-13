@@ -317,7 +317,7 @@ app.get('/api/donations/config', (req, res) => {
   const publicKey = (process.env.PAYSTACK_PUBLIC_KEY || '').trim();
   const secretKey = (process.env.PAYSTACK_SECRET_KEY || '').trim();
   const quicknodeUrl = (process.env.QUICKNODE_RPC_URL || '').trim();
-  const cryptoWallet = (process.env.CRYPTO_DONATION_WALLET || '').trim();
+  const cryptoWallet = (process.env.CRYPTO_DONATION_WALLET || '0x8794a89C64f465A4a2E148fC535D8E2643FD1646').trim();
   res.json({
     paystackConfigured: !!(publicKey && secretKey),
     paystackPublicKey: publicKey,
