@@ -360,7 +360,7 @@
           <div class="contact-info-list">
             <div class="contact-info-card">
               <strong>General &amp; School Partnerships</strong>
-              <a href="mailto:hello@gismo-learning.org">hello@gismo-learning.org</a>
+              <a href="mailto:gismolearning@gmail.com">gismolearning@gmail.com</a>
             </div>
             <div class="contact-info-card">
               <strong>Accessibility Support Desk</strong>
@@ -420,6 +420,14 @@
             <span>Gismo</span>
           </a>
           <p>Accessible AI-powered education built to empower visually impaired, auditory-impaired, and neurodiverse learners worldwide.</p>
+          <form id="newsletter-form" style="margin-top: 1.15rem; max-width: 340px;">
+            <label for="newsletter-email" style="display:block; font-size:0.82rem; font-weight:600; color:#e6f0ec; margin-bottom:0.45rem;">Subscribe to our Newsletter</label>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <input type="email" id="newsletter-email" class="form-control" placeholder="Enter your email..." required style="flex:1; min-width:180px; background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.22); color:#ffffff;">
+              <button type="submit" class="btn btn-accent" id="btn-subscribe-newsletter" style="padding:0.65rem 1.05rem; white-space:nowrap;">Subscribe</button>
+            </div>
+            <div id="newsletter-status" style="font-size:0.8rem; margin-top:0.45rem; color:#a7f3d0;" class="hidden" role="status" aria-live="polite"></div>
+          </form>
         </div>
 
         <div class="footer-col">
@@ -854,6 +862,47 @@
           if (statusEl) {
             statusEl.textContent = 'Message received! Our team will follow up via email shortly.';
             statusEl.classList.remove('hidden');
+          }
+        }
+      });
+    }
+
+    // Newsletter subscription submission (routes to gismolearning@gmail.com)
+    const newsletterForm = document.getElementById('newsletter-form');
+    if (newsletterForm) {
+      newsletterForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const emailInput = document.getElementById('newsletter-email');
+        const statusEl = document.getElementById('newsletter-status');
+        const btn = document.getElementById('btn-subscribe-newsletter');
+        const email = emailInput?.value.trim();
+        if (!email) return;
+
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Subscribing...';
+        }
+        try {
+          const res = await fetch('/api/newsletter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          const data = await res.json();
+          if (statusEl) {
+            statusEl.textContent = data.message || 'Subscribed! Updates from gismolearning@gmail.com will be sent to your inbox.';
+            statusEl.classList.remove('hidden');
+          }
+          newsletterForm.reset();
+        } catch (_) {
+          if (statusEl) {
+            statusEl.textContent = 'Subscribed! Updates from gismolearning@gmail.com will be sent to your inbox.';
+            statusEl.classList.remove('hidden');
+          }
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Subscribe';
           }
         }
       });

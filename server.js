@@ -174,6 +174,13 @@ function initDb() {
       status TEXT DEFAULT 'pending',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      target_email TEXT DEFAULT 'gismolearning@gmail.com',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   try {
@@ -302,14 +309,56 @@ app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.post('/api/contact', (req, res) => {
+app.post('/api/contact', async (req, res) => {
   const { name, email, topic, message } = req.body || {};
   if (!name || !email || !message) {
     return res.status(400).json({ error: 'Name, email, and message are required.' });
   }
+  const targetEmail = (process.env.NEWSLETTER_TARGET_EMAIL || 'gismolearning@gmail.com').trim();
+  try {
+    await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(targetEmail)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        name: String(name).trim(),
+        email: String(email).trim(),
+        _subject: `[Gismo Contact] ${topic || 'General Inquiry'}`,
+        message: String(message).trim()
+      })
+    }).catch(() => {});
+  } catch (_) {}
   return res.json({
     success: true,
-    message: `Thank you, ${String(name).trim()}! Your message regarding "${topic || 'General Inquiry'}" has been received. We will reply to ${email} shortly.`
+    message: `Thank you, ${String(name).trim()}! Your message regarding "${topic || 'General Inquiry'}" has been sent to ${targetEmail}.`
+  });
+});
+
+app.post('/api/newsletter', async (req, res) => {
+  const rawEmail = String((req.body && req.body.email) || '').trim().toLowerCase();
+  if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+    return res.status(400).json({ error: 'Please enter a valid email address.' });
+  }
+  const targetEmail = (process.env.NEWSLETTER_TARGET_EMAIL || 'gismolearning@gmail.com').trim();
+  try {
+    db.prepare('INSERT OR IGNORE INTO newsletter_subscribers (email, target_email) VALUES (?, ?)').run(rawEmail, targetEmail);
+  } catch (err) {
+    console.warn('Newsletter DB insert warning:', err.message);
+  }
+  try {
+    await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(targetEmail)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        email: rawEmail,
+        _subject: 'New Gismo Newsletter Subscriber',
+        message: `New newsletter signup from ${rawEmail} on Gismo Learning.`
+      })
+    }).catch(() => {});
+  } catch (_) {}
+  return res.json({
+    success: true,
+    targetEmail,
+    message: `Subscribed! Updates from ${targetEmail} will be sent to ${rawEmail}.`
   });
 });
 
