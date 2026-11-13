@@ -3969,7 +3969,7 @@ function handleLogoClick() {
       switchView('dashboard');
     }
   } else {
-    switchView('login');
+    window.location.href = '/';
   }
 }
 window.handleLogoClick = handleLogoClick;
