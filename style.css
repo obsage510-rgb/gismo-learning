@@ -3,11 +3,12 @@
    Vanilla CSS with customized themes and accessibility aids
 */
 
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&family=Inter:wght@400;600&family=Lora:wght@400;700&family=Lexend:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;600&family=Lora:wght@400;700&family=Lexend:wght@400;600&display=swap');
 
 /* --- Theme Definitions & Design Tokens --- */
 :root {
-  --font-main: 'Outfit', 'Inter', sans-serif;
+  --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
   --bg-primary: #050505;
   --bg-secondary: rgba(18, 18, 18, 0.85);
   --bg-card: rgba(25, 25, 25, 0.65);
@@ -1831,9 +1832,16 @@ input:checked + .slider:before {
 }
 
 body {
-  font-family: var(--font-main, 'Outfit', 'Inter', sans-serif);
+  font-family: var(--font-main, 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif);
   background-image: none;
   background-attachment: fixed;
+}
+
+h1,
+.auth-heading,
+.welcome-title,
+.brand-text {
+  font-family: var(--font-display);
 }
 
 /* 2. Responsive Header */
