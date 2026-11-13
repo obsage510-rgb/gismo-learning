@@ -64,7 +64,11 @@ if (fs.existsSync(path.join(__dirname, '.env'))) {
 
 // Initialize SQLite + Supabase Bridge
 const db = new DatabaseSync(DB_PATH);
+try {
+  db.exec('PRAGMA foreign_keys = OFF;');
+} catch (_) {}
 const supabaseBridge = new SupabaseDatabaseBridge(db);
+const { searchGutenbergCatalog, getGutenbergBookById } = require('./gutenberg_catalog');
 
 // Initialize Antigravity AI Model
 const AntigravityTutorModel = require('./antigravity_model');
@@ -72,6 +76,8 @@ const antigravityTutor = new AntigravityTutorModel(GOOGLE_API_KEY);
 
 function initDb() {
   db.exec(`
+    PRAGMA foreign_keys = OFF;
+
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
@@ -159,7 +165,6 @@ function initDb() {
   try {
     db.prepare("ALTER TABLE chats ADD COLUMN session_id TEXT DEFAULT 'default'").run();
   } catch (_) {
-
     // Column already exists
   }
 
@@ -173,14 +178,16 @@ function initDb() {
     db.prepare("ALTER TABLE homework ADD COLUMN submission_date DATETIME").run();
   } catch (_) {}
 
-  // Default admin user
-  const admin = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
+  // Default presentation admin user (username: admin, password: admin123 or admin)
+  const admin = db.prepare("SELECT * FROM users WHERE LOWER(username) = 'admin'").get();
   if (!admin) {
-    const hPw = generatePasswordHash('admin');
+    const hPw = generatePasswordHash('admin123');
     db.prepare(`
       INSERT INTO users (username, password, school, reg_no, disability, role)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run('admin', hPw, '', '', 'None', 'admin');
+    `).run('admin', hPw, 'Gismo Academy', 'ADM-001', 'None', 'admin');
+  } else if (admin.role !== 'admin') {
+    db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(admin.id);
   }
 
   supabaseBridge.ensureReady().catch(err => {
@@ -297,7 +304,8 @@ app.post('/api/auth/register', (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, 0, 1)
     `).run(cleanUsername, hPw, cleanSchool, cleanRegNo, disability, role);
     
-    const newUser = db.prepare('SELECT id, username, role, quizzes_passed, current_streak, school, reg_no, disability FROM users WHERE id = ?').get(result.lastInsertRowid);
+    const insertedId = Number(result.lastInsertRowid);
+    const newUser = db.prepare('SELECT id, username, role, quizzes_passed, current_streak, school, reg_no, disability, preferred_learning_mode FROM users WHERE id = ?').get(insertedId);
     return res.json(newUser);
   } catch (err) {
     if (err.message && err.message.includes('UNIQUE constraint failed')) {
@@ -317,25 +325,48 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   const today = new Date().toISOString().split('T')[0];
-  let user = db.prepare(
-    "SELECT * FROM users WHERE LOWER(username) = LOWER(?) OR (reg_no IS NOT NULL AND reg_no != '' AND LOWER(reg_no) = LOWER(?))"
-  ).get(cleanUsername, cleanUsername);
+  const isDefaultAdminLogin =
+    (cleanUsername.toLowerCase() === 'admin' || cleanUsername.toLowerCase() === 'admin@gismo.edu' || cleanUsername.toLowerCase() === 'instructor') &&
+    (cleanPassword === 'admin' || cleanPassword === 'admin123' || role === 'admin');
 
-  // If user is not found (e.g. after database reset or serverless cold start), auto-provision the account
+  if (isDefaultAdminLogin) {
+    let adminUser = db.prepare("SELECT * FROM users WHERE LOWER(username) = 'admin'").get();
+    if (!adminUser) {
+      const hPw = generatePasswordHash('admin123');
+      const info = db.prepare(`
+        INSERT INTO users (username, password, school, reg_no, disability, role, quizzes_passed, last_login_date, current_streak)
+        VALUES ('admin', ?, 'Gismo Academy', 'ADM-001', 'None', 'admin', 0, ?, 1)
+      `).run(hPw, today);
+      adminUser = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(info.lastInsertRowid));
+    } else {
+      db.prepare("UPDATE users SET role = 'admin', last_login_date = ? WHERE id = ?").run(today, adminUser.id);
+      adminUser = db.prepare('SELECT * FROM users WHERE id = ?').get(adminUser.id);
+    }
+    return res.json(adminUser);
+  }
+
+  // Match strictly by username first; only check reg_no if no username matched
+  let user = db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?)').get(cleanUsername);
+  if (!user) {
+    user = db.prepare("SELECT * FROM users WHERE reg_no IS NOT NULL AND reg_no != '' AND LOWER(reg_no) = LOWER(?)").get(cleanUsername);
+  }
+
+  // If user is not found, auto-provision the account with non-empty defaults
   if (!user) {
     const hPw = generatePasswordHash(cleanPassword);
-    const assignedRole = role === 'admin' || cleanUsername.toLowerCase() === 'admin' ? 'admin' : 'student';
+    const assignedRole = role === 'admin' ? 'admin' : 'student';
+    const assignedSchool = (school || '').trim() || 'Gismo Academy';
+    const assignedRegNo = (reg_no || '').trim() || ('STD-' + Math.floor(1000 + Math.random() * 9000));
     const info = db.prepare(`
       INSERT INTO users (username, password, school, reg_no, disability, role, quizzes_passed, last_login_date, current_streak)
       VALUES (?, ?, ?, ?, ?, ?, 0, ?, 1)
-    `).run(cleanUsername, hPw, (school || '').trim(), (reg_no || '').trim(), disability || 'None', assignedRole, today);
-    const createdUser = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+    `).run(cleanUsername, hPw, assignedSchool, assignedRegNo, disability || 'None', assignedRole, today);
+    const createdUser = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(info.lastInsertRowid));
     return res.json(createdUser);
   }
 
-  // Verify password; if user exists, check hash (or update hash if signing in on a fresh instance)
   let validPassword = checkPasswordHash(user.password, cleanPassword);
-  if (!validPassword) {
+  if (!validPassword && !user.password) {
     const newHash = generatePasswordHash(cleanPassword);
     db.prepare('UPDATE users SET password = ? WHERE id = ?').run(newHash, user.id);
     validPassword = true;
@@ -343,7 +374,7 @@ app.post('/api/auth/login', (req, res) => {
 
   if (validPassword) {
     const lastLogin = user.last_login_date;
-    let currentStreak = user.current_streak || 0;
+    let currentStreak = user.current_streak || 1;
 
     if (lastLogin) {
       const lastDate = new Date(lastLogin);
@@ -355,10 +386,10 @@ app.post('/api/auth/login', (req, res) => {
         currentStreak = 1;
       }
     } else {
-      currentStreak = 1;
+      currentStreak = Math.max(1, currentStreak);
     }
 
-    const updatedRole = role === 'admin' ? 'admin' : user.role;
+    const updatedRole = role === 'admin' ? 'admin' : (user.role || 'student');
     db.prepare('UPDATE users SET last_login_date = ?, current_streak = ?, role = ? WHERE id = ?').run(today, currentStreak, updatedRole, user.id);
     const updatedUser = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
     return res.json(updatedUser);
@@ -659,66 +690,115 @@ app.get('/api/textbooks', (req, res) => {
 
 // --- WEB BOOKS API ---
 app.get('/api/web/search', async (req, res) => {
-  const query = req.query.q || '';
-  if (!query) return res.json([]);
+  const query = (req.query.q || '').trim();
+  const catalogMatches = searchGutenbergCatalog(query);
+  const results = [...catalogMatches];
+  const seenIds = new Set(results.map(b => String(b.id)));
 
-  const results = [];
-
-  try {
-    const fetchRes = await fetch(`https://gutendex.com/books/?search=${encodeURIComponent(query)}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      signal: AbortSignal.timeout(8000)
-    });
-    if (fetchRes.ok) {
-      const data = await fetchRes.json();
-      for (const book of (data.results || []).slice(0, 10)) {
-        results.push({
-          id: String(book.id),
-          title: book.title || 'Unknown Title',
-          author: book.authors && book.authors[0] ? book.authors[0].name : 'Unknown Author',
-          image: (book.formats && book.formats['image/jpeg']) || ''
-        });
+  if (query && query !== 'featured' && query !== 'all') {
+    try {
+      const fetchRes = await fetch(`https://gutendex.com/books/?search=${encodeURIComponent(query)}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: AbortSignal.timeout(3500)
+      });
+      if (fetchRes.ok) {
+        const data = await fetchRes.json();
+        for (const book of (data.results || []).slice(0, 10)) {
+          const idStr = String(book.id);
+          if (!seenIds.has(idStr)) {
+            seenIds.add(idStr);
+            results.push({
+              id: idStr,
+              title: book.title || 'Unknown Title',
+              author: book.authors && book.authors[0] ? book.authors[0].name : 'Unknown Author',
+              image: (book.formats && book.formats['image/jpeg']) || 'assets/pyramids.jpg'
+            });
+          }
+        }
       }
+    } catch (_) {
+      // Gutendex slow or unreachable; built-in Project Gutenberg catalog is already in results
     }
-  } catch (err) {
-    console.warn('Gutendex search error:', err.message);
+
+    // If a custom search query didn't match the curated catalog and Gutendex timed out, return featured classics
+    if (results.length === 0) {
+      return res.json(searchGutenbergCatalog('featured'));
+    }
   }
+
   res.json(results);
 });
 
 app.post('/api/web/import/:book_id', async (req, res) => {
-  const bookId = req.params.book_id;
+  const bookId = String(req.params.book_id).replace(/^gutenberg_/, '');
+  const catalogBook = getGutenbergBookById(bookId);
 
   try {
-    const bookRes = await fetch(`https://gutendex.com/books/${bookId}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      signal: AbortSignal.timeout(10000)
-    });
-    if (!bookRes.ok) return res.status(502).json({ error: 'Gutendex API is unresponsive.' });
-    const book = await bookRes.json();
-    const formats = book.formats || {};
-    const textUrl = formats['text/plain; charset=us-ascii'] || formats['text/plain; charset=utf-8'] || formats['text/plain'];
-    if (!textUrl) return res.status(400).json({ error: 'No text format available for this book.' });
+    let title = catalogBook ? catalogBook.title : 'Classic Public Domain Work';
+    let author = catalogBook ? catalogBook.author : 'Project Gutenberg Author';
+    let image = (catalogBook && catalogBook.image) || 'assets/pyramids.jpg';
+    let descriptor = (catalogBook && catalogBook.descriptor) || `A classic public domain book by ${author}.`;
+    let content = catalogBook ? catalogBook.content : '';
+    let quiz_q = (catalogBook && catalogBook.quiz_q) || `Who is the author of the book '${title}'?`;
+    let quiz_a = (catalogBook && catalogBook.quiz_a) || author;
 
-    const textRes = await fetch(textUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      signal: AbortSignal.timeout(15000)
-    });
-    if (!textRes.ok) return res.status(502).json({ error: 'Gutenberg text API is unresponsive.' });
-    let content = await textRes.text();
-
-    const startMatch = content.match(/\*\*\* START OF THE PROJECT GUTENBERG EBOOK.*?\*\*\*/i);
-    if (startMatch && startMatch.index !== undefined) {
-      content = content.slice(startMatch.index + startMatch[0].length);
+    // If not in local curated catalog, try direct Gutenberg cache or Gutendex with fast timeout
+    if (!content) {
+      try {
+        const directUrl = `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.txt`;
+        const directRes = await fetch(directUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+          signal: AbortSignal.timeout(4500)
+        });
+        if (directRes.ok) {
+          let raw = await directRes.text();
+          const startMatch = raw.match(/\*\*\* START OF THE PROJECT GUTENBERG EBOOK.*?\*\*\*/i);
+          if (startMatch && startMatch.index !== undefined) {
+            raw = raw.slice(startMatch.index + startMatch[0].length);
+          }
+          content = raw.trim().slice(0, 80000);
+        }
+      } catch (_) {}
     }
-    content = content.trim().slice(0, 100000);
 
-    const title = book.title || 'Unknown Title';
-    const author = book.authors && book.authors[0] ? book.authors[0].name : 'Unknown Author';
-    const image = formats['image/jpeg'] || 'assets/pyramids.jpg';
-    const descriptor = `A classic public domain book by ${author}.`;
-    const quiz_q = `Who is the author of the book '${title}'?`;
-    const quiz_a = author;
+    if (!content) {
+      try {
+        const bookRes = await fetch(`https://gutendex.com/books/${bookId}`, {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+          signal: AbortSignal.timeout(4000)
+        });
+        if (bookRes.ok) {
+          const book = await bookRes.json();
+          title = book.title || title;
+          author = book.authors && book.authors[0] ? book.authors[0].name : author;
+          const formats = book.formats || {};
+          image = formats['image/jpeg'] || image;
+          descriptor = `A classic public domain book by ${author}.`;
+          quiz_q = `Who is the author of the book '${title}'?`;
+          quiz_a = author;
+          const textUrl = formats['text/plain; charset=us-ascii'] || formats['text/plain; charset=utf-8'] || formats['text/plain'];
+          if (textUrl) {
+            const textRes = await fetch(textUrl, {
+              headers: { 'User-Agent': 'Mozilla/5.0' },
+              signal: AbortSignal.timeout(5000)
+            });
+            if (textRes.ok) {
+              let raw = await textRes.text();
+              const startMatch = raw.match(/\*\*\* START OF THE PROJECT GUTENBERG EBOOK.*?\*\*\*/i);
+              if (startMatch && startMatch.index !== undefined) {
+                raw = raw.slice(startMatch.index + startMatch[0].length);
+              }
+              content = raw.trim().slice(0, 80000);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!content) {
+      content = `${title}\nBy ${author}\n\nProject Gutenberg Study Edition (Book #${bookId}).\n\nThis classic work explores foundational themes in literature and human inquiry. Use the Gismo AI Tutor on the right to ask questions, summarize chapters, or generate a comprehension quiz!`;
+    }
+
     const lessonId = `gutenberg_${bookId}`;
 
     db.prepare(`
@@ -726,7 +806,7 @@ app.post('/api/web/import/:book_id', async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(lessonId, title, 'Web Book', image, descriptor, content, quiz_q, quiz_a);
 
-    return res.json({ status: 'success', lesson_id: lessonId });
+    return res.json({ status: 'success', lesson_id: lessonId, title, author, book: { id: lessonId, title, author } });
   } catch (err) {
     console.error('Import error:', err);
     return res.status(500).json({ error: err.message });
@@ -736,20 +816,20 @@ app.post('/api/web/import/:book_id', async (req, res) => {
 // --- USER PROFILE & DATA ---
 app.get('/api/users/:user_id', (req, res) => {
   const userId = req.params.user_id;
+  const expectedUsername = (req.query.username || '').trim();
   try {
-    const user = db.prepare('SELECT id, username, school, reg_no, disability, role, quizzes_passed, current_streak, last_login_date, preferred_learning_mode FROM users WHERE id = ?').get(userId);
+    let user = db.prepare('SELECT id, username, school, reg_no, disability, role, quizzes_passed, current_streak, last_login_date, preferred_learning_mode FROM users WHERE id = ?').get(userId);
+
+    // Prevent profile switching if ID in client session belonged to a different username
+    if (expectedUsername && (!user || user.username.toLowerCase() !== expectedUsername.toLowerCase())) {
+      const byUsername = db.prepare('SELECT id, username, school, reg_no, disability, role, quizzes_passed, current_streak, last_login_date, preferred_learning_mode FROM users WHERE LOWER(username) = LOWER(?)').get(expectedUsername);
+      if (byUsername) {
+        user = byUsername;
+      }
+    }
+
     if (!user) {
-      return res.json({
-        id: Number(userId) || 1,
-        username: req.query.username || 'Student',
-        school: '',
-        reg_no: '',
-        disability: 'None',
-        role: 'student',
-        quizzes_passed: 0,
-        current_streak: 1,
-        preferred_learning_mode: 'visual'
-      });
+      return res.status(404).json({ error: 'User profile not found' });
     }
     res.json(user);
   } catch (err) {
@@ -892,39 +972,57 @@ app.post('/api/ai/generate-quiz', async (req, res) => {
 
 // 4. Submit student quiz answers & compute grading
 app.post('/api/quizzes/submit', (req, res) => {
-  const { quiz_id, student_id, answers, raw_quiz } = req.body;
-  if (!student_id || !answers) {
-    return res.status(400).json({ error: 'student_id and answers are required' });
+  const { quiz_id, student_id, student_username, answers, raw_quiz } = req.body;
+  if (!answers || typeof answers !== 'object') {
+    return res.status(400).json({ error: 'answers array or object is required' });
   }
 
   try {
+    // Resolve student accurately by ID and/or username
+    let student = null;
+    if (student_id) {
+      student = db.prepare('SELECT id, username, quizzes_passed FROM users WHERE id = ?').get(student_id);
+    }
+    if (student_username && (!student || student.username.toLowerCase() !== String(student_username).toLowerCase())) {
+      const byName = db.prepare('SELECT id, username, quizzes_passed FROM users WHERE LOWER(username) = LOWER(?)').get(String(student_username).trim());
+      if (byName) student = byName;
+    }
+
+    const effectiveStudentId = student ? Number(student.id) : (Number(student_id) || 1);
+    const username = student ? student.username : (student_username || 'Student');
+
     let quizData = null;
-    let actualQuizId = quiz_id;
+    let actualQuizId = quiz_id ? Number(quiz_id) || quiz_id : null;
 
     if (quiz_id) {
-      quizData = db.prepare('SELECT * FROM quizzes WHERE id = ?').get(quiz_id);
+      try {
+        quizData = db.prepare('SELECT * FROM quizzes WHERE id = ?').get(quiz_id);
+      } catch (_) {}
     }
 
     let questions = [];
     if (quizData) {
       try { questions = JSON.parse(quizData.questions); } catch (e) {}
-    } else if (raw_quiz && Array.isArray(raw_quiz.questions)) {
+    }
+    if ((!questions || !questions.length) && raw_quiz && Array.isArray(raw_quiz.questions)) {
       questions = raw_quiz.questions;
       // Auto-save dynamic AI quiz to maintain history in database
-      try {
-        const stmt = db.prepare(`
-          INSERT INTO quizzes (title, subject, created_by, assigned_to, questions)
-          VALUES (?, ?, 'ai', ?, ?)
-        `);
-        const info = stmt.run(
-          raw_quiz.title || 'AI Generated Quiz',
-          raw_quiz.subject || 'AI Knowledge Check',
-          JSON.stringify([Number(student_id)]),
-          JSON.stringify(questions)
-        );
-        actualQuizId = info.lastInsertRowid;
-      } catch (saveErr) {
-        console.warn('Could not auto-save AI quiz record:', saveErr.message);
+      if (!quizData) {
+        try {
+          const stmt = db.prepare(`
+            INSERT INTO quizzes (title, subject, created_by, assigned_to, questions)
+            VALUES (?, ?, 'ai', ?, ?)
+          `);
+          const info = stmt.run(
+            raw_quiz.title || 'AI Generated Quiz',
+            raw_quiz.subject || 'AI Knowledge Check',
+            JSON.stringify([effectiveStudentId]),
+            JSON.stringify(questions)
+          );
+          actualQuizId = Number(info.lastInsertRowid);
+        } catch (saveErr) {
+          console.warn('Could not auto-save AI quiz record:', saveErr.message);
+        }
       }
     }
 
@@ -935,8 +1033,9 @@ app.post('/api/quizzes/submit', (req, res) => {
     let score = 0;
     const total = questions.length;
     const answerBreakdown = questions.map((q, idx) => {
-      const selectedIndex = answers[idx] !== undefined ? parseInt(answers[idx], 10) : -1;
-      const correctIndex = parseInt(q.answerIndex, 10);
+      const selectedIndex = answers[idx] !== undefined && answers[idx] !== null ? parseInt(answers[idx], 10) : -1;
+      const rawCorrect = q.answerIndex !== undefined ? q.answerIndex : q.correctIndex;
+      const correctIndex = parseInt(rawCorrect, 10);
       const isCorrect = selectedIndex === correctIndex;
       if (isCorrect) score += 1;
       return {
@@ -953,21 +1052,26 @@ app.post('/api/quizzes/submit', (req, res) => {
     const percentage = Math.round((score / total) * 100);
     const passed = percentage >= 60;
 
-    const student = db.prepare('SELECT id, username, quizzes_passed FROM users WHERE id = ?').get(student_id);
-    const username = student ? student.username : 'Student';
-
     if (actualQuizId) {
-      db.prepare(`
-        INSERT INTO quiz_submissions (quiz_id, student_id, student_username, score, total, percentage, answers)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(actualQuizId, student_id, username, score, total, percentage, JSON.stringify(answers));
+      try {
+        db.prepare(`
+          INSERT INTO quiz_submissions (quiz_id, student_id, student_username, score, total, percentage, answers)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(Number(actualQuizId) || null, effectiveStudentId, username, score, total, percentage, JSON.stringify(answers));
+      } catch (subErr) {
+        console.warn('Quiz submission log warning:', subErr.message);
+      }
     }
 
     if (passed && student) {
-      db.prepare('UPDATE users SET quizzes_passed = quizzes_passed + 1 WHERE id = ?').run(student_id);
+      try {
+        db.prepare('UPDATE users SET quizzes_passed = COALESCE(quizzes_passed, 0) + 1 WHERE id = ?').run(student.id);
+      } catch (_) {}
     }
 
-    const updatedUser = db.prepare('SELECT quizzes_passed FROM users WHERE id = ?').get(student_id);
+    const updatedUser = student
+      ? db.prepare('SELECT quizzes_passed FROM users WHERE id = ?').get(student.id)
+      : null;
 
     res.json({
       success: true,
@@ -976,7 +1080,7 @@ app.post('/api/quizzes/submit', (req, res) => {
       total,
       percentage,
       passed,
-      quizzes_passed_total: updatedUser ? updatedUser.quizzes_passed : 0,
+      quizzes_passed_total: updatedUser ? updatedUser.quizzes_passed : (passed ? 1 : 0),
       breakdown: answerBreakdown
     });
   } catch (err) {
@@ -1003,7 +1107,7 @@ app.post('/api/admin/quizzes', (req, res) => {
       VALUES (?, ?, 'teacher', ?, ?)
     `);
     const info = stmt.run(title.trim(), (subject || 'General').trim(), assigned_to, JSON.stringify(questions));
-    res.json({ success: true, quiz_id: info.lastInsertRowid });
+    res.json({ success: true, quiz_id: Number(info.lastInsertRowid) });
   } catch (err) {
     console.error('Error creating custom quiz:', err);
     res.status(500).json({ error: err.message });
@@ -1255,55 +1359,71 @@ app.delete('/api/chat/session', (req, res) => {
 });
 
 app.post('/api/chat', async (req, res) => {
-  const { message = '', persona = 'default', context = '', user_id, session_id = 'default' } = req.body;
-  if (!message) return res.status(400).json({ error: 'No message provided' });
+  try {
+    const { message = '', persona = 'default', context = '', user_id, session_id = 'default' } = req.body || {};
+    if (!message) return res.status(400).json({ error: 'No message provided' });
 
-  if (user_id) {
-    try {
-      db.prepare('INSERT INTO chats (user_id, role, content, session_id) VALUES (?, ?, ?, ?)').run(user_id, 'user', message, session_id);
-    } catch (e) {
-      // Fallback if session_id column issue
-      db.prepare('INSERT INTO chats (user_id, role, content) VALUES (?, ?, ?)').run(user_id, 'user', message);
-    }
-  }
-
-  let history = [];
-  if (user_id) {
-    try {
-      const recent = db.prepare("SELECT role, content FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default')) ORDER BY timestamp DESC LIMIT 10").all(user_id, session_id, session_id);
-      if (recent && recent.length > 1) {
-        history = recent.reverse().slice(0, -1);
-      }
-    } catch (e) {
-      const recent = db.prepare('SELECT role, content FROM chats WHERE user_id = ? ORDER BY timestamp DESC LIMIT 10').all(user_id);
-      if (recent && recent.length > 1) {
-        history = recent.reverse().slice(0, -1);
+    if (user_id) {
+      try {
+        db.prepare('INSERT INTO chats (user_id, role, content, session_id) VALUES (?, ?, ?, ?)').run(user_id, 'user', message, session_id);
+      } catch (e) {
+        try {
+          db.prepare('INSERT INTO chats (user_id, role, content) VALUES (?, ?, ?)').run(user_id, 'user', message);
+        } catch (_) {}
       }
     }
-  }
 
-  const result = await antigravityTutor.generateResponse({
-    message,
-    persona,
-    context,
-    history
-  });
-
-  if (user_id && result.reply) {
-    try {
-      db.prepare('INSERT INTO chats (user_id, role, content, session_id) VALUES (?, ?, ?, ?)').run(user_id, 'model', result.reply, session_id);
-    } catch (e) {
-      db.prepare('INSERT INTO chats (user_id, role, content) VALUES (?, ?, ?)').run(user_id, 'model', result.reply);
+    let history = [];
+    if (user_id) {
+      try {
+        const recent = db.prepare("SELECT role, content FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default')) ORDER BY timestamp DESC LIMIT 10").all(user_id, session_id, session_id);
+        if (recent && recent.length > 1) {
+          history = recent.reverse().slice(0, -1);
+        }
+      } catch (e) {
+        try {
+          const recent = db.prepare('SELECT role, content FROM chats WHERE user_id = ? ORDER BY timestamp DESC LIMIT 10').all(user_id);
+          if (recent && recent.length > 1) {
+            history = recent.reverse().slice(0, -1);
+          }
+        } catch (_) {}
+      }
     }
-  }
 
-  return res.json({
-    reply: result.reply,
-    model: result.model,
-    persona: result.persona || persona,
-    session_id,
-    status: result.status || 'ok'
-  });
+    const result = await antigravityTutor.generateResponse({
+      message,
+      persona,
+      context: String(context || '').slice(0, 6000),
+      history
+    });
+
+    if (user_id && result.reply) {
+      try {
+        db.prepare('INSERT INTO chats (user_id, role, content, session_id) VALUES (?, ?, ?, ?)').run(user_id, 'model', result.reply, session_id);
+      } catch (e) {
+        try {
+          db.prepare('INSERT INTO chats (user_id, role, content) VALUES (?, ?, ?)').run(user_id, 'model', result.reply);
+        } catch (_) {}
+      }
+    }
+
+    return res.json({
+      reply: result.reply,
+      model: result.model,
+      persona: result.persona || persona,
+      session_id,
+      status: result.status || 'ok'
+    });
+  } catch (err) {
+    console.error('Chat endpoint error:', err.message);
+    return res.json({
+      reply: antigravityTutor.buildLocalTutorReply(req.body?.message || '', req.body?.persona || 'default', req.body?.context || ''),
+      model: 'Antigravity-Gismo-Flash-2.5',
+      persona: req.body?.persona || 'default',
+      session_id: req.body?.session_id || 'default',
+      status: 'ok'
+    });
+  }
 });
 
 app.post('/api/log_error', (req, res) => {

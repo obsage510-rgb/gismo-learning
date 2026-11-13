@@ -234,6 +234,11 @@ class SupabaseDatabaseBridge {
           const validCols = new Set(columnsInfo.map(c => c.name));
 
           for (const row of rows) {
+            // If importing users, ensure we don't collide on UNIQUE username with a different id
+            if (table === 'users' && row.username && row.id !== undefined) {
+              this.origPrepare('DELETE FROM users WHERE LOWER(username) = LOWER(?) AND id != ?')
+                .run(String(row.username), row.id);
+            }
             const cols = Object.keys(row).filter(k => validCols.has(k) && row[k] !== undefined);
             if (cols.length === 0) continue;
             const placeholders = cols.map(() => '?').join(', ');

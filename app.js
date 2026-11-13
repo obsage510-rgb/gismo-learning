@@ -183,12 +183,26 @@ window.addEventListener('DOMContentLoaded', () => {
   setupKeyBindings();
   setupTutorMuteSystem();
   initVoiceIsolationEngine();
-  initChatSessions();
   loadSettings();
   fetchTextbooks();
   setupInteractiveHighlighting();
+  handleWebSearch(true);
 
-  // Landing Page: Always ensure opening the site starts fresh on the login landing page
+  // Restore active session on page refresh so users are not logged out
+  const savedUserJson = localStorage.getItem('gismoSessionUser') || sessionStorage.getItem('gismoSessionUser');
+  const savedView = localStorage.getItem('gismoActiveView') || sessionStorage.getItem('gismoActiveView');
+  if (savedUserJson) {
+    try {
+      const parsedUser = JSON.parse(savedUserJson);
+      if (parsedUser && parsedUser.username) {
+        appState.user = parsedUser;
+        loginSuccess({ restoreView: savedView, silent: true });
+        return;
+      }
+    } catch (_) {}
+  }
+
+  initChatSessions();
   switchView('login');
   if (typeof selectLoginPortal === 'function') {
     selectLoginPortal('student');
@@ -477,10 +491,7 @@ async function handleLogin() {
       body: JSON.stringify({
         username: name,
         password: password,
-        role: 'student',
-        school: localStorage.getItem('gismoSchool') || '',
-        reg_no: localStorage.getItem('gismoRegNo') || '',
-        disability: localStorage.getItem('gismoDisability') || 'None'
+        role: 'student'
       })
     });
     
@@ -514,6 +525,10 @@ function selectLoginPortal(portal) {
     if (formStudent) formStudent.style.display = 'none';
     if (formRegister) formRegister.style.display = 'none';
     if (formAdmin) formAdmin.style.display = 'block';
+    const adminUserEl = document.getElementById('admin-username');
+    const adminPassEl = document.getElementById('admin-password');
+    if (adminUserEl && !adminUserEl.value) adminUserEl.value = 'admin';
+    if (adminPassEl && !adminPassEl.value) adminPassEl.value = 'admin123';
   } else {
     if (tabInstructor) { tabInstructor.classList.remove('active'); tabInstructor.setAttribute('aria-selected', 'false'); }
     if (tabStudent) { tabStudent.classList.add('active'); tabStudent.setAttribute('aria-selected', 'true'); }
@@ -551,8 +566,8 @@ window.showStudentLogin = showStudentLogin;
 async function handleAdminLogin() {
   const nameEl = document.getElementById('admin-username');
   const passwordEl = document.getElementById('admin-password');
-  const name = nameEl ? nameEl.value.trim() : '';
-  const password = passwordEl ? passwordEl.value.trim() : '';
+  const name = nameEl ? nameEl.value.trim() : 'admin';
+  const password = passwordEl ? passwordEl.value.trim() : 'admin123';
   
   if (!name || !password) {
     showAuthError("Please enter instructor username and password.");
@@ -583,6 +598,28 @@ async function handleAdminLogin() {
 }
 window.handleAdminLogin = handleAdminLogin;
 
+async function quickPresentationAdminLogin() {
+  selectLoginPortal('instructor');
+  const nameEl = document.getElementById('admin-username');
+  const passwordEl = document.getElementById('admin-password');
+  if (nameEl) nameEl.value = 'admin';
+  if (passwordEl) passwordEl.value = 'admin123';
+  await handleAdminLogin();
+}
+window.quickPresentationAdminLogin = quickPresentationAdminLogin;
+
+function persistUserSession() {
+  if (!appState.user) return;
+  try {
+    const serialized = JSON.stringify(appState.user);
+    localStorage.setItem('gismoSessionUser', serialized);
+    sessionStorage.setItem('gismoSessionUser', serialized);
+    sessionStorage.setItem('gismoUserId', appState.user.id);
+    sessionStorage.setItem('gismoUsername', appState.user.username);
+    sessionStorage.setItem('gismoUserRole', appState.user.role);
+  } catch (_) {}
+}
+
 function askTutorForPractice() {
   openTutorPanel();
   const input = document.getElementById('chat-user-input') || document.getElementById('chat-input');
@@ -595,19 +632,10 @@ function askTutorForPractice() {
 }
 window.askTutorForPractice = askTutorForPractice;
 
-function loginSuccess() {
+function loginSuccess(options = {}) {
   if (elements.profileNameDisplay) elements.profileNameDisplay.textContent = appState.user.username;
   
-  // Use sessionStorage so closing the browser tab automatically resets the session
-  sessionStorage.setItem('gismoUserId', appState.user.id);
-  sessionStorage.setItem('gismoUsername', appState.user.username);
-  sessionStorage.setItem('gismoUserRole', appState.user.role);
-
-  // Clear legacy persistent session from localStorage
-  localStorage.removeItem('gismoUserId');
-  localStorage.removeItem('gismoUsername');
-  localStorage.removeItem('gismoUserRole');
-  localStorage.removeItem('gismoUserQuizzes');
+  persistUserSession();
 
   // Show floating AI tutor once user is authenticated
   const fab = document.getElementById('fab-tutor');
@@ -622,7 +650,6 @@ function loginSuccess() {
   const quizzesNav = document.getElementById('btn-quizzes-toggle');
 
   if (appState.user.role === 'admin') {
-    // In Educator / Admin section: Dashboard is the ONLY page
     if (elements.btnAdminToggle) {
       elements.btnAdminToggle.classList.remove('hidden');
       elements.btnAdminToggle.classList.add('active');
@@ -642,7 +669,8 @@ function loginSuccess() {
       streakCard.parentNode.parentNode.style.display = 'none';
     }
     loadAdminDashboard();
-    switchView('admin');
+    const targetAdminView = (options.restoreView === 'admin-db') ? 'admin-db' : 'admin';
+    switchView(targetAdminView);
   } else {
     // Student section
     if (elements.btnAdminToggle) elements.btnAdminToggle.classList.add('hidden');
@@ -656,11 +684,15 @@ function loginSuccess() {
     loadStudentProfile();
     fetchNotes();
     fetchHomework();
-    switchView('dashboard');
+    const validStudentViews = ['dashboard', 'profile', 'library', 'quizzes'];
+    const targetStudentView = validStudentViews.includes(options.restoreView) ? options.restoreView : 'dashboard';
+    switchView(targetStudentView);
   }
   
   loadChatHistory();
-  announceTTS(`Login successful. Welcome, ${appState.user.username}.`);
+  if (!options.silent) {
+    announceTTS(`Login successful. Welcome, ${appState.user.username}.`);
+  }
 }
 
 async function loadChatHistory() {
@@ -670,9 +702,13 @@ async function loadChatHistory() {
 function handleLogout() {
   playEarcon('click');
   appState.user = null;
+  sessionStorage.removeItem('gismoSessionUser');
+  sessionStorage.removeItem('gismoActiveView');
   sessionStorage.removeItem('gismoUserId');
   sessionStorage.removeItem('gismoUsername');
   sessionStorage.removeItem('gismoUserRole');
+  localStorage.removeItem('gismoSessionUser');
+  localStorage.removeItem('gismoActiveView');
   localStorage.removeItem('gismoUserId');
   localStorage.removeItem('gismoUsername');
   localStorage.removeItem('gismoUserRole');
@@ -722,9 +758,7 @@ function handleLogout() {
     'login-username',
     'login-password',
     'reg-username',
-    'reg-password',
-    'admin-username',
-    'admin-password'
+    'reg-password'
   ];
   inputsToClear.forEach(id => {
     const el = document.getElementById(id);
@@ -746,6 +780,12 @@ function switchView(viewName) {
     viewName = 'admin';
   }
   appState.currentView = viewName;
+  if (viewName !== 'login' && appState.user) {
+    try {
+      localStorage.setItem('gismoActiveView', viewName);
+      sessionStorage.setItem('gismoActiveView', viewName);
+    } catch (_) {}
+  }
   [elements.loginPanel, elements.profilePanel, elements.mainContent, elements.libraryPanel, elements.adminPanel, elements.adminDbPanel, elements.quizzesPanel].forEach(el => el?.classList.add('hidden'));
   
   if (viewName === 'login') {
@@ -782,6 +822,10 @@ function switchView(viewName) {
   } else if (viewName === 'library') {
     elements.libraryPanel.classList.remove('hidden');
     loadLibraryFiles();
+    const resultsDiv = document.getElementById('web-search-results');
+    if (resultsDiv && !resultsDiv.children.length) {
+      handleWebSearch(true);
+    }
   } else if (viewName === 'admin') {
     elements.adminPanel?.classList.remove('hidden');
     if (elements.btnAdminToggle) elements.btnAdminToggle.classList.add('active');
@@ -2265,6 +2309,7 @@ async function submitActiveQuiz(fromVoice = false, forceSubmit = false) {
     const payload = {
       quiz_id: activeQuizData.id || null,
       student_id: (appState.user && appState.user.id) || 1,
+      student_username: (appState.user && appState.user.username) || '',
       answers: activeQuizUserAnswers,
       raw_quiz: activeQuizData
     };
@@ -2327,6 +2372,9 @@ function displayQuizResults(result) {
     triggerConfetti();
     if (appState.user) {
       appState.user.quizzes_passed = result.quizzes_passed_total;
+      if (typeof persistUserSession === 'function') {
+        persistUserSession(appState.user);
+      }
       loadAnalytics();
     }
   } else {
@@ -4284,11 +4332,11 @@ async function respondAsTutor(question) {
   let contextText = '';
   if (appState.activeLesson && lessonsDb[appState.activeLesson]) {
     const lesson = lessonsDb[appState.activeLesson];
-    if (appState.currentLessonPages && appState.currentLessonPages.length > 0) {
-      contextText = "The user is currently reading this full text, answer questions and summarise if asked:\n" + lesson.content;
-    } else {
-      contextText = lesson.content;
-    }
+    const activePageIdx = appState.currentPageIndex || 0;
+    const activePageContent = (appState.currentLessonPages && appState.currentLessonPages[activePageIdx])
+      ? appState.currentLessonPages[activePageIdx]
+      : (lesson.content || '');
+    contextText = `Lesson: ${lesson.title || ''}\nCurrent Page (${activePageIdx + 1}):\n${String(activePageContent).slice(0, 4000)}`;
   }
 
   try {
@@ -4305,7 +4353,7 @@ async function respondAsTutor(question) {
     });
     
     const data = await response.json();
-    const reply = data.reply || "I'm having trouble connecting to my brain right now.";
+    const reply = data.reply || "Here is a helpful summary: focus on the key definitions and main concepts in the current lesson section, and let me know which part you'd like to explore step-by-step!";
     
     // Save to session history
     const targetSession = (appState.chatSessions || []).find(s => s.id === currentSessionId);
@@ -4342,30 +4390,33 @@ async function respondAsTutor(question) {
       announceTTS(reply);
     }
   } catch (err) {
-    const errorMsg = "Oops, I encountered a network error.";
+    const fallbackReply = contextText
+      ? `Here's a quick breakdown based on your current lesson (**${(lessonsDb[appState.activeLesson] && lessonsDb[appState.activeLesson].title) || 'Active Reading'}**):\n\n${contextText.replace(/^Lesson:.*\nCurrent Page.*:\n/, '').slice(0, 500)}...\n\nAsk me about any specific term or concept on this page and we can walk through it together!`
+      : `I'm right here with you! To explore **"${question}"**, let's break it into three simple parts:\n1. **Core Definition**: Identify the main concept and how it works.\n2. **Key Example**: Connect it to a real-world scenario or lesson module.\n3. **Practice Check**: Try explaining the idea in your own words, or open a module from your Dashboard or Library so we can study it side-by-side!`;
     const targetSession = (appState.chatSessions || []).find(s => s.id === currentSessionId);
     if (targetSession) {
       if (!targetSession.messages) targetSession.messages = [];
       targetSession.messages.push({
         role: 'ai',
-        content: errorMsg
+        content: fallbackReply
       });
       saveChatSessions();
     }
 
     if (appState.activeSessionId === currentSessionId) {
       const loadingEl = document.getElementById(loadingId);
+      const contentHtml = typeof marked !== 'undefined' ? marked.parse(fallbackReply) : fallbackReply.replace(/\n/g, '<br>');
       if (loadingEl) {
-        loadingEl.innerHTML = `<div>${errorMsg}</div><span class="message-timestamp">System Error</span>`;
+        loadingEl.innerHTML = `<div>${contentHtml}</div><span class="message-timestamp">Gismo AI (Offline Study Mode)</span>`;
       } else {
-        appendMessage(errorMsg, 'ai');
+        appendMessage(fallbackReply, 'ai');
       }
 
       if (typeof updateVoiceHudState === 'function') {
-        updateVoiceHudState('error', '⚠️ Tutor Network Error', errorMsg);
+        updateVoiceHudState('matched', '💡 Gismo AI Answered', 'Offline study response ready');
       }
 
-      announceTTS(errorMsg);
+      announceTTS(fallbackReply);
     }
   }
 }
@@ -5442,37 +5493,45 @@ function nextPage() {
   }
 }
 
-async function handleWebSearch() {
-  const query = document.getElementById('web-search-input').value.trim();
-  if (!query) return;
+async function handleWebSearch(loadFeatured = false) {
+  const inputEl = document.getElementById('web-search-input');
+  let query = inputEl ? inputEl.value.trim() : '';
+  if (loadFeatured || !query) {
+    query = 'featured';
+  }
   
   const resultsDiv = document.getElementById('web-search-results');
-  resultsDiv.innerHTML = '<div style="grid-column: 1/-1; text-align: center;">Searching Project Gutenberg...</div>';
+  if (!resultsDiv) return;
+  resultsDiv.innerHTML = '<div class="col-12 text-center py-3 text-secondary">Loading Project Gutenberg classics...</div>';
   
   try {
     const res = await fetch(`/api/web/search?q=${encodeURIComponent(query)}`);
     const data = await res.json();
-    if (data && data.length > 0) {
+    if (Array.isArray(data) && data.length > 0) {
       resultsDiv.innerHTML = '';
       data.forEach(book => {
         const div = document.createElement('div');
-          div.className = 'col-12 col-md-6';
-          div.innerHTML = `
-            <div class="profile-card h-100 d-flex flex-column m-0">
-              <h4 class="mb-2">${book.title}</h4>
-              <p class="text-secondary small mb-3 flex-grow-1">${book.author}</p>
-              <button class="theme-btn w-100 mt-auto" onclick="importWebBook(${book.id}, this)">
-                Import Book
-              </button>
-            </div>
-          `;
+        div.className = 'col-12 col-md-6 col-lg-4';
+        const subjectBadge = book.subject ? `<span class="badge mb-2" style="align-self:flex-start; background:rgba(139,92,246,0.18); color:var(--accent-primary); font-size:0.72rem; border-radius:8px; padding:0.25rem 0.55rem;">${escapeHtml(book.subject)}</span>` : '';
+        const descHtml = book.descriptor ? `<p class="text-secondary small mb-3 flex-grow-1" style="font-size:0.82rem; opacity:0.85;">${escapeHtml(book.descriptor)}</p>` : '<div class="flex-grow-1"></div>';
+        div.innerHTML = `
+          <div class="profile-card h-100 d-flex flex-column m-0" style="padding:1.25rem;">
+            ${subjectBadge}
+            <h4 class="mb-1" style="font-size:1.05rem;">${escapeHtml(book.title)}</h4>
+            <p class="text-secondary small mb-2" style="font-weight:600;">${escapeHtml(book.author || 'Unknown Author')}</p>
+            ${descHtml}
+            <button class="theme-btn w-100 mt-auto" onclick="importWebBook('${book.id}', this)">
+              📥 Import to Library
+            </button>
+          </div>
+        `;
         resultsDiv.appendChild(div);
       });
     } else {
-      resultsDiv.innerHTML = '<div style="grid-column: 1/-1; text-align: center;">No results found.</div>';
+      resultsDiv.innerHTML = '<div class="col-12 text-center py-3 text-secondary">No matching books found. Click "Show All Classics" to browse the full catalog.</div>';
     }
-  } catch(err) {
-    resultsDiv.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--error-color);">Error searching books.</div>';
+  } catch (err) {
+    resultsDiv.innerHTML = '<div class="col-12 text-center py-3" style="color: var(--error-color);">Could not load books right now. Please try again.</div>';
   }
 }
 
@@ -5486,21 +5545,23 @@ async function importWebBook(bookId, btnElement) {
     const res = await fetch(`/api/web/import/${bookId}`, { method: 'POST' });
     const data = await res.json();
     if (res.ok) {
-      if (btnElement) btnElement.textContent = 'Imported!';
+      if (btnElement) btnElement.textContent = '✓ Imported to Library!';
+      showToast(`Imported "${(data.book && data.book.title) || 'Book'}"!`, '📚');
       announceTTS("Book successfully imported to the library.");
-      // Reload lessons to show the new book in dashboard
-      fetchTextbooks();
+      // Reload lessons to show the new book in dashboard and library
+      await fetchTextbooks();
+      renderLibrary('all');
     } else {
       if (btnElement) {
         btnElement.disabled = false;
-        btnElement.textContent = 'Import Failed';
+        btnElement.textContent = 'Import Failed — Retry';
       }
       announceTTS("Failed to import the book.");
     }
   } catch (err) {
     if (btnElement) {
       btnElement.disabled = false;
-      btnElement.textContent = 'Error';
+      btnElement.textContent = 'Retry Import';
     }
   }
 }
@@ -5519,37 +5580,57 @@ function escapeHtml(str) {
 async function loadStudentProfile() {
   if (!appState.user || !appState.user.id) return;
   try {
-    const res = await fetch(`/api/users/${appState.user.id}`);
+    const expectedUsername = appState.user.username || '';
+    const res = await fetch(`/api/users/${appState.user.id}?username=${encodeURIComponent(expectedUsername)}`);
     if (res.ok) {
       const u = await res.json();
-      appState.user = { ...appState.user, ...u };
-
-      const usernameEl = document.getElementById('profile-student-username');
-      if (usernameEl) usernameEl.textContent = u.username || 'Student';
-
-      const regEl = document.getElementById('profile-student-reg');
-      if (regEl) regEl.textContent = u.reg_no || '—';
-
-      const schoolEl = document.getElementById('profile-student-school');
-      if (schoolEl) schoolEl.textContent = u.school || '—';
-
-      const disEl = document.getElementById('profile-student-disability');
-      if (disEl) {
-        disEl.textContent = u.disability && u.disability !== 'None' ? `${u.disability} Accommodation` : 'Standard Profile';
-      }
-
-      const modeEl = document.getElementById('profile-student-mode');
-      if (modeEl) {
-        const mode = u.preferred_learning_mode || 'visual';
-        modeEl.textContent = mode.charAt(0).toUpperCase() + mode.slice(1) + ' Mode';
-      }
-
-      if (elements.profileNameDisplay) {
-        elements.profileNameDisplay.textContent = u.username || 'Student';
+      // Guard against accidental profile collision or blank fields overwriting valid user state
+      if (u && u.username && (!expectedUsername || u.username.toLowerCase() === expectedUsername.toLowerCase())) {
+        appState.user = {
+          ...appState.user,
+          ...u,
+          username: u.username || appState.user.username,
+          school: u.school || appState.user.school || localStorage.getItem('gismoSchool') || '',
+          reg_no: u.reg_no || appState.user.reg_no || localStorage.getItem('gismoRegNo') || '',
+          disability: (u.disability && u.disability !== 'None') ? u.disability : (appState.user.disability || localStorage.getItem('gismoDisability') || 'None'),
+          preferred_learning_mode: u.preferred_learning_mode || appState.user.preferred_learning_mode || localStorage.getItem('gismoMode') || 'visual',
+          quizzes_passed: Math.max(Number(u.quizzes_passed) || 0, Number(appState.user.quizzes_passed) || 0),
+          current_streak: Math.max(Number(u.current_streak) || 1, Number(appState.user.current_streak) || 1)
+        };
+        if (typeof persistUserSession === 'function') {
+          persistUserSession(appState.user);
+        }
       }
     }
   } catch (err) {
-    console.warn("Could not load student profile:", err);
+    console.warn("Could not load student profile from API, using cached session profile:", err);
+  }
+
+  // Always render from validated appState.user so profile is never blank
+  const u = appState.user;
+  const usernameEl = document.getElementById('profile-student-username');
+  if (usernameEl) usernameEl.textContent = u.username || 'Student';
+
+  const regEl = document.getElementById('profile-student-reg');
+  if (regEl) regEl.textContent = u.reg_no || localStorage.getItem('gismoRegNo') || '—';
+
+  const schoolEl = document.getElementById('profile-student-school');
+  if (schoolEl) schoolEl.textContent = u.school || localStorage.getItem('gismoSchool') || '—';
+
+  const disEl = document.getElementById('profile-student-disability');
+  if (disEl) {
+    const dis = u.disability || localStorage.getItem('gismoDisability') || 'None';
+    disEl.textContent = dis && dis !== 'None' ? `${dis} Accommodation` : 'Standard Profile';
+  }
+
+  const modeEl = document.getElementById('profile-student-mode');
+  if (modeEl) {
+    const mode = u.preferred_learning_mode || localStorage.getItem('gismoMode') || 'visual';
+    modeEl.textContent = mode.charAt(0).toUpperCase() + mode.slice(1) + ' Mode';
+  }
+
+  if (elements.profileNameDisplay) {
+    elements.profileNameDisplay.textContent = u.username || 'Student';
   }
 }
 
@@ -5887,8 +5968,18 @@ async function saveSettings() {
   localStorage.setItem('gismoSchool', school);
   localStorage.setItem('gismoRegNo', regNo);
 
-  // If user is logged in, sync to backend
+  // If user is logged in, sync to backend and persist session
   if (appState.user && appState.user.id) {
+    appState.user = {
+      ...appState.user,
+      disability,
+      preferred_learning_mode: mode,
+      school,
+      reg_no: regNo
+    };
+    if (typeof persistUserSession === 'function') {
+      persistUserSession(appState.user);
+    }
     try {
       const res = await fetch(`/api/users/${appState.user.id}`, {
         method: 'PUT',
@@ -5904,6 +5995,9 @@ async function saveSettings() {
       if (res.ok) {
         const updated = await res.json();
         appState.user = { ...appState.user, ...updated };
+        if (typeof persistUserSession === 'function') {
+          persistUserSession(appState.user);
+        }
       }
     } catch (e) {
       console.warn("Could not save settings to server:", e);

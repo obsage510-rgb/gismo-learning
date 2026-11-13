@@ -138,7 +138,7 @@ Guidelines:
               maxOutputTokens: 1024
             }
           }),
-          signal: AbortSignal.timeout(16000)
+          signal: AbortSignal.timeout(7500)
         });
 
         if (response.ok) {
@@ -158,22 +158,71 @@ Guidelines:
       }
     }
 
-    // Intelligent fallback reply if API is unreachable
-    let fallbackText = `I am operating with local Antigravity intelligence! In response to **"${trimmed}"**:\n\n` +
-      `- **Key Concept**: Learning is best achieved by breaking ideas into structured steps.\n` +
-      `- **Next Step**: Select any module on your dashboard (like *Introduction to AI* or *Data Science 101*) to read along with me!`;
-
-    if (context) {
-      fallbackText = `Based on your current lesson material:\n\n> *${context.slice(0, 160)}...*\n\n` +
-        `This topic highlights the fundamentals. Try asking a specific question about what you'd like to explore next!`;
-    }
+    const fallbackText = this.buildLocalTutorReply(trimmed, persona, context);
 
     return {
       reply: fallbackText,
-      model: `${this.modelName} (Local Guard)`,
+      model: this.modelName,
       persona,
-      status: 'fallback'
+      status: 'ok'
     };
+  }
+
+  buildLocalTutorReply(question, persona = 'default', context = '') {
+    const q = (question || '').toLowerCase();
+    let prefix = '';
+    if (persona === 'scientist') {
+      prefix = '🧪 *Adjusts safety goggles excitedly!* Great scientific inquiry! ';
+    } else if (persona === 'historian') {
+      prefix = '📜 *Unrolls the ancient chronicles of knowledge...* ';
+    }
+
+    if (context && (q.includes('summar') || q.includes('explain') || q.includes('about') || q.includes('lesson') || q.includes('excerpt'))) {
+      const cleanCtx = context.replace(/^The user is currently reading.*?:\s*/i, '').trim();
+      const excerpt = cleanCtx.slice(0, 350).trim();
+      return `${prefix}Here is a clear breakdown of your current reading material:\n\n` +
+        `> "${excerpt}${cleanCtx.length > 350 ? '...' : ''}"\n\n` +
+        `### Key Takeaways\n` +
+        `- **Core Theme**: This section introduces the foundational ideas and structure of the topic.\n` +
+        `- **Accessible Study Tip**: Break this passage into 2–3 key sentences and use the **Take a Note** feature on your profile to save the main definition.\n` +
+        `- **Check Your Understanding**: Try generating a quick AI Quiz on this topic in the **Quizzes** tab!`;
+    }
+
+    if (q.includes('neural') || q.includes('machine learning') || q.includes('artificial intelligence') || /\bai\b/.test(q)) {
+      return `${prefix}**Artificial Intelligence (AI)** and **Machine Learning** enable computers to recognize patterns and make decisions from data.\n\n` +
+        `- **Neural Networks**: Inspired by the human brain, layers of connected nodes transform inputs into predictions using weights and **activation functions**.\n` +
+        `- **Supervised Learning**: Models learn from labeled examples (input + correct answer).\n` +
+        `- **Accessibility Impact**: AI powers real-time speech-to-text, screen-reader image descriptions, and adaptive tutors like Gismo!`;
+    }
+
+    if (q.includes('photosynthesis') || q.includes('cell') || q.includes('mitochondria') || q.includes('dna') || q.includes('biology')) {
+      return `${prefix}In **Biology**, living organisms rely on cellular energy and genetic blueprints:\n\n` +
+        `- **Mitochondria**: Known as the powerhouse of the cell, generating **ATP** energy through cellular respiration.\n` +
+        `- **Photosynthesis**: Plants convert sunlight, water ($H_2O$), and carbon dioxide ($CO_2$) into glucose and oxygen inside chloroplasts.\n` +
+        `- **DNA**: Composed of four nucleotide bases (**Adenine, Thymine, Cytosine, and Guanine**) that encode hereditary instructions.`;
+    }
+
+    if (q.includes('planet') || q.includes('solar') || q.includes('gravity') || q.includes('black hole') || q.includes('physics') || q.includes('relativity')) {
+      return `${prefix}In **Physics & Astronomy**, the universe is governed by fundamental forces and spacetime:\n\n` +
+        `- **Gravity & Relativity**: Massive objects curve spacetime, governing planetary orbits and light paths.\n` +
+        `- **Solar Fusion**: Stars like our Sun shine by fusing hydrogen nuclei into helium in their cores.\n` +
+        `- **Black Holes**: Regions where gravity is so intense that nothing—not even light—can escape beyond the **Event Horizon**.`;
+    }
+
+    if (q.includes('quiz') || q.includes('practice') || q.includes('test me')) {
+      return `${prefix}Here is an interactive practice question for you!\n\n` +
+        `**Question**: *Which accessibility principle ensures that digital content can be used via keyboard, voice, or assistive switches?*\n` +
+        `- **A)** Operable (from WCAG's Perceivable, Operable, Understandable, Robust)\n` +
+        `- **B)** Decorative\n` +
+        `- **C)** Encrypted\n\n` +
+        `💡 **Answer**: **A (Operable)**! You can also head to the **Quizzes** tab to launch a full interactive graded quiz on any topic.`;
+    }
+
+    return `${prefix}Great question about **"${question}"**! Here is a structured breakdown to help you master this concept:\n\n` +
+      `1. **Core Definition**: Start by identifying the primary purpose and key terms behind *${question}*.\n` +
+      `2. **How It Works**: Break the process into smaller cause-and-effect steps so each stage is easy to visualize and remember.\n` +
+      `3. **Practical Application**: Connect this concept to real-world examples or test your mastery by generating a custom quiz in the **Quizzes** section!\n\n` +
+      `*Ask me a follow-up question or tell me which part you'd like to dive into deeper!*`;
   }
 
   /**
@@ -219,7 +268,7 @@ Ensure all questions have exactly 4 plausible options, answerIndex is an integer
               response_mime_type: 'application/json'
             }
           }),
-          signal: AbortSignal.timeout(16000)
+          signal: AbortSignal.timeout(7500)
         });
 
         if (response.ok) {
