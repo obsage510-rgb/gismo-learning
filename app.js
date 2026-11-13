@@ -474,7 +474,14 @@ async function handleLogin() {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: name, password: password })
+      body: JSON.stringify({
+        username: name,
+        password: password,
+        role: 'student',
+        school: localStorage.getItem('gismoSchool') || '',
+        reg_no: localStorage.getItem('gismoRegNo') || '',
+        disability: localStorage.getItem('gismoDisability') || 'None'
+      })
     });
     
     const data = await res.json().catch(() => ({}));
@@ -557,7 +564,7 @@ async function handleAdminLogin() {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: name, password: password })
+      body: JSON.stringify({ username: name, password: password, role: 'admin' })
     });
     
     const data = await res.json().catch(() => ({}));
