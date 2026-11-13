@@ -216,51 +216,126 @@
           </div>
 
           <div class="donation-card">
-            <div class="paystack-header-bar">
-              <span class="paystack-badge">🔒 Paystack Checkout</span>
-              <div class="currency-toggle" role="group" aria-label="Currency selector">
-                <button type="button" class="currency-btn active" data-currency="NGN">NGN ₦</button>
-                <button type="button" class="currency-btn" data-currency="USD">USD $</button>
-              </div>
-            </div>
-
-            <div class="freq-toggle" role="group" aria-label="Donation frequency">
-              <button type="button" class="freq-btn active" data-freq="one-time">One-Time</button>
-              <button type="button" class="freq-btn" data-freq="monthly">Monthly</button>
-            </div>
-
-            <div class="amount-grid" id="donation-amount-grid" role="group" aria-label="Preset donation amounts">
-              <button type="button" class="amount-btn" data-amount="5000">₦5,000</button>
-              <button type="button" class="amount-btn active" data-amount="15000">₦15,000</button>
-              <button type="button" class="amount-btn" data-amount="30000">₦30,000</button>
-              <button type="button" class="amount-btn" data-amount="75000">₦75,000</button>
-            </div>
-
-            <form id="donation-form">
-              <div class="form-field">
-                <label for="donation-custom-amount" id="donation-amount-label">Custom Amount (NGN)</label>
-                <input type="number" id="donation-custom-amount" class="form-control" min="1" value="15000" required>
-              </div>
-              <div class="form-row-2">
-                <div class="form-field">
-                  <label for="donation-donor-name">Your Name (Optional)</label>
-                  <input type="text" id="donation-donor-name" class="form-control" placeholder="e.g. Alex Rivera">
-                </div>
-                <div class="form-field">
-                  <label for="donation-donor-email">Email for Receipt</label>
-                  <input type="email" id="donation-donor-email" class="form-control" placeholder="you@example.com" required>
-                </div>
-              </div>
-              <div class="form-field">
-                <label for="donation-quick-note">Quick Note (Optional)</label>
-                <textarea id="donation-quick-note" class="form-control" rows="2" maxlength="500" placeholder="Leave an encouraging note for students or specify a school..."></textarea>
-              </div>
-              <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-submit-donation">
-                Pay with Paystack (₦15,000 One-Time)
+            <div class="payment-method-tabs" role="tablist" aria-label="Payment method">
+              <button type="button" class="pm-tab-btn active" id="tab-pm-paystack" role="tab" aria-selected="true">
+                💳 Paystack (Card / Bank)
               </button>
-              <div class="paystack-methods-hint">Supports Debit/Credit Cards, Bank Transfer, USSD &amp; Mobile Money</div>
-              <div id="donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
-            </form>
+              <button type="button" class="pm-tab-btn" id="tab-pm-crypto" role="tab" aria-selected="false">
+                ⛓️ QuickNode (Crypto)
+              </button>
+            </div>
+
+            <!-- Paystack Panel -->
+            <div id="panel-pm-paystack">
+              <div class="paystack-header-bar">
+                <span class="paystack-badge">🔒 Paystack Checkout</span>
+                <div class="currency-toggle" role="group" aria-label="Currency selector">
+                  <button type="button" class="currency-btn active" data-currency="NGN">NGN ₦</button>
+                  <button type="button" class="currency-btn" data-currency="USD">USD $</button>
+                </div>
+              </div>
+
+              <div class="freq-toggle" role="group" aria-label="Donation frequency">
+                <button type="button" class="freq-btn active" data-freq="one-time">One-Time</button>
+                <button type="button" class="freq-btn" data-freq="monthly">Monthly</button>
+              </div>
+
+              <div class="amount-grid" id="donation-amount-grid" role="group" aria-label="Preset donation amounts">
+                <button type="button" class="amount-btn" data-amount="5000">₦5,000</button>
+                <button type="button" class="amount-btn active" data-amount="15000">₦15,000</button>
+                <button type="button" class="amount-btn" data-amount="30000">₦30,000</button>
+                <button type="button" class="amount-btn" data-amount="75000">₦75,000</button>
+              </div>
+
+              <form id="donation-form">
+                <div class="form-field">
+                  <label for="donation-custom-amount" id="donation-amount-label">Custom Amount (NGN)</label>
+                  <input type="number" id="donation-custom-amount" class="form-control" min="1" value="15000" required>
+                </div>
+                <div class="form-row-2">
+                  <div class="form-field">
+                    <label for="donation-donor-name">Your Name (Optional)</label>
+                    <input type="text" id="donation-donor-name" class="form-control" placeholder="e.g. Alex Rivera">
+                  </div>
+                  <div class="form-field">
+                    <label for="donation-donor-email">Email for Receipt</label>
+                    <input type="email" id="donation-donor-email" class="form-control" placeholder="you@example.com" required>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label for="donation-quick-note">Quick Note (Optional)</label>
+                  <textarea id="donation-quick-note" class="form-control" rows="2" maxlength="500" placeholder="Leave an encouraging note for students or specify a school..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-submit-donation">
+                  Pay with Paystack (₦15,000 One-Time)
+                </button>
+                <div class="paystack-methods-hint">Supports Debit/Credit Cards, Bank Transfer, USSD &amp; Mobile Money</div>
+                <div id="donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
+              </form>
+            </div>
+
+            <!-- QuickNode Crypto Panel -->
+            <div id="panel-pm-crypto" class="hidden">
+              <div class="paystack-header-bar">
+                <span class="paystack-badge">⛓️ QuickNode On-Chain Verification</span>
+              </div>
+
+              <div class="crypto-wallet-box">
+                <div style="font-size:0.78rem; font-weight:700; color:var(--text-secondary);">Gismo Receiving Wallet (EVM: ETH / Base / Polygon)</div>
+                <div class="crypto-wallet-row">
+                  <span class="crypto-wallet-addr" id="crypto-wallet-address">Configure CRYPTO_DONATION_WALLET in Vercel</span>
+                  <button type="button" class="btn-copy-wallet" id="btn-copy-wallet">Copy</button>
+                </div>
+              </div>
+
+              <form id="crypto-donation-form">
+                <div class="form-row-2">
+                  <div class="form-field">
+                    <label for="crypto-network">Network</label>
+                    <select id="crypto-network" class="form-control">
+                      <option value="Ethereum">Ethereum (ETH)</option>
+                      <option value="Base">Base (ETH)</option>
+                      <option value="Polygon">Polygon (MATIC)</option>
+                      <option value="BNB Chain">BNB Chain (BNB)</option>
+                    </select>
+                  </div>
+                  <div class="form-field">
+                    <label for="crypto-amount">Amount</label>
+                    <input type="number" id="crypto-amount" class="form-control" step="0.0001" min="0.0001" value="0.01" required>
+                  </div>
+                </div>
+
+                <div class="form-row-2">
+                  <div class="form-field">
+                    <label for="crypto-donor-name">Your Name (Optional)</label>
+                    <input type="text" id="crypto-donor-name" class="form-control" placeholder="e.g. Alex Rivera">
+                  </div>
+                  <div class="form-field">
+                    <label for="crypto-donor-email">Email (Optional)</label>
+                    <input type="email" id="crypto-donor-email" class="form-control" placeholder="you@example.com">
+                  </div>
+                </div>
+
+                <div class="form-field">
+                  <label for="crypto-quick-note">Quick Note (Optional)</label>
+                  <textarea id="crypto-quick-note" class="form-control" rows="2" maxlength="500" placeholder="Leave an encouraging note for students..."></textarea>
+                </div>
+
+                <button type="button" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem;" id="btn-web3-donate">
+                  🦊 Connect Wallet &amp; Send Crypto
+                </button>
+
+                <div class="form-field">
+                  <label for="crypto-tx-hash">Or Paste Transaction Hash (0x...) to Verify via QuickNode</label>
+                  <input type="text" id="crypto-tx-hash" class="form-control" placeholder="0x...">
+                </div>
+
+                <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-verify-crypto">
+                  Verify &amp; Record Crypto Donation
+                </button>
+                <div id="crypto-donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
+              </form>
+            </div>
           </div>
         </div>
       </div>
@@ -494,13 +569,138 @@
       });
     }
 
-    // Load Paystack config and check if returning from a Paystack redirect
+    // Payment Method Tab Switching (Paystack vs QuickNode Crypto)
+    const tabPaystack = document.getElementById('tab-pm-paystack');
+    const tabCrypto = document.getElementById('tab-pm-crypto');
+    const panelPaystack = document.getElementById('panel-pm-paystack');
+    const panelCrypto = document.getElementById('panel-pm-crypto');
+    let cryptoReceivingWallet = '';
+
+    if (tabPaystack && tabCrypto && panelPaystack && panelCrypto) {
+      tabPaystack.addEventListener('click', () => {
+        tabPaystack.classList.add('active');
+        tabCrypto.classList.remove('active');
+        tabPaystack.setAttribute('aria-selected', 'true');
+        tabCrypto.setAttribute('aria-selected', 'false');
+        panelPaystack.classList.remove('hidden');
+        panelCrypto.classList.add('hidden');
+      });
+      tabCrypto.addEventListener('click', () => {
+        tabCrypto.classList.add('active');
+        tabPaystack.classList.remove('active');
+        tabCrypto.setAttribute('aria-selected', 'true');
+        tabPaystack.setAttribute('aria-selected', 'false');
+        panelCrypto.classList.remove('hidden');
+        panelPaystack.classList.add('hidden');
+      });
+    }
+
+    const copyWalletBtn = document.getElementById('btn-copy-wallet');
+    if (copyWalletBtn) {
+      copyWalletBtn.addEventListener('click', async () => {
+        if (!cryptoReceivingWallet) return;
+        try {
+          await navigator.clipboard.writeText(cryptoReceivingWallet);
+          copyWalletBtn.textContent = 'Copied!';
+          setTimeout(() => { copyWalletBtn.textContent = 'Copy'; }, 2000);
+        } catch (_) {}
+      });
+    }
+
+    // Load Paystack & QuickNode config
     fetch('/api/donations/config')
       .then(r => r.json())
       .then(cfg => {
         if (cfg && cfg.paystackPublicKey) paystackPublicKey = cfg.paystackPublicKey;
+        if (cfg && cfg.cryptoWallet) {
+          cryptoReceivingWallet = cfg.cryptoWallet;
+          const walletEl = document.getElementById('crypto-wallet-address');
+          if (walletEl) walletEl.textContent = cfg.cryptoWallet;
+        }
       })
       .catch(() => {});
+
+    async function submitCryptoVerification(txHash) {
+      const statusEl = document.getElementById('crypto-donation-status');
+      const network = document.getElementById('crypto-network')?.value || 'Ethereum';
+      const tokenMap = { 'Ethereum': 'ETH', 'Base': 'ETH', 'Polygon': 'MATIC', 'BNB Chain': 'BNB' };
+      const token = tokenMap[network] || 'ETH';
+      const amount = Number(document.getElementById('crypto-amount')?.value) || 0;
+      const name = document.getElementById('crypto-donor-name')?.value.trim() || 'Crypto Supporter';
+      const email = document.getElementById('crypto-donor-email')?.value.trim() || '';
+      const quickNote = document.getElementById('crypto-quick-note')?.value.trim() || '';
+
+      try {
+        const res = await fetch('/api/donations/crypto/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tx_hash: txHash, network, token, amount, name, email, quick_note: quickNote })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Verification failed.');
+        if (statusEl) {
+          statusEl.textContent = data.message;
+          statusEl.classList.remove('hidden');
+        }
+      } catch (err) {
+        if (statusEl) {
+          statusEl.textContent = err.message || 'Could not verify transaction.';
+          statusEl.classList.remove('hidden');
+        }
+      }
+    }
+
+    const web3Btn = document.getElementById('btn-web3-donate');
+    if (web3Btn) {
+      web3Btn.addEventListener('click', async () => {
+        const statusEl = document.getElementById('crypto-donation-status');
+        if (!cryptoReceivingWallet) {
+          if (statusEl) {
+            statusEl.textContent = 'Please configure CRYPTO_DONATION_WALLET in Vercel environment variables first.';
+            statusEl.classList.remove('hidden');
+          }
+          return;
+        }
+        if (typeof window.ethereum === 'undefined') {
+          if (statusEl) {
+            statusEl.textContent = 'No Web3 wallet detected (MetaMask / Coinbase Wallet). Send crypto to the address above and paste your 0x transaction hash below.';
+            statusEl.classList.remove('hidden');
+          }
+          return;
+        }
+        try {
+          web3Btn.disabled = true;
+          web3Btn.textContent = 'Confirm in Wallet...';
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const amountEth = Number(document.getElementById('crypto-amount')?.value) || 0.01;
+          const weiHex = '0x' + BigInt(Math.round(amountEth * 1e18)).toString(16);
+          const txHash = await window.ethereum.request({
+            method: 'eth_sendTransaction',
+            params: [{ from: accounts[0], to: cryptoReceivingWallet, value: weiHex }]
+          });
+          const txInput = document.getElementById('crypto-tx-hash');
+          if (txInput) txInput.value = txHash;
+          await submitCryptoVerification(txHash);
+        } catch (err) {
+          if (statusEl) {
+            statusEl.textContent = err.message || 'Wallet transaction cancelled.';
+            statusEl.classList.remove('hidden');
+          }
+        } finally {
+          web3Btn.disabled = false;
+          web3Btn.textContent = '🦊 Connect Wallet & Send Crypto';
+        }
+      });
+    }
+
+    const cryptoForm = document.getElementById('crypto-donation-form');
+    if (cryptoForm) {
+      cryptoForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const txHash = document.getElementById('crypto-tx-hash')?.value.trim();
+        await submitCryptoVerification(txHash);
+      });
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const returnedRef = urlParams.get('reference') || urlParams.get('trxref');

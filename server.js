@@ -316,10 +316,108 @@ app.post('/api/contact', (req, res) => {
 app.get('/api/donations/config', (req, res) => {
   const publicKey = (process.env.PAYSTACK_PUBLIC_KEY || '').trim();
   const secretKey = (process.env.PAYSTACK_SECRET_KEY || '').trim();
+  const quicknodeUrl = (process.env.QUICKNODE_RPC_URL || '').trim();
+  const cryptoWallet = (process.env.CRYPTO_DONATION_WALLET || '').trim();
   res.json({
     paystackConfigured: !!(publicKey && secretKey),
     paystackPublicKey: publicKey,
-    defaultCurrency: (process.env.PAYSTACK_CURRENCY || 'NGN').toUpperCase()
+    defaultCurrency: (process.env.PAYSTACK_CURRENCY || 'NGN').toUpperCase(),
+    quicknodeConfigured: !!quicknodeUrl,
+    cryptoWallet
+  });
+});
+
+app.post('/api/donations/crypto/verify', async (req, res) => {
+  const {
+    tx_hash = '',
+    network = 'Ethereum',
+    token = 'ETH',
+    amount = 0,
+    name = 'Crypto Supporter',
+    email = '',
+    quick_note = ''
+  } = req.body || {};
+
+  const cleanHash = String(tx_hash || '').trim();
+  const cleanName = String(name || 'Crypto Supporter').trim() || 'Crypto Supporter';
+  const cleanEmail = String(email || '').trim() || 'crypto-donor@gismo.org';
+  const cleanNote = String(quick_note || '').trim().slice(0, 500);
+  const numericAmount = Number(amount) || 0;
+
+  if (!cleanHash || !/^0x[a-fA-F0-9]{16,128}$/.test(cleanHash)) {
+    return res.status(400).json({ error: 'Please enter a valid transaction hash starting with 0x.' });
+  }
+
+  const quicknodeUrl = (process.env.QUICKNODE_RPC_URL || '').trim();
+  let status = 'recorded';
+  let verifiedOnChain = false;
+  let blockNumber = null;
+
+  if (quicknodeUrl) {
+    try {
+      const rpcRes = await fetch(quicknodeUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_getTransactionReceipt',
+          params: [cleanHash]
+        }),
+        signal: AbortSignal.timeout(7000)
+      });
+      const rpcData = await rpcRes.json();
+      if (rpcData && rpcData.result) {
+        blockNumber = rpcData.result.blockNumber ? parseInt(rpcData.result.blockNumber, 16) : null;
+        if (rpcData.result.status === '0x1') {
+          status = 'success';
+          verifiedOnChain = true;
+        } else if (rpcData.result.status === '0x0') {
+          return res.status(400).json({ error: 'This transaction reverted/failed on-chain according to QuickNode.' });
+        }
+      } else {
+        // Check if transaction is still pending in mempool
+        const txRes = await fetch(quicknodeUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'eth_getTransactionByHash',
+            params: [cleanHash]
+          }),
+          signal: AbortSignal.timeout(5000)
+        });
+        const txData = await txRes.json();
+        if (txData && txData.result) {
+          status = 'pending_confirmation';
+        } else {
+          return res.status(404).json({
+            error: 'Transaction hash not found on the configured QuickNode network yet. Please double-check the network or wait a few seconds.'
+          });
+        }
+      }
+    } catch (err) {
+      return res.status(502).json({ error: 'Could not reach QuickNode RPC: ' + err.message });
+    }
+  }
+
+  try {
+    db.prepare(`
+      INSERT OR REPLACE INTO donations (donor_name, donor_email, amount, currency, frequency, quick_note, payment_method, reference, status)
+      VALUES (?, ?, ?, ?, 'one-time', ?, ?, ?, ?)
+    `).run(cleanName, cleanEmail, numericAmount, `${token} (${network})`, cleanNote, 'quicknode_crypto', cleanHash, status);
+  } catch (_) {}
+
+  return res.json({
+    success: true,
+    verifiedOnChain,
+    status,
+    blockNumber,
+    reference: cleanHash,
+    message: verifiedOnChain
+      ? `On-chain donation verified via QuickNode (Block #${blockNumber})! Thank you, ${cleanName}, for your ${numericAmount ? `${numericAmount} ${token} ` : ''}gift${cleanNote ? ` ("${cleanNote}")` : ''}.`
+      : `Crypto donation recorded (Tx: ${cleanHash.slice(0, 12)}...).${quicknodeUrl ? ' Waiting for block confirmation.' : ' Add QUICKNODE_RPC_URL in Vercel for live on-chain verification.'}`
   });
 });
 
