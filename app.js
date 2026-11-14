@@ -4006,27 +4006,75 @@ function loadLesson(lessonId) {
   elements.lessonActiveContainer.style.display = 'flex';
   elements.activeLessonTitle.textContent = lesson.title;
   elements.activeLessonMeta.textContent = lesson.meta;
-  elements.activeLessonImage.src = lesson.image || '';
-  elements.activeLessonImage.style.display = lesson.image ? 'block' : 'none';
-  elements.activeLessonDescriptor.innerHTML = `<strong>Image Description:</strong> ${lesson.descriptor || 'No description'}`;
-  elements.activeLessonDescriptor.style.display = lesson.descriptor ? 'block' : 'none';
-  
-  appState.currentPageIndex = 0;
-  if (lesson.meta === 'Web Book') {
-    appState.currentLessonPages = paginateText(lesson.content, 4000);
+
+  const isLibraryBook = lesson.id.startsWith('gutenberg_') || lesson.meta === 'Web Book';
+  elements.lessonActiveContainer.classList.toggle('novel-reader-mode', isLibraryBook);
+
+  const backLabel = document.getElementById('btn-back-label');
+  if (backLabel) backLabel.textContent = isLibraryBook ? 'Back to Library' : 'Back to Dashboard';
+
+  const progressTrack = document.getElementById('novel-progress-track');
+  const bookHeader = document.getElementById('novel-book-header');
+  const bookCoverEl = document.getElementById('novel-book-cover');
+  const statsEl = document.getElementById('novel-reading-stats');
+  const reloadBtn = document.getElementById('btn-reload-full-book');
+
+  if (isLibraryBook) {
+    if (progressTrack) progressTrack.style.display = 'block';
+    if (bookHeader) bookHeader.style.display = 'flex';
+
+    let coverUrl = lesson.image || '';
+    if (!coverUrl || coverUrl.includes('assets/pyramids.jpg')) {
+      const m = String(lesson.id).match(/^gutenberg_(\d+)/);
+      coverUrl = m ? `https://www.gutenberg.org/cache/epub/${m[1]}/pg${m[1]}.cover.medium.jpg` : '';
+    }
+    if (bookCoverEl) {
+      bookCoverEl.src = coverUrl;
+      bookCoverEl.alt = lesson.title;
+      bookCoverEl.style.display = coverUrl ? 'block' : 'none';
+    }
+
+    const wordCount = (lesson.content || '').trim().split(/\s+/).filter(Boolean).length;
+    const readMins = Math.max(1, Math.round(wordCount / 220));
+    const readTimeLabel = readMins >= 60 ? `${Math.floor(readMins / 60)}h ${readMins % 60}m read` : `${readMins} min read`;
+
+    appState.currentLessonPages = paginateText(lesson.content || '', 3200, true);
+    const savedPage = parseInt(localStorage.getItem(`gismo_book_page_${lessonId}`) || '0', 10);
+    appState.currentPageIndex = (!Number.isNaN(savedPage) && savedPage >= 0 && savedPage < appState.currentLessonPages.length) ? savedPage : 0;
+
+    if (statsEl) {
+      statsEl.textContent = `${wordCount.toLocaleString()} words • ${appState.currentLessonPages.length} pages • ~${readTimeLabel}`;
+    }
+
+    const isNumericGutenberg = /^gutenberg_\d+/.test(lesson.id);
+    if (reloadBtn) {
+      reloadBtn.style.display = (isNumericGutenberg && (lesson.content || '').length < 15000) ? 'inline-flex' : 'none';
+      reloadBtn.disabled = false;
+      reloadBtn.textContent = 'Load Full Book';
+    }
+
+    applyNovelReaderPreferences();
   } else {
-    appState.currentLessonPages = [lesson.content.replace(/\\n\\n/g, '<br><br>')];
+    if (progressTrack) progressTrack.style.display = 'none';
+    if (bookHeader) bookHeader.style.display = 'none';
+    if (reloadBtn) reloadBtn.style.display = 'none';
+    elements.activeLessonImage.src = lesson.image || '';
+    elements.activeLessonImage.style.display = lesson.image ? 'block' : 'none';
+    elements.activeLessonDescriptor.innerHTML = `<strong>Image Description:</strong> ${lesson.descriptor || 'No description'}`;
+    elements.activeLessonDescriptor.style.display = lesson.descriptor ? 'block' : 'none';
+    appState.currentPageIndex = 0;
+    appState.currentLessonPages = [lesson.content.replace(/\n\n/g, '<br><br>')];
   }
-  
+
   renderPage();
-  
+
   elements.btnReadLesson.disabled = false;
-  
+
   const quizBtn = document.getElementById('btn-start-quiz');
-  if(quizBtn && lesson.quiz_q) quizBtn.style.display = 'inline-flex';
+  if (quizBtn && lesson.quiz_q) quizBtn.style.display = 'inline-flex';
   else if (quizBtn) quizBtn.style.display = 'none';
-  
-  announceTTS(`Loaded lesson: ${lesson.title}.`);
+
+  announceTTS(`Loaded ${isLibraryBook ? 'book' : 'lesson'}: ${lesson.title}.`);
 }
 
 function showDashboard() {
@@ -5514,40 +5562,75 @@ function closeVoiceHelpModal() {
 window.closeVoiceHelpModal = closeVoiceHelpModal;
 
 
-// --- Pagination & Web Books Logic ---
-function paginateText(text, maxChars) {
+// --- Pagination & Novel Reader Logic ---
+function formatNovelBlock(rawBlock) {
+  const trimmed = rawBlock.trim();
+  if (!trimmed) return '';
+  const isChapterHeading =
+    trimmed.length < 90 &&
+    (/^(CHAPTER|BOOK|PART|ACT|SCENE|LETTER|VOLUME)\b/i.test(trimmed) ||
+      /^(PROLOGUE|EPILOGUE|INTRODUCTION|PREFACE)\.?$/i.test(trimmed) ||
+      /^[IVXLCDM]+\.?$/.test(trimmed));
+  if (isChapterHeading) {
+    return `<h4 class="novel-chapter-heading">${escapeHtml(trimmed)}</h4>`;
+  }
+  return `<p class="novel-para">${escapeHtml(trimmed).replace(/\n/g, ' ')}</p>`;
+}
+
+function paginateText(text, maxChars, asNovel = false) {
   const pages = [];
-  const paragraphs = text.split(/\n\n+/);
+  const paragraphs = String(text || '').replace(/\r\n/g, '\n').split(/\n\n+/);
   let currentPage = "";
-  
+  let currentCharCount = 0;
+
   for (const p of paragraphs) {
-    if (currentPage.length + p.length > maxChars && currentPage.length > 0) {
+    const clean = p.trim();
+    if (!clean) continue;
+    if (currentCharCount + clean.length > maxChars && currentCharCount > 0) {
       pages.push(currentPage);
       currentPage = "";
+      currentCharCount = 0;
     }
-    currentPage += p + '<br><br>';
+    currentPage += asNovel ? formatNovelBlock(clean) : (escapeHtml(clean) + '<br><br>');
+    currentCharCount += clean.length;
   }
   if (currentPage.trim().length > 0) {
     pages.push(currentPage);
   }
-  return pages;
+  return pages.length > 0 ? pages : ['<p class="novel-para">No content available.</p>'];
 }
 
 function renderPage() {
   if (!appState.currentLessonPages || appState.currentLessonPages.length === 0) return;
   elements.activeLessonContent.innerHTML = appState.currentLessonPages[appState.currentPageIndex];
-  
+
+  const total = appState.currentLessonPages.length;
+  const current = appState.currentPageIndex + 1;
+  const pct = Math.round((current / total) * 100);
+
+  const progressFill = document.getElementById('novel-progress-fill');
+  if (progressFill) progressFill.style.width = `${pct}%`;
+
+  if (appState.activeLesson) {
+    try {
+      localStorage.setItem(`gismo_book_page_${appState.activeLesson}`, String(appState.currentPageIndex));
+    } catch (_) {}
+  }
+
   const paginationControls = document.getElementById('pagination-controls');
-  if (appState.currentLessonPages.length > 1) {
+  if (total > 1) {
     paginationControls.style.display = 'flex';
-    document.getElementById('page-indicator').textContent = `Page ${appState.currentPageIndex + 1} of ${appState.currentLessonPages.length}`;
+    document.getElementById('page-indicator').textContent = `Page ${current} of ${total} (${pct}%)`;
     document.getElementById('btn-prev-page').disabled = appState.currentPageIndex === 0;
-    document.getElementById('btn-next-page').disabled = appState.currentPageIndex === appState.currentLessonPages.length - 1;
+    document.getElementById('btn-next-page').disabled = appState.currentPageIndex === total - 1;
   } else {
     paginationControls.style.display = 'none';
   }
-  
+
   elements.activeLessonContent.scrollTop = 0;
+  if (elements.lessonActiveContainer) {
+    elements.lessonActiveContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function prevPage() {
@@ -5565,6 +5648,86 @@ function nextPage() {
     announceTTS(`Page ${appState.currentPageIndex + 1}`);
   }
 }
+
+function applyNovelReaderPreferences() {
+  const container = elements.lessonActiveContainer;
+  if (!container) return;
+
+  const theme = localStorage.getItem('gismo_novel_theme') || 'auto';
+  if (theme === 'auto') {
+    container.removeAttribute('data-novel-theme');
+  } else {
+    container.setAttribute('data-novel-theme', theme);
+  }
+  document.querySelectorAll('[data-novel-theme-btn]').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-novel-theme-btn') === theme);
+  });
+
+  const sizeRem = parseFloat(localStorage.getItem('gismo_novel_font_size') || '1.12');
+  container.style.setProperty('--novel-font-size', `${Math.min(1.6, Math.max(0.9, sizeRem))}rem`);
+
+  const fontMode = localStorage.getItem('gismo_novel_font') || 'serif';
+  container.classList.toggle('novel-font-sans', fontMode === 'sans');
+  const fontToggleBtn = document.getElementById('btn-novel-font-toggle');
+  if (fontToggleBtn) fontToggleBtn.textContent = fontMode === 'sans' ? 'Sans' : 'Serif';
+}
+
+function setNovelTheme(theme) {
+  localStorage.setItem('gismo_novel_theme', theme);
+  applyNovelReaderPreferences();
+}
+window.setNovelTheme = setNovelTheme;
+
+function adjustNovelFontSize(delta) {
+  const current = parseFloat(localStorage.getItem('gismo_novel_font_size') || '1.12');
+  const next = Math.min(1.6, Math.max(0.9, Math.round((current + delta * 0.08) * 100) / 100));
+  localStorage.setItem('gismo_novel_font_size', String(next));
+  applyNovelReaderPreferences();
+}
+window.adjustNovelFontSize = adjustNovelFontSize;
+
+function toggleNovelFont() {
+  const current = localStorage.getItem('gismo_novel_font') || 'serif';
+  localStorage.setItem('gismo_novel_font', current === 'serif' ? 'sans' : 'serif');
+  applyNovelReaderPreferences();
+}
+window.toggleNovelFont = toggleNovelFont;
+
+async function reloadFullBook() {
+  const lessonId = appState.activeLesson;
+  const lesson = lessonsDb[lessonId];
+  const userId = (appState.user && appState.user.id) || sessionStorage.getItem('gismoUserId') || null;
+  if (!lesson || !userId) return;
+
+  const m = String(lesson.id).match(/^gutenberg_(\d+)/);
+  if (!m) return;
+  const bookId = m[1];
+  const btn = document.getElementById('btn-reload-full-book');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Loading Full Book...';
+  }
+
+  try {
+    const res = await fetch(`/api/web/import/${encodeURIComponent(bookId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, title: lesson.title, image: lesson.image || '' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not load full book.');
+    await fetchTextbooks();
+    loadLesson(lessonId);
+    showToast(`Loaded full book (${(data.char_count || 0).toLocaleString()} characters)!`, 'book');
+  } catch (err) {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Retry Full Book';
+    }
+    showToast(err.message || 'Could not fetch full text right now.', 'warning');
+  }
+}
+window.reloadFullBook = reloadFullBook;
 
 async function handleWebSearch(loadFeatured = false) {
   const inputEl = document.getElementById('web-search-input');

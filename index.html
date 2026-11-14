@@ -1462,14 +1462,39 @@
       <!-- Subject cards grid (populated dynamically from database) -->
       <div id="modules-list" class="row g-4"></div>
 
-      <!-- Active Lesson Detail Panel (hidden initially, toggled by JS) -->
+      <!-- Active Lesson / Novel Reader Panel (hidden initially, toggled by JS) -->
       <article id="lesson-active-container" class="lesson-container" aria-live="polite">
+        <div id="novel-progress-track" class="novel-progress-track" style="display:none;" aria-hidden="true">
+          <div id="novel-progress-fill" class="novel-progress-fill" style="width: 0%;"></div>
+        </div>
+
         <div class="lesson-header">
-          <button class="back-btn" onclick="showDashboard()" aria-label="Go back to subject list">
+          <button class="back-btn" onclick="showDashboard()" aria-label="Go back to library">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-            Back to Dashboard
+            <span id="btn-back-label">Back to Dashboard</span>
           </button>
           <span id="active-lesson-meta" class="module-meta">Module Status</span>
+        </div>
+
+        <!-- Novel Book Header (shown for library books) -->
+        <div id="novel-book-header" class="novel-book-header" style="display:none;">
+          <img id="novel-book-cover" src="" alt="" class="novel-book-cover" onerror="this.style.display='none'">
+          <div class="novel-book-meta-col">
+            <div id="novel-reading-stats" class="novel-reading-stats"></div>
+            <div id="novel-reader-toolbar" class="novel-reader-toolbar" role="toolbar" aria-label="Novel Reader Settings">
+              <div class="novel-toolbar-group" role="group" aria-label="Paper Theme">
+                <button type="button" class="novel-tool-btn active" data-novel-theme-btn="auto" onclick="setNovelTheme('auto')">Auto</button>
+                <button type="button" class="novel-tool-btn" data-novel-theme-btn="sepia" onclick="setNovelTheme('sepia')">Sepia</button>
+                <button type="button" class="novel-tool-btn" data-novel-theme-btn="night" onclick="setNovelTheme('night')">Night</button>
+              </div>
+              <div class="novel-toolbar-group" role="group" aria-label="Text Size">
+                <button type="button" class="novel-tool-btn" onclick="adjustNovelFontSize(-1)" aria-label="Decrease text size">A-</button>
+                <button type="button" class="novel-tool-btn" onclick="adjustNovelFontSize(1)" aria-label="Increase text size">A+</button>
+              </div>
+              <button type="button" id="btn-novel-font-toggle" class="novel-tool-btn" onclick="toggleNovelFont()">Serif</button>
+              <button type="button" id="btn-reload-full-book" class="novel-tool-btn novel-tool-btn-accent" style="display:none;" onclick="reloadFullBook()">Load Full Book</button>
+            </div>
+          </div>
         </div>
 
         <h2 id="active-lesson-title" class="welcome-title">Lesson Title</h2>
@@ -1502,16 +1527,16 @@
           Image descriptions for visually disabled students will appear here.
         </div>
 
-        <!-- Main Lesson body -->
+        <!-- Main Lesson / Novel body -->
         <div id="active-lesson-content" class="lesson-content">
           Lesson content text.
         </div>
         
         <!-- Pagination Controls -->
         <div id="pagination-controls" style="display: none; justify-content: space-between; align-items: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
-          <button id="btn-prev-page" class="theme-btn" onclick="prevPage()">Previous</button>
+          <button id="btn-prev-page" class="theme-btn" onclick="prevPage()">← Previous</button>
           <span id="page-indicator" style="color: var(--text-secondary); font-weight: bold;">Page 1</span>
-          <button id="btn-next-page" class="theme-btn" onclick="nextPage()">Next</button>
+          <button id="btn-next-page" class="theme-btn" onclick="nextPage()">Next →</button>
         </div>
       </article>
     </section>

@@ -1143,17 +1143,30 @@ app.post('/api/web/import/:book_id', async (req, res) => {
     let author = (catalogBook && catalogBook.author) || bodyAuthor || 'Project Gutenberg Author';
     let image = bodyImage || (catalogBook && catalogBook.image) || (/^\d+$/.test(bookId) ? `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.cover.medium.jpg` : '');
     let descriptor = (catalogBook && catalogBook.descriptor) || `A classic work by ${author}.`;
-    let content = catalogBook ? catalogBook.content : '';
+    let content = '';
     let quiz_q = (catalogBook && catalogBook.quiz_q) || `Who is the author of the book '${title}'?`;
     let quiz_a = (catalogBook && catalogBook.quiz_a) || author;
 
-    // Open Library work import
-    if (bookId.startsWith('ol_') && !content) {
+    const cleanGutenbergText = (rawText) => {
+      let text = String(rawText || '').replace(/\r\n/g, '\n');
+      const startMatch = text.match(/\*\*\*\s*START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[\s\S]*?\*\*\*/i);
+      if (startMatch && startMatch.index !== undefined) {
+        text = text.slice(startMatch.index + startMatch[0].length);
+      }
+      const endMatch = text.match(/\*\*\*\s*END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK/i);
+      if (endMatch && endMatch.index !== undefined) {
+        text = text.slice(0, endMatch.index);
+      }
+      return text.trim().slice(0, 1500000);
+    };
+
+    // Open Library work import (+ Internet Archive full text when available)
+    if (bookId.startsWith('ol_')) {
       const workId = bookId.slice(3);
       try {
         const olRes = await fetch(`https://openlibrary.org/works/${encodeURIComponent(workId)}.json`, {
           headers: { 'User-Agent': 'GismoLearning/1.0', 'Accept': 'application/json' },
-          signal: AbortSignal.timeout(5000)
+          signal: AbortSignal.timeout(6000)
         });
         if (olRes.ok) {
           const work = await olRes.json();
@@ -1165,69 +1178,104 @@ app.post('/api/web/import/:book_id', async (req, res) => {
             ? work.description
             : (work.description && work.description.value ? work.description.value : '');
           const subjects = Array.isArray(work.subjects) ? work.subjects.slice(0, 8).join(', ') : '';
-          content = [
-            title,
-            `By ${author}`,
-            '',
-            descText || `Study edition of "${title}" by ${author}.`,
-            subjects ? `\nKey Topics: ${subjects}` : '',
-            '\nUse the Gismo AI Tutor on the right to explore chapters, summarize key ideas, or generate a practice quiz!'
-          ].filter(Boolean).join('\n');
+
+          // Try to find a full-text Internet Archive edition
+          try {
+            const edRes = await fetch(`https://openlibrary.org/works/${encodeURIComponent(workId)}/editions.json?limit=8`, {
+              headers: { 'User-Agent': 'GismoLearning/1.0', 'Accept': 'application/json' },
+              signal: AbortSignal.timeout(6000)
+            });
+            if (edRes.ok) {
+              const edData = await edRes.json();
+              const withIa = (edData.entries || []).find(e => e.ocaid);
+              if (withIa && withIa.ocaid) {
+                const iaRes = await fetch(`https://archive.org/download/${encodeURIComponent(withIa.ocaid)}/${encodeURIComponent(withIa.ocaid)}_djvu.txt`, {
+                  headers: { 'User-Agent': 'GismoLearning/1.0' },
+                  signal: AbortSignal.timeout(10000)
+                });
+                if (iaRes.ok) {
+                  const iaText = (await iaRes.text()).trim();
+                  if (iaText.length > 1000) {
+                    content = iaText.slice(0, 1500000);
+                  }
+                }
+              }
+            }
+          } catch (_) {}
+
+          if (!content) {
+            content = [
+              title,
+              `By ${author}`,
+              '',
+              descText || `Study edition of "${title}" by ${author}.`,
+              subjects ? `\nKey Topics: ${subjects}` : '',
+              '\nUse the Gismo AI Tutor on the right to explore chapters, summarize key ideas, or generate a practice quiz!'
+            ].filter(Boolean).join('\n');
+          }
         }
       } catch (_) {}
     }
 
-    // If not in local curated catalog, try direct Gutenberg cache or Gutendex with fast timeout
+    // For Project Gutenberg numeric IDs, always try to fetch the FULL book text
     if (!content && /^\d+$/.test(bookId)) {
-      try {
-        const directUrl = `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.txt`;
-        const directRes = await fetch(directUrl, {
-          headers: { 'User-Agent': 'Mozilla/5.0' },
-          signal: AbortSignal.timeout(5000)
-        });
-        if (directRes.ok) {
-          let raw = await directRes.text();
-          const startMatch = raw.match(/\*\*\* START OF THE PROJECT GUTENBERG EBOOK.*?\*\*\*/i);
-          if (startMatch && startMatch.index !== undefined) {
-            raw = raw.slice(startMatch.index + startMatch[0].length);
+      const candidateUrls = [
+        `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.txt`,
+        `https://www.gutenberg.org/files/${bookId}/${bookId}-0.txt`,
+        `https://www.gutenberg.org/files/${bookId}/${bookId}.txt`
+      ];
+      for (const directUrl of candidateUrls) {
+        try {
+          const directRes = await fetch(directUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            signal: AbortSignal.timeout(12000)
+          });
+          if (directRes.ok) {
+            const cleaned = cleanGutenbergText(await directRes.text());
+            if (cleaned.length > 500) {
+              content = cleaned;
+              break;
+            }
           }
-          content = raw.trim().slice(0, 80000);
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
     }
 
     if (!content && /^\d+$/.test(bookId)) {
       try {
         const bookRes = await fetch(`https://gutendex.com/books/${bookId}`, {
           headers: { 'User-Agent': 'GismoLearning/1.0', 'Accept': 'application/json' },
-          signal: AbortSignal.timeout(5000)
+          signal: AbortSignal.timeout(7000)
         });
         if (bookRes.ok) {
           const book = await bookRes.json();
           title = book.title || title;
           author = book.authors && book.authors[0] ? book.authors[0].name : author;
           const formats = book.formats || {};
-          image = formats['image/jpeg'] || image;
+          image = image || formats['image/jpeg'] || `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.cover.medium.jpg`;
           descriptor = `A classic public domain book by ${author}.`;
           quiz_q = `Who is the author of the book '${title}'?`;
           quiz_a = author;
-          const textUrl = formats['text/plain; charset=us-ascii'] || formats['text/plain; charset=utf-8'] || formats['text/plain'];
+          const textUrl = formats['text/plain; charset=utf-8'] || formats['text/plain; charset=us-ascii'] || formats['text/plain'];
           if (textUrl) {
             const textRes = await fetch(textUrl, {
               headers: { 'User-Agent': 'Mozilla/5.0' },
-              signal: AbortSignal.timeout(5000)
+              signal: AbortSignal.timeout(12000)
             });
             if (textRes.ok) {
-              let raw = await textRes.text();
-              const startMatch = raw.match(/\*\*\* START OF THE PROJECT GUTENBERG EBOOK.*?\*\*\*/i);
-              if (startMatch && startMatch.index !== undefined) {
-                raw = raw.slice(startMatch.index + startMatch[0].length);
+              const cleaned = cleanGutenbergText(await textRes.text());
+              if (cleaned.length > 500) {
+                content = cleaned;
               }
-              content = raw.trim().slice(0, 80000);
             }
           }
         }
       } catch (_) {}
+    }
+
+    // Fall back to curated excerpt only if full-text network fetch failed
+    if (!content && catalogBook && catalogBook.content) {
+      content = catalogBook.content;
     }
 
     if (!content) {
@@ -1241,7 +1289,7 @@ app.post('/api/web/import/:book_id', async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(lessonId, title, 'Web Book', image, descriptor, content, quiz_q, quiz_a, userId);
 
-    return res.json({ status: 'success', lesson_id: lessonId, title, author, book: { id: lessonId, title, author } });
+    return res.json({ status: 'success', lesson_id: lessonId, title, author, char_count: content.length, book: { id: lessonId, title, author } });
   } catch (err) {
     console.error('Import error:', err);
     return res.status(500).json({ error: err.message });
