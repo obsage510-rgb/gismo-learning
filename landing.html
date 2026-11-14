@@ -6,6 +6,7 @@
   <title>Gismo — Accessible AI Learning for Every Student</title>
   <meta name="description" content="Gismo is an accessible AI-powered learning platform built for visually impaired, deaf and hard-of-hearing, and neurodiverse students. Explore our mission, vision, team, and support options.">
   <link rel="stylesheet" href="landing.css?v=3">
+  <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css">
   <script src="https://js.paystack.co/v1/inline.js"></script>
 </head>
 <body>
@@ -49,7 +50,7 @@
     <!-- 1. Hero Section -->
     <section id="hero" class="hero-section">
       <div class="container hero-grid">
-        <div>
+        <div data-aos="fade-up">
           <span class="eyebrow">Inclusive Education Platform</span>
           <h1 class="hero-title">Learning designed so no student is left behind.</h1>
           <p class="hero-subtitle">
@@ -75,7 +76,7 @@
           </div>
         </div>
 
-        <div class="hero-media">
+        <div class="hero-media" data-aos="fade-up" data-aos-delay="150">
           <div class="hero-frame">
             <img src="assets/landing_hero.jpg" alt="Students studying in a sunlit library using accessible headphones and tablets">
           </div>
@@ -90,14 +91,16 @@
     <!-- 2. About Section -->
     <section id="about" class="section section-muted">
       <div class="container">
-        <span class="eyebrow">About Gismo</span>
-        <h2 class="section-title">Technology that adapts to the student — not the other way around.</h2>
-        <p class="section-lead">
-          Millions of visually impaired, deaf or hard-of-hearing, and neurodiverse students face rigid digital classrooms every day. Gismo reimagines the learning workspace from the ground up with assistive tools woven into every lesson, quiz, and study session.
-        </p>
+        <div data-aos="fade-up">
+          <span class="eyebrow">About Gismo</span>
+          <h2 class="section-title">Technology that adapts to the student — not the other way around.</h2>
+          <p class="section-lead">
+            Millions of visually impaired, deaf or hard-of-hearing, and neurodiverse students face rigid digital classrooms every day. Gismo reimagines the learning workspace from the ground up with assistive tools woven into every lesson, quiz, and study session.
+          </p>
+        </div>
 
         <div class="about-grid">
-          <article class="feature-card">
+          <article class="feature-card" data-aos="fade-up" data-aos-delay="0">
             <div class="feature-icon" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
             </div>
@@ -105,7 +108,7 @@
             <p>Navigate chapters, trigger AI explanations, and complete full interactive quizzes using natural voice commands and spoken feedback.</p>
           </article>
 
-          <article class="feature-card">
+          <article class="feature-card" data-aos="fade-up" data-aos-delay="100">
             <div class="feature-icon" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
             </div>
@@ -113,7 +116,7 @@
             <p>Switch seamlessly between high-contrast dark mode, OpenDyslexic typography, scaled text, and instant public-domain classics.</p>
           </article>
 
-          <article class="feature-card">
+          <article class="feature-card" data-aos="fade-up" data-aos-delay="200">
             <div class="feature-icon" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
             </div>
@@ -127,11 +130,11 @@
     <!-- 3. Vision Section -->
     <section id="vision" class="section">
       <div class="container vision-grid">
-        <div class="vision-image">
+        <div class="vision-image" data-aos="fade-right">
           <img src="assets/landing_vision.jpg" alt="Educator mentoring a student with an adaptive screen reader laptop and large-print textbook">
         </div>
 
-        <div>
+        <div data-aos="fade-left" data-aos-delay="100">
           <span class="eyebrow">Our Vision</span>
           <h2 class="section-title">A world where every classroom is universally accessible by default.</h2>
           <p class="section-lead">
@@ -139,15 +142,15 @@
           </p>
 
           <div class="vision-pillars">
-            <div class="pillar-item">
+            <div class="pillar-item" data-aos="fade-up" data-aos-delay="0">
               <h3>1. Zero-Barrier Access</h3>
               <p>Keep core AI tutoring, voice navigation, and classic textbooks open and free for students across every region.</p>
             </div>
-            <div class="pillar-item">
+            <div class="pillar-item" data-aos="fade-up" data-aos-delay="100">
               <h3>2. Dignity Through Personalization</h3>
               <p>Empower each student to choose how they read, listen, and test — whether visual, auditory, or kinesthetic.</p>
             </div>
-            <div class="pillar-item">
+            <div class="pillar-item" data-aos="fade-up" data-aos-delay="200">
               <h3>3. Open Knowledge Bridges</h3>
               <p>Connect public-domain literature and STEM curricula directly to real-time comprehension quizzes and educator analytics.</p>
             </div>
@@ -159,14 +162,16 @@
     <!-- 4. Team Section -->
     <section id="team" class="section section-muted">
       <div class="container">
-        <span class="eyebrow">Our Team</span>
-        <h2 class="section-title">The educators, engineers, and advocates behind Gismo.</h2>
-        <p class="section-lead">
-          Built by a dedicated multidisciplinary team committed to inclusive software engineering and accessible pedagogy.
-        </p>
+        <div data-aos="fade-up">
+          <span class="eyebrow">Our Team</span>
+          <h2 class="section-title">The educators, engineers, and advocates behind Gismo.</h2>
+          <p class="section-lead">
+            Built by a dedicated multidisciplinary team committed to inclusive software engineering and accessible pedagogy.
+          </p>
+        </div>
 
         <div class="team-grid">
-          <article class="team-card">
+          <article class="team-card" data-aos="fade-up" data-aos-delay="0">
             <div class="team-avatar">
               <img src="/assets/team_obieze_chibueze.jpg" alt="Obieze Chibueze">
             </div>
@@ -175,7 +180,7 @@
             <p>Leads technical architecture, cloud-resilient educational systems, and inclusive engineering across the platform.</p>
           </article>
 
-          <article class="team-card">
+          <article class="team-card" data-aos="fade-up" data-aos-delay="100">
             <div class="team-avatar">
               <img src="/assets/team_nwani_johnpaul.jpg" alt="Nwani Johnpaul">
             </div>
@@ -184,8 +189,10 @@
             <p>Drives product strategy, team coordination, and partnerships with inclusive schools and student communities.</p>
           </article>
 
-          <article class="team-card">
-            <div class="team-avatar" aria-hidden="true">RJ</div>
+          <article class="team-card" data-aos="fade-up" data-aos-delay="200">
+            <div class="team-avatar">
+              <img src="/assets/team_richard_jennifer.jpg" alt="Richard Jennifer">
+            </div>
             <h3>Richard Jennifer</h3>
             <div class="team-role">Project designer</div>
             <p>Crafts accessible, human-centered interfaces, visual systems, and dyslexia-friendly learning experiences.</p>
@@ -197,7 +204,7 @@
     <!-- 5. Donations Section -->
     <section id="donations" class="section">
       <div class="container">
-        <div class="donation-wrapper">
+        <div class="donation-wrapper" data-aos="fade-up">
           <div>
             <span class="eyebrow" style="color: #f6b286;">Support the Mission</span>
             <h2 class="section-title">Help keep Gismo free for students who need it most.</h2>
@@ -350,14 +357,16 @@
     <!-- 6. Contacts Section -->
     <section id="contact" class="section section-muted">
       <div class="container">
-        <span class="eyebrow">Contact Us</span>
-        <h2 class="section-title">Bring Gismo to your school, or reach out with questions.</h2>
-        <p class="section-lead">
-          Whether you're an educator, accessibility coordinator, sponsor, or student, we'd love to hear from you.
-        </p>
+        <div data-aos="fade-up">
+          <span class="eyebrow">Contact Us</span>
+          <h2 class="section-title">Bring Gismo to your school, or reach out with questions.</h2>
+          <p class="section-lead">
+            Whether you're an educator, accessibility coordinator, sponsor, or student, we'd love to hear from you.
+          </p>
+        </div>
 
         <div class="contact-grid">
-          <div class="contact-info-list">
+          <div class="contact-info-list" data-aos="fade-up" data-aos-delay="50">
             <div class="contact-info-card">
               <strong>General &amp; School Partnerships</strong>
               <a href="mailto:gismolearning@gmail.com">gismolearning@gmail.com</a>
@@ -376,7 +385,7 @@
             </div>
           </div>
 
-          <div class="contact-form-card">
+          <div class="contact-form-card" data-aos="fade-up" data-aos-delay="150">
             <form id="contact-form">
               <div class="form-row-2">
                 <div class="form-field">
@@ -890,6 +899,20 @@
             btn.disabled = false;
             btn.textContent = 'Subscribe';
           }
+        }
+      });
+    }
+  </script>
+  <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+  <script>
+    if (typeof AOS !== 'undefined') {
+      AOS.init({
+        duration: 700,
+        easing: 'ease-out-cubic',
+        once: true,
+        offset: 60,
+        disable: function () {
+          return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         }
       });
     }
