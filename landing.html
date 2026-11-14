@@ -621,7 +621,14 @@
     const copyWalletBtn = document.getElementById('btn-copy-wallet');
     if (copyWalletBtn) {
       copyWalletBtn.addEventListener('click', async () => {
-        if (!cryptoReceivingWallet) return;
+        if (!cryptoReceivingWallet) {
+          const statusEl = document.getElementById('crypto-donation-status');
+          if (statusEl) {
+            statusEl.textContent = 'Zcash receiving address is not configured yet (set ZEC_DONATION_ADDRESS in environment).';
+            statusEl.classList.remove('hidden');
+          }
+          return;
+        }
         try {
           await navigator.clipboard.writeText(cryptoReceivingWallet);
           copyWalletBtn.textContent = 'Copied!';
@@ -707,6 +714,14 @@
       cryptoForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const txHash = document.getElementById('crypto-tx-hash')?.value.trim();
+        if (!txHash) {
+          const statusEl = document.getElementById('crypto-donation-status');
+          if (statusEl) {
+            statusEl.textContent = 'Please enter your 64-character Zcash transaction ID (txid) to verify.';
+            statusEl.classList.remove('hidden');
+          }
+          return;
+        }
         await submitCryptoVerification(txHash);
       });
     }

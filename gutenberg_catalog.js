@@ -9,7 +9,7 @@ const GUTENBERG_CATALOG = [
     title: 'Frankenstein; Or, The Modern Prometheus',
     author: 'Mary Wollstonecraft Shelley',
     subject: 'Classic Literature & Science Fiction',
-    image: 'assets/pyramids.jpg',
+    image: 'https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg',
     descriptor: 'Mary Shelley’s landmark Gothic novel exploring ambition, scientific ethics, and the pursuit of knowledge.',
     quiz_q: "Who is the author of 'Frankenstein; Or, The Modern Prometheus'?",
     quiz_a: 'Mary Wollstonecraft Shelley',
@@ -29,7 +29,7 @@ From this day natural philosophy, and particularly chemistry, in the most compre
 
 None but those who have experienced them can conceive of the enticements of science. In other studies you go as far as others have gone before you, and there is nothing more to know; but in a scientific pursuit there is continual food for discovery and wonder.
 
-CHAPTER V — The CreationAwakens
+CHAPTER V — The Creation Awakens
 It was on a dreary night of November that I beheld the accomplishment of my toils. With an anxiety that almost amounted to agony, I collected the instruments of life around me, that I might infuse a spark of being into the lifeless thing that lay at my feet. It was already one in the morning; the rain pattered dismally against the panes, and my candle was nearly burnt out, when, by the glimmer of the half-extinguished light, I saw the dull yellow eye of the creature open; it breathed hard, and a convulsive motion agitated its limbs.
 
 STUDY NOTES & KEY THEMES:
@@ -42,7 +42,7 @@ STUDY NOTES & KEY THEMES:
     title: 'Pride and Prejudice',
     author: 'Jane Austen',
     subject: 'Classic Literature',
-    image: 'assets/pyramids.jpg',
+    image: 'https://www.gutenberg.org/cache/epub/1342/pg1342.cover.medium.jpg',
     descriptor: 'Jane Austen’s beloved novel of manners, wit, first impressions, and personal growth in Regency England.',
     quiz_q: "Who is the author of 'Pride and Prejudice'?",
     quiz_a: 'Jane Austen',
@@ -77,7 +77,7 @@ STUDY NOTES & KEY THEMES:
     title: 'The Adventures of Sherlock Holmes',
     author: 'Arthur Conan Doyle',
     subject: 'Mystery & Deductive Reasoning',
-    image: 'assets/pyramids.jpg',
+    image: 'https://www.gutenberg.org/cache/epub/1661/pg1661.cover.medium.jpg',
     descriptor: 'Twelve classic detective stories showcasing observation, scientific deduction, and analytical reasoning.',
     quiz_q: "Who is the author of 'The Adventures of Sherlock Holmes'?",
     quiz_a: 'Arthur Conan Doyle',
@@ -109,7 +109,7 @@ STUDY NOTES & KEY THEMES:
     title: "Alice's Adventures in Wonderland",
     author: 'Lewis Carroll',
     subject: 'Imaginative Literature & Logic',
-    image: 'assets/pyramids.jpg',
+    image: 'https://www.gutenberg.org/cache/epub/11/pg11.cover.medium.jpg',
     descriptor: 'Lewis Carroll’s playful masterpiece of logic puzzles, wordplay, and curiosity down the rabbit-hole.',
     quiz_q: "Who is the author of 'Alice's Adventures in Wonderland'?",
     quiz_a: 'Lewis Carroll',
@@ -136,7 +136,7 @@ STUDY NOTES & KEY THEMES:
     title: 'The Time Machine',
     author: 'H. G. Wells',
     subject: 'Science Fiction & Fourth Dimension',
-    image: 'assets/pyramids.jpg',
+    image: 'https://www.gutenberg.org/cache/epub/35/pg35.cover.medium.jpg',
     descriptor: 'H. G. Wells’s pioneering exploration of time as the Fourth Dimension and the distant future of humanity.',
     quiz_q: "Who is the author of 'The Time Machine'?",
     quiz_a: 'H. G. Wells',
@@ -161,7 +161,7 @@ STUDY NOTES & KEY THEMES:
     title: 'Relativity: The Special and General Theory',
     author: 'Albert Einstein',
     subject: 'Physics & Spacetime',
-    image: 'assets/pyramids.jpg',
+    image: 'https://www.gutenberg.org/cache/epub/5001/pg5001.cover.medium.jpg',
     descriptor: 'Albert Einstein’s accessible explanation of Special and General Relativity, frames of reference, and spacetime.',
     quiz_q: "Who wrote 'Relativity: The Special and General Theory'?",
     quiz_a: 'Albert Einstein',
@@ -188,7 +188,7 @@ The gravitational mass of a body is equal to its inertial mass. Rays of light ar
     title: 'On the Origin of Species',
     author: 'Charles Darwin',
     subject: 'Biology & Natural Selection',
-    image: 'assets/pyramids.jpg',
+    image: 'https://www.gutenberg.org/cache/epub/1228/pg1228.cover.medium.jpg',
     descriptor: 'Charles Darwin’s foundational work introducing biological evolution through variation and natural selection.',
     quiz_q: "Who wrote 'On the Origin of Species'?",
     quiz_a: 'Charles Darwin',
@@ -211,7 +211,7 @@ There is grandeur in this view of life, with its several powers, having been ori
     title: 'The Republic',
     author: 'Plato',
     subject: 'Philosophy & Epistemology',
-    image: 'assets/pyramids.jpg',
+    image: 'https://www.gutenberg.org/cache/epub/1497/pg1497.cover.medium.jpg',
     descriptor: 'Plato’s Socratic dialogue on justice, education, governance, and the famous Allegory of the Cave.',
     quiz_q: "Who is the author of 'The Republic'?",
     quiz_a: 'Plato',
@@ -233,7 +233,7 @@ STUDY NOTES & KEY THEMES:
     title: 'Meditations',
     author: 'Marcus Aurelius',
     subject: 'Stoic Philosophy & Resilience',
-    image: 'assets/pyramids.jpg',
+    image: 'https://www.gutenberg.org/cache/epub/2680/pg2680.cover.medium.jpg',
     descriptor: 'Personal philosophical reflections of Roman Emperor Marcus Aurelius on mindfulness, duty, and inner resilience.',
     quiz_q: "Who wrote 'Meditations'?",
     quiz_a: 'Marcus Aurelius',
@@ -254,7 +254,7 @@ What stands in the way becomes the way.`
     title: 'The Art of War',
     author: 'Sun Tzu',
     subject: 'Strategy & Leadership',
-    image: 'assets/pyramids.jpg',
+    image: 'https://www.gutenberg.org/cache/epub/132/pg132.cover.medium.jpg',
     descriptor: 'Ancient treatise on strategic thinking, preparation, adaptability, and resolving conflict through wisdom.',
     quiz_q: "Who is the author of 'The Art of War'?",
     quiz_a: 'Sun Tzu',
@@ -276,7 +276,7 @@ Water shapes its course according to the nature of the ground over which it flow
     title: 'Romeo and Juliet',
     author: 'William Shakespeare',
     subject: 'Drama & Poetic Literature',
-    image: 'assets/pyramids.jpg',
+    image: 'https://www.gutenberg.org/cache/epub/1513/pg1513.cover.medium.jpg',
     descriptor: 'William Shakespeare’s timeless tragedy of star-crossed lovers, feuding families, and poetic expression.',
     quiz_q: "Who wrote 'Romeo and Juliet'?",
     quiz_a: 'William Shakespeare',
@@ -319,7 +319,7 @@ By any other name would smell as sweet.`
     title: 'Moby Dick; Or, The Whale',
     author: 'Herman Melville',
     subject: 'American Literature & Maritime Epic',
-    image: 'assets/pyramids.jpg',
+    image: 'https://www.gutenberg.org/cache/epub/2701/pg2701.cover.medium.jpg',
     descriptor: 'Herman Melville’s epic voyage aboard the Pequod exploring nature, obsession, and the vast ocean.',
     quiz_q: "Who is the author of 'Moby Dick; Or, The Whale'?",
     quiz_a: 'Herman Melville',
@@ -346,7 +346,7 @@ function searchGutenbergCatalog(query = '') {
     title: b.title,
     author: b.author,
     subject: b.subject,
-    image: (b.image && !b.image.includes('assets/')) ? b.image : getGutenbergCoverUrl(b.id),
+    image: b.image || getGutenbergCoverUrl(b.id),
     descriptor: b.descriptor
   });
 
@@ -369,7 +369,7 @@ function getGutenbergBookById(bookId) {
   if (!found) return null;
   return {
     ...found,
-    image: (found.image && !found.image.includes('assets/')) ? found.image : getGutenbergCoverUrl(found.id)
+    image: found.image || getGutenbergCoverUrl(found.id)
   };
 }
 

@@ -641,29 +641,15 @@ app.get('/api/donations/verify/:reference', async (req, res) => {
   return res.json({ verified: !!row, status: row ? row.status : 'not_found', reference, donation: row || null });
 });
 
-app.post('/api/donations', (req, res) => {
-  const { amount, currency = 'NGN', frequency = 'one-time', name = 'Supporter', email, quick_note = '' } = req.body || {};
-  const numericAmount = Number(amount);
-  if (!numericAmount || numericAmount <= 0 || !email) {
-    return res.status(400).json({ error: 'Valid donation amount and email are required.' });
-  }
-  const reference = `GISMO-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-  try {
-    db.prepare(`
-      INSERT INTO donations (donor_name, donor_email, amount, currency, frequency, quick_note, payment_method, reference, status)
-      VALUES (?, ?, ?, ?, ?, ?, 'paystack_pledge', ?, 'recorded')
-    `).run(String(name).trim() || 'Supporter', String(email).trim(), numericAmount, currency, frequency, String(quick_note || '').trim(), reference);
-  } catch (_) {}
-  return res.json({
-    success: true,
-    reference,
-    message: `Thank you, ${String(name).trim() || 'Supporter'}! Your ${currency === 'NGN' ? '₦' : '$'}${numericAmount} ${frequency} contribution pledge has been recorded (Ref: ${reference}).`
-  });
-});
+function sanitizeUser(u) {
+  if (!u || typeof u !== 'object') return u;
+  const { password, ...safe } = u;
+  return safe;
+}
 
 // --- AUTH API ---
 app.post('/api/auth/register', (req, res) => {
-  const { username, password, school = 'Gismo Academy', reg_no = '', disability = 'None', role = 'student' } = req.body;
+  const { username, password, school = 'Gismo Academy', reg_no = '', disability = 'None' } = req.body || {};
   const cleanUsername = (username || '').trim();
   const cleanPassword = (password || '').trim();
 
@@ -682,12 +668,12 @@ app.post('/api/auth/register', (req, res) => {
   try {
     const result = db.prepare(`
       INSERT INTO users (username, password, school, reg_no, disability, role, quizzes_passed, current_streak)
-      VALUES (?, ?, ?, ?, ?, ?, 0, 1)
-    `).run(cleanUsername, hPw, cleanSchool, cleanRegNo, disability, role);
+      VALUES (?, ?, ?, ?, ?, 'student', 0, 1)
+    `).run(cleanUsername, hPw, cleanSchool, cleanRegNo, disability);
     
     const insertedId = Number(result.lastInsertRowid);
     const newUser = db.prepare('SELECT id, username, role, quizzes_passed, current_streak, school, reg_no, disability, preferred_learning_mode FROM users WHERE id = ?').get(insertedId);
-    return res.json(newUser);
+    return res.json(sanitizeUser(newUser));
   } catch (err) {
     if (err.message && err.message.includes('UNIQUE constraint failed')) {
       return res.status(409).json({ error: 'That Student ID is already registered.' });
@@ -697,7 +683,7 @@ app.post('/api/auth/register', (req, res) => {
 });
 
 app.post('/api/auth/login', (req, res) => {
-  const { username, password, role, school = '', reg_no = '', disability = 'None' } = req.body;
+  const { username, password, school = '', reg_no = '', disability = 'None' } = req.body || {};
   const cleanUsername = (username || '').trim();
   const cleanPassword = (password || '').trim();
 
@@ -708,7 +694,7 @@ app.post('/api/auth/login', (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const isDefaultAdminLogin =
     (cleanUsername.toLowerCase() === 'admin' || cleanUsername.toLowerCase() === 'admin@gismo.edu' || cleanUsername.toLowerCase() === 'instructor') &&
-    (cleanPassword === 'admin' || cleanPassword === 'admin123' || role === 'admin');
+    (cleanPassword === 'admin' || cleanPassword === 'admin123');
 
   if (isDefaultAdminLogin) {
     let adminUser = db.prepare("SELECT * FROM users WHERE LOWER(username) = 'admin'").get();
@@ -723,7 +709,7 @@ app.post('/api/auth/login', (req, res) => {
       db.prepare("UPDATE users SET role = 'admin', last_login_date = ? WHERE id = ?").run(today, adminUser.id);
       adminUser = db.prepare('SELECT * FROM users WHERE id = ?').get(adminUser.id);
     }
-    return res.json(adminUser);
+    return res.json(sanitizeUser(adminUser));
   }
 
   // Match strictly by username first; only check reg_no if no username matched
@@ -732,18 +718,17 @@ app.post('/api/auth/login', (req, res) => {
     user = db.prepare("SELECT * FROM users WHERE reg_no IS NOT NULL AND reg_no != '' AND LOWER(reg_no) = LOWER(?)").get(cleanUsername);
   }
 
-  // If user is not found, auto-provision the account with non-empty defaults
+  // If user is not found, auto-provision the student account with non-empty defaults
   if (!user) {
     const hPw = generatePasswordHash(cleanPassword);
-    const assignedRole = role === 'admin' ? 'admin' : 'student';
     const assignedSchool = (school || '').trim() || 'Gismo Academy';
     const assignedRegNo = (reg_no || '').trim() || ('STD-' + Math.floor(1000 + Math.random() * 9000));
     const info = db.prepare(`
       INSERT INTO users (username, password, school, reg_no, disability, role, quizzes_passed, last_login_date, current_streak)
-      VALUES (?, ?, ?, ?, ?, ?, 0, ?, 1)
-    `).run(cleanUsername, hPw, assignedSchool, assignedRegNo, disability || 'None', assignedRole, today);
+      VALUES (?, ?, ?, ?, ?, 'student', 0, ?, 1)
+    `).run(cleanUsername, hPw, assignedSchool, assignedRegNo, disability || 'None', today);
     const createdUser = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(info.lastInsertRowid));
-    return res.json(createdUser);
+    return res.json(sanitizeUser(createdUser));
   }
 
   let validPassword = checkPasswordHash(user.password, cleanPassword);
@@ -770,41 +755,37 @@ app.post('/api/auth/login', (req, res) => {
       currentStreak = Math.max(1, currentStreak);
     }
 
-    const updatedRole = role === 'admin' ? 'admin' : (user.role || 'student');
+    const updatedRole = user.role || 'student';
     db.prepare('UPDATE users SET last_login_date = ?, current_streak = ?, role = ? WHERE id = ?').run(today, currentStreak, updatedRole, user.id);
     const updatedUser = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
-    return res.json(updatedUser);
+    return res.json(sanitizeUser(updatedUser));
   }
   return res.status(401).json({ error: 'Invalid username or password. Please try again.' });
 });
 
 // --- ADMIN API ---
 app.get('/api/admin/users', (req, res) => {
-  const users = db.prepare('SELECT * FROM users').all();
+  const users = db.prepare('SELECT * FROM users').all().map(sanitizeUser);
   res.json(users);
 });
 
-app.get('/api/admin/users/:user_id/analytics', (req, res) => {
-  const userId = req.params.user_id;
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  const notesCount = db.prepare('SELECT COUNT(*) as count FROM notes WHERE user_id = ?').get(userId).count;
-  const homeworkCount = db.prepare('SELECT COUNT(*) as count FROM homework WHERE student_id = ?').get(userId).count;
-  res.json({
-    quizzes_passed: user.quizzes_passed,
-    notes_count: notesCount,
-    homework_assigned: homeworkCount,
-    rank: user.quizzes_passed < 5 ? 'Novice' : 'Scholar'
-  });
-});
-
 app.post('/api/admin/textbooks', (req, res) => {
-  const { id, title, meta, image, descriptor, content, quiz_q, quiz_a } = req.body;
-  db.prepare(`
-    INSERT INTO textbooks (id, title, meta, image, descriptor, content, quiz_q, quiz_a)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, title, meta, image, descriptor, content, quiz_q, quiz_a);
-  res.json({ status: 'success' });
+  const { id, title, meta, image, descriptor, content, quiz_q, quiz_a } = req.body || {};
+  if (!id || !title) {
+    return res.status(400).json({ error: 'Course ID and title are required' });
+  }
+  try {
+    if (supabaseBridge && typeof supabaseBridge.clearRecordedInsertIds === 'function') {
+      supabaseBridge.clearRecordedInsertIds('textbooks', [id]);
+    }
+    db.prepare(`
+      INSERT OR REPLACE INTO textbooks (id, title, meta, image, descriptor, content, quiz_q, quiz_a, user_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
+    `).run(id, title, meta || '', image || '', descriptor || '', content || '', quiz_q || '', quiz_a || '');
+    res.json({ status: 'success' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Upload custom course thumbnail
@@ -817,8 +798,15 @@ app.post('/api/upload/thumbnail', upload.single('image'), (req, res) => {
 });
 
 app.delete('/api/admin/textbooks/:tb_id', (req, res) => {
-  db.prepare('DELETE FROM textbooks WHERE id = ?').run(req.params.tb_id);
-  res.json({ success: true });
+  try {
+    if (supabaseBridge && typeof supabaseBridge.recordDeletedIds === 'function') {
+      supabaseBridge.recordDeletedIds('textbooks', [req.params.tb_id]);
+    }
+    db.prepare('DELETE FROM textbooks WHERE id = ?').run(req.params.tb_id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Instructor dashboard overall statistics
@@ -840,7 +828,7 @@ app.get('/api/admin/stats', (req, res) => {
 });
 
 app.post('/api/admin/announcement', (req, res) => {
-  global_announcement = req.body.message || '';
+  global_announcement = (req.body && req.body.message) || '';
   res.json({ success: true, announcement: global_announcement });
 });
 
@@ -848,32 +836,10 @@ app.get('/api/announcement', (req, res) => {
   res.json({ announcement: global_announcement });
 });
 
-// --- SUPABASE STATUS & SYNC API ---
-app.get('/api/supabase/status', async (req, res) => {
-  await supabaseBridge.checkPostgresTables();
-  res.json(supabaseBridge.getStatus());
-});
-
-app.post('/api/supabase/sync', async (req, res) => {
-  try {
-    const status = await supabaseBridge.init();
-    res.json({ success: true, status });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // --- ADMIN DATABASE VIEWER API ---
 // 1. Overview of tables, storage size, and schema
 app.get('/api/admin/database/overview', async (req, res) => {
   try {
-    if (supabaseBridge.configured) {
-      await supabaseBridge.checkPostgresTables();
-      if (supabaseBridge.postgresTablesReady) {
-        await supabaseBridge.pullFromPostgresToSqlite();
-      }
-    }
-
     const stat = fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH) : { size: 0 };
     const tablesRaw = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name ASC").all();
 
@@ -982,13 +948,14 @@ app.get('/api/admin/database/table/:name', (req, res) => {
 // 3. Execute custom read-only SQL query
 app.post('/api/admin/database/query', (req, res) => {
   try {
-    const rawSql = (req.body.query || '').trim();
+    const rawSql = ((req.body && req.body.query) || '').trim();
     if (!rawSql) {
       return res.status(400).json({ error: 'SQL query cannot be empty.' });
     }
 
     const cleaned = rawSql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
-    const firstWord = cleaned.split(/\s+/)[0].toUpperCase();
+    const withoutStrings = cleaned.replace(/'(?:''|[^'])*'/g, "''").replace(/"(?:""|[^"])*"/g, '""');
+    const firstWord = withoutStrings.split(/\s+/)[0].toUpperCase();
     const allowed = ['SELECT', 'PRAGMA', 'EXPLAIN'];
     if (!allowed.includes(firstWord)) {
       return res.status(403).json({
@@ -996,8 +963,14 @@ app.post('/api/admin/database/query', (req, res) => {
       });
     }
 
-    const forbidden = /\b(DROP|DELETE|INSERT|UPDATE|ALTER|ATTACH|DETACH|CREATE|REPLACE|VACUUM|REINDEX|TRUNCATE)\b/i;
-    if (forbidden.test(cleaned)) {
+    if (firstWord === 'PRAGMA' && withoutStrings.includes('=')) {
+      return res.status(403).json({
+        error: 'Modifying PRAGMA settings is restricted in this viewer.'
+      });
+    }
+
+    const forbidden = /\b(DROP|DELETE|INSERT|UPDATE|ALTER|ATTACH|DETACH|CREATE|VACUUM|REINDEX|TRUNCATE)\b/i;
+    if (forbidden.test(withoutStrings)) {
       return res.status(403).json({
         error: 'Write or destructive operations (INSERT, UPDATE, DELETE, DROP, etc.) are restricted in this viewer to protect student records.'
       });
@@ -1067,10 +1040,11 @@ app.get('/api/admin/database/export/:name', (req, res) => {
 app.get('/api/textbooks', (req, res) => {
   const userId = resolveStudentUser(req.query.user_id, req.query.username);
   if (!userId || Number.isNaN(userId)) {
-    return res.json([]);
+    const globalCourses = db.prepare("SELECT * FROM textbooks WHERE user_id IS NULL AND id NOT LIKE 'gutenberg_%'").all();
+    return res.json(globalCourses);
   }
   const suffixPattern = `%_u${userId}`;
-  const textbooks = db.prepare('SELECT * FROM textbooks WHERE user_id = ? OR id LIKE ?').all(userId, suffixPattern);
+  const textbooks = db.prepare("SELECT * FROM textbooks WHERE user_id = ? OR id LIKE ? OR (user_id IS NULL AND id NOT LIKE 'gutenberg_%')").all(userId, suffixPattern);
   res.json(textbooks);
 });
 
@@ -1102,13 +1076,13 @@ app.post('/api/textbooks/sync', (req, res) => {
           b.content || '',
           b.quiz_q || '',
           b.quiz_a || '',
-          userId
+          canonicalId.endsWith(`_u${userId}`) ? userId : (b.user_id ?? null)
         );
       } catch (_) {}
     }
   }
   const suffixPattern = `%_u${userId}`;
-  const textbooks = db.prepare('SELECT * FROM textbooks WHERE user_id = ? OR id LIKE ?').all(userId, suffixPattern);
+  const textbooks = db.prepare("SELECT * FROM textbooks WHERE user_id = ? OR id LIKE ? OR (user_id IS NULL AND id NOT LIKE 'gutenberg_%')").all(userId, suffixPattern);
   res.json(textbooks);
 });
 
@@ -1122,15 +1096,15 @@ app.delete('/api/textbooks/:id', (req, res) => {
   try {
     const rawBaseId = String(req.params.id).replace(/_u\d+$/, '');
     const canonicalId = `${rawBaseId}_u${userId}`;
+    if (supabaseBridge && typeof supabaseBridge.recordDeletedIds === 'function') {
+      supabaseBridge.recordDeletedIds('textbooks', [req.params.id, canonicalId]);
+    }
     const info = db.prepare('DELETE FROM textbooks WHERE (id = ? OR id = ?) AND (user_id = ? OR id LIKE ?)').run(
       req.params.id,
       canonicalId,
       userId,
       `%_u${userId}`
     );
-    if (supabaseBridge && typeof supabaseBridge.recordDeletedIds === 'function') {
-      supabaseBridge.recordDeletedIds('textbooks', [req.params.id, canonicalId]);
-    }
     if (info.changes === 0) {
       return res.status(404).json({ error: 'Book not found in your library.' });
     }
@@ -1394,12 +1368,28 @@ app.post('/api/web/import/:book_id', async (req, res) => {
 
     const lessonId = `gutenberg_${bookId}_u${userId}`;
 
+    if (supabaseBridge && typeof supabaseBridge.clearRecordedInsertIds === 'function') {
+      supabaseBridge.clearRecordedInsertIds('textbooks', [lessonId]);
+    }
+
     db.prepare(`
       INSERT OR REPLACE INTO textbooks (id, title, meta, image, descriptor, content, quiz_q, quiz_a, user_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(lessonId, title, 'Web Book', image, descriptor, content, quiz_q, quiz_a, userId);
 
-    return res.json({ status: 'success', lesson_id: lessonId, title, author, char_count: content.length, book: { id: lessonId, title, author } });
+    const bookRecord = {
+      id: lessonId,
+      title,
+      author,
+      meta: 'Web Book',
+      image,
+      descriptor,
+      content,
+      quiz_q,
+      quiz_a,
+      user_id: userId
+    };
+    return res.json({ status: 'success', lesson_id: lessonId, title, author, char_count: content.length, book: bookRecord });
   } catch (err) {
     console.error('Import error:', err);
     return res.status(500).json({ error: err.message });
@@ -1425,7 +1415,7 @@ app.get('/api/users/:user_id', (req, res) => {
 
 app.put('/api/users/:user_id', (req, res) => {
   const userId = resolveStudentUser(req.params.user_id, (req.body && req.body.username) || req.query.username);
-  const { disability, preferred_learning_mode, school, reg_no } = req.body;
+  const { disability, preferred_learning_mode, school, reg_no } = req.body || {};
   try {
     const existing = userId ? db.prepare('SELECT * FROM users WHERE id = ?').get(userId) : null;
     if (!existing) return res.status(404).json({ error: 'User not found' });
@@ -1446,20 +1436,28 @@ app.put('/api/users/:user_id', (req, res) => {
 });
 
 app.get('/api/notes', (req, res) => {
-  const userId = resolveStudentUser(req.query.user_id, req.query.username);
-  if (!userId) return res.status(400).json({ error: 'user_id required' });
-  const notes = db.prepare('SELECT * FROM notes WHERE user_id = ? ORDER BY timestamp DESC').all(userId);
-  res.json(notes);
+  try {
+    const userId = resolveStudentUser(req.query.user_id, req.query.username);
+    if (!userId) return res.status(400).json({ error: 'user_id required' });
+    const notes = db.prepare('SELECT * FROM notes WHERE user_id = ? ORDER BY timestamp DESC, id DESC').all(userId);
+    res.json(notes);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/notes', (req, res) => {
-  const rawUserId = req.query.user_id || (req.body && req.body.user_id);
-  const rawUsername = req.query.username || (req.body && req.body.username);
-  const userId = resolveStudentUser(rawUserId, rawUsername);
-  const content = req.body.content;
-  if (!userId || !content) return res.status(400).json({ error: 'user_id and content required' });
-  db.prepare('INSERT INTO notes (user_id, content) VALUES (?, ?)').run(userId, content);
-  res.json({ status: 'success' });
+  try {
+    const rawUserId = req.query.user_id || (req.body && req.body.user_id);
+    const rawUsername = req.query.username || (req.body && req.body.username);
+    const userId = resolveStudentUser(rawUserId, rawUsername);
+    const content = req.body && req.body.content;
+    if (!userId || !content) return res.status(400).json({ error: 'user_id and content required' });
+    db.prepare('INSERT INTO notes (user_id, content) VALUES (?, ?)').run(userId, content);
+    res.json({ status: 'success' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/analytics/:user_id', (req, res) => {
@@ -1488,7 +1486,8 @@ app.get('/api/analytics/:user_id', (req, res) => {
 
 // 1. Get quizzes visible to student (assigned to all or to specific student)
 app.get('/api/quizzes', (req, res) => {
-  const studentId = req.query.student_id ? parseInt(req.query.student_id, 10) : null;
+  const resolvedStudentId = resolveStudentUser(req.query.student_id, req.query.username);
+  const studentId = resolvedStudentId || (req.query.student_id ? parseInt(req.query.student_id, 10) : null);
   try {
     const allQuizzes = db.prepare('SELECT * FROM quizzes ORDER BY id DESC').all();
 
@@ -1550,7 +1549,7 @@ app.get('/api/quizzes/:id', (req, res) => {
 
 // 3. AI Quiz Generator (powered by Antigravity / Gemini)
 app.post('/api/ai/generate-quiz', async (req, res) => {
-  const { topic = 'General Knowledge', count = 3, difficulty = 'intermediate', subject = '' } = req.body;
+  const { topic = 'General Knowledge', count = 3, difficulty = 'intermediate', subject = '' } = req.body || {};
   try {
     const quiz = await antigravityTutor.generateQuiz({ topic, count, difficulty, subject });
     res.json(quiz);
@@ -1562,7 +1561,7 @@ app.post('/api/ai/generate-quiz', async (req, res) => {
 
 // 4. Submit student quiz answers & compute grading
 app.post('/api/quizzes/submit', (req, res) => {
-  const { quiz_id, student_id, student_username, current_quizzes_passed = 0, current_streak = 0, answers, raw_quiz } = req.body;
+  const { quiz_id, student_id, student_username, current_quizzes_passed = 0, current_streak = 0, answers, raw_quiz } = req.body || {};
   if (!answers || typeof answers !== 'object') {
     return res.status(400).json({ error: 'answers array or object is required' });
   }
@@ -1591,7 +1590,7 @@ app.post('/api/quizzes/submit', (req, res) => {
       } catch (_) {}
     }
 
-    const effectiveStudentId = student ? Number(student.id) : (Number(student_id) || 1);
+    const effectiveStudentId = student ? Number(student.id) : (Number(student_id) || null);
     const username = student ? student.username : (student_username || 'Student');
 
     let quizData = null;
@@ -1619,7 +1618,7 @@ app.post('/api/quizzes/submit', (req, res) => {
           const info = stmt.run(
             raw_quiz.title || 'AI Generated Quiz',
             raw_quiz.subject || 'AI Knowledge Check',
-            JSON.stringify([effectiveStudentId]),
+            effectiveStudentId ? JSON.stringify([effectiveStudentId]) : 'all',
             JSON.stringify(questions)
           );
           actualQuizId = Number(info.lastInsertRowid);
@@ -1655,7 +1654,7 @@ app.post('/api/quizzes/submit', (req, res) => {
     const percentage = Math.round((score / total) * 100);
     const passed = percentage >= 60;
 
-    if (actualQuizId) {
+    if (actualQuizId && effectiveStudentId) {
       try {
         db.prepare(`
           INSERT INTO quiz_submissions (quiz_id, student_id, student_username, score, total, percentage, answers)
@@ -1667,13 +1666,12 @@ app.post('/api/quizzes/submit', (req, res) => {
     }
 
     const clientBaseline = Math.max(0, Number(current_quizzes_passed) || 0);
-    const clientStreakBaseline = Math.max(0, Number(current_streak) || 0);
+    const clientStreakBaseline = Math.max(1, Number(current_streak) || 1);
     let totalPassed = student ? Math.max(Number(student.quizzes_passed) || 0, clientBaseline) : clientBaseline;
-    let totalStreak = student ? Math.max(Number(student.current_streak) || 0, clientStreakBaseline) : clientStreakBaseline;
+    let totalStreak = student ? Math.max(Number(student.current_streak) || 1, clientStreakBaseline) : clientStreakBaseline;
 
     if (passed) {
       totalPassed += 1;
-      totalStreak += 1;
       if (student) {
         try {
           db.prepare('UPDATE users SET quizzes_passed = ?, current_streak = ? WHERE id = ?')
@@ -1694,7 +1692,7 @@ app.post('/api/quizzes/submit', (req, res) => {
       percentage,
       passed,
       quizzes_passed_total: updatedUser ? Math.max(Number(updatedUser.quizzes_passed) || 0, totalPassed) : totalPassed,
-      current_streak: updatedUser ? Math.max(Number(updatedUser.current_streak) || 0, totalStreak) : totalStreak,
+      current_streak: updatedUser ? Math.max(Number(updatedUser.current_streak) || 1, totalStreak) : totalStreak,
       breakdown: answerBreakdown
     });
   } catch (err) {
@@ -1705,7 +1703,7 @@ app.post('/api/quizzes/submit', (req, res) => {
 
 // 5. Admin: Create custom quiz and assign to all or selected students
 app.post('/api/admin/quizzes', (req, res) => {
-  const { title, subject, target = 'all', student_ids = [], questions = [] } = req.body;
+  const { title, subject, target = 'all', student_ids = [], questions = [] } = req.body || {};
   if (!title || !questions || !questions.length) {
     return res.status(400).json({ error: 'Quiz title and at least one question are required' });
   }
@@ -1800,29 +1798,44 @@ app.delete('/api/admin/quizzes/:id', (req, res) => {
 
 // --- LOCAL FILES & HOMEWORK ---
 app.post('/api/files', upload.single('file'), (req, res) => {
-  const userId = req.body.user_id;
-  if (!req.file || !userId) {
-    return res.status(400).json({ error: 'File and user_id required' });
+  try {
+    const userId = resolveStudentUser(req.body && req.body.user_id, req.body && req.body.username);
+    if (!req.file || !userId) {
+      return res.status(400).json({ error: 'File and user_id required' });
+    }
+    db.prepare('INSERT INTO files (user_id, filename, filepath) VALUES (?, ?, ?)').run(userId, req.file.originalname, req.file.filename);
+    res.json({ status: 'success', filename: req.file.filename });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  db.prepare('INSERT INTO files (user_id, filename, filepath) VALUES (?, ?, ?)').run(userId, req.file.originalname, req.file.filename);
-  res.json({ status: 'success', filename: req.file.filename });
 });
 
 app.get('/api/files', (req, res) => {
-  const userId = req.query.user_id;
-  if (!userId) return res.status(400).json({ error: 'user_id required' });
-  const files = db.prepare('SELECT * FROM files WHERE user_id = ?').all(userId);
-  res.json(files);
+  try {
+    const userId = resolveStudentUser(req.query.user_id, req.query.username);
+    if (!userId) return res.status(400).json({ error: 'user_id required' });
+    const files = db.prepare('SELECT * FROM files WHERE user_id = ?').all(userId);
+    res.json(files);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/homework', (req, res) => {
-  const { title, description, student_id } = req.body;
-  db.prepare('INSERT INTO homework (title, description, student_id) VALUES (?, ?, ?)').run(title, description, student_id);
-  res.json({ success: true });
+  try {
+    const { title, description, student_id } = req.body || {};
+    if (!title || !student_id) {
+      return res.status(400).json({ error: 'Title and student_id are required' });
+    }
+    db.prepare('INSERT INTO homework (title, description, student_id) VALUES (?, ?, ?)').run(title, description || '', student_id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/homework', (req, res) => {
-  const studentId = req.query.student_id;
+  const studentId = resolveStudentUser(req.query.student_id, req.query.username) || req.query.student_id;
   if (!studentId) return res.json([]);
   try {
     const hws = db.prepare('SELECT * FROM homework WHERE student_id = ? ORDER BY id DESC').all(studentId);
@@ -1841,26 +1854,6 @@ app.post('/api/homework/:id/toggle', (req, res) => {
     db.prepare('UPDATE homework SET status = ? WHERE id = ?').run(newStatus, hwId);
     const updated = db.prepare('SELECT * FROM homework WHERE id = ?').get(hwId);
     res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/homework/:id/submit', (req, res) => {
-  const hwId = req.params.id;
-  const { responseText } = req.body;
-  try {
-    const hw = db.prepare('SELECT * FROM homework WHERE id = ?').get(hwId);
-    if (!hw) return res.status(404).json({ error: 'Assignment not found' });
-    db.prepare('UPDATE homework SET status = ? WHERE id = ?').run('completed', hwId);
-    if (responseText && hw.student_id) {
-      db.prepare('INSERT INTO notes (user_id, content) VALUES (?, ?)').run(
-        hw.student_id,
-        `Assignment Completed [${hw.title}]: ${responseText}`
-      );
-    }
-    const updated = db.prepare('SELECT * FROM homework WHERE id = ?').get(hwId);
-    res.json({ success: true, assignment: updated });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1911,17 +1904,6 @@ app.get('/api/tutor/info', (req, res) => {
   res.json(antigravityTutor.getModelInfo());
 });
 
-app.post('/api/tutor/model', async (req, res) => {
-  const { prompt, persona, context, history } = req.body;
-  const result = await antigravityTutor.generateResponse({
-    message: prompt,
-    persona,
-    context,
-    history
-  });
-  res.json(result);
-});
-
 // --- CHAT API (Multi-Session Enabled) ---
 app.get('/api/chat/history', (req, res) => {
   const userId = resolveStudentUser(req.query.user_id, req.query.username);
@@ -1930,9 +1912,9 @@ app.get('/api/chat/history', (req, res) => {
   try {
     let chats;
     if (sessionId) {
-      chats = db.prepare("SELECT role, content, session_id FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default')) ORDER BY timestamp ASC").all(userId, sessionId, sessionId);
+      chats = db.prepare("SELECT role, content, session_id FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default')) ORDER BY timestamp ASC, id ASC").all(userId, sessionId, sessionId);
     } else {
-      chats = db.prepare('SELECT role, content, session_id FROM chats WHERE user_id = ? ORDER BY timestamp ASC').all(userId);
+      chats = db.prepare('SELECT role, content, session_id FROM chats WHERE user_id = ? ORDER BY timestamp ASC, id ASC').all(userId);
     }
     res.json(chats || []);
   } catch (err) {
@@ -1947,7 +1929,7 @@ app.get('/api/chat/sessions', (req, res) => {
   try {
     const rows = db.prepare(`
       SELECT session_id, MIN(timestamp) as created_at,
-             (SELECT content FROM chats c2 WHERE c2.user_id = chats.user_id AND c2.session_id = chats.session_id AND c2.role = 'user' ORDER BY timestamp ASC LIMIT 1) as first_question
+             (SELECT content FROM chats c2 WHERE c2.user_id = chats.user_id AND c2.session_id = chats.session_id AND c2.role = 'user' ORDER BY timestamp ASC, id ASC LIMIT 1) as first_question
       FROM chats
       WHERE user_id = ? AND session_id IS NOT NULL AND session_id != ''
       GROUP BY session_id
@@ -1965,7 +1947,7 @@ app.delete('/api/chat/session', (req, res) => {
   const resolvedId = resolveStudentUser(user_id, username);
   if (resolvedId && session_id) {
     try {
-      db.prepare('DELETE FROM chats WHERE user_id = ? AND session_id = ?').run(resolvedId, session_id);
+      db.prepare("DELETE FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default'))").run(resolvedId, session_id, session_id);
     } catch (err) {
       console.error("Error deleting chat session:", err);
     }
@@ -1993,13 +1975,13 @@ app.post('/api/chat', async (req, res) => {
     let history = [];
     if (resolvedUserId) {
       try {
-        const recent = db.prepare("SELECT role, content FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default')) ORDER BY timestamp DESC LIMIT 10").all(resolvedUserId, session_id, session_id);
+        const recent = db.prepare("SELECT role, content FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default')) ORDER BY timestamp DESC, id DESC LIMIT 10").all(resolvedUserId, session_id, session_id);
         if (recent && recent.length > 1) {
           history = recent.reverse().slice(0, -1);
         }
       } catch (e) {
         try {
-          const recent = db.prepare('SELECT role, content FROM chats WHERE user_id = ? ORDER BY timestamp DESC LIMIT 10').all(resolvedUserId);
+          const recent = db.prepare('SELECT role, content FROM chats WHERE user_id = ? ORDER BY timestamp DESC, id DESC LIMIT 10').all(resolvedUserId);
           if (recent && recent.length > 1) {
             history = recent.reverse().slice(0, -1);
           }
@@ -2052,15 +2034,10 @@ app.post('/api/log_error', (req, res) => {
 let elevenLabsQuotaExceeded = false;
 let elevenLabsQuotaMessage = "";
 
-app.get('/api/tts/status', (req, res) => {
-  res.json({
-    elevenlabs_configured: !!process.env.ELEVENLABS_API_KEY,
-    quota_exceeded: elevenLabsQuotaExceeded,
-    message: elevenLabsQuotaMessage
-  });
-});
-
 app.get('/api/tts/voices', async (req, res) => {
+  if (!process.env.ELEVENLABS_API_KEY) {
+    return res.json({ voices: [], quota_exceeded: true, message: 'ElevenLabs API key not configured' });
+  }
   if (elevenLabsQuotaExceeded) {
     return res.json({ voices: [], quota_exceeded: true, message: elevenLabsQuotaMessage });
   }
@@ -2076,11 +2053,11 @@ app.get('/api/tts/voices', async (req, res) => {
     res.json({ voices, quota_exceeded: false });
   } catch (err) {
     const msg = err.message || "";
-    const isQuota = msg.includes('quota') || msg.includes('credit') || msg.includes('401') || msg.includes('402');
+    const isQuota = msg.includes('quota') || msg.includes('credit') || msg.includes('401') || msg.includes('402') || msg.includes('API Key');
     if (isQuota) {
       elevenLabsQuotaExceeded = true;
       elevenLabsQuotaMessage = msg;
-      console.warn("ElevenLabs credits exhausted:", msg);
+      console.warn("ElevenLabs unavailable or credits exhausted:", msg);
       return res.json({ voices: [], quota_exceeded: true, message: msg });
     }
     console.warn("Could not fetch remote ElevenLabs voices:", err.message);
@@ -2089,21 +2066,28 @@ app.get('/api/tts/voices', async (req, res) => {
 });
 
 app.post('/api/tts', async (req, res) => {
-  const { text, voice_id, model_id = "eleven_flash_v2_5" } = req.body;
+  const { text, voice_id, model_id = "eleven_flash_v2_5" } = req.body || {};
   if (!text || typeof text !== 'string' || !text.trim()) {
     return res.status(400).json({ error: "Text is required" });
   }
 
-  if (elevenLabsQuotaExceeded) {
+  if (!process.env.ELEVENLABS_API_KEY || elevenLabsQuotaExceeded) {
     return res.status(402).json({
       error: "quota_exceeded",
-      message: "ElevenLabs credits are exhausted. Switching to browser speech synthesis.",
+      message: "ElevenLabs credits are exhausted or not configured. Switching to browser speech synthesis.",
       fallback: true
     });
   }
 
   let activeVoiceId = voice_id;
-  if (!activeVoiceId || activeVoiceId === "undefined" || activeVoiceId === "null" || typeof activeVoiceId !== 'string' || !activeVoiceId.trim()) {
+  if (
+    !activeVoiceId ||
+    activeVoiceId === "undefined" ||
+    activeVoiceId === "null" ||
+    typeof activeVoiceId !== 'string' ||
+    !activeVoiceId.trim() ||
+    activeVoiceId.startsWith('browser:')
+  ) {
     activeVoiceId = "JBFqnCBsd6RMkjVDRZzb"; // Default: George
   }
 
@@ -2122,11 +2106,20 @@ app.post('/api/tts', async (req, res) => {
 
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Cache-Control', 'no-cache');
-    Readable.fromWeb(audioStream).pipe(res);
+    const nodeStream = Readable.fromWeb(audioStream);
+    nodeStream.on('error', (streamErr) => {
+      console.error('ElevenLabs stream error:', streamErr.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Stream error', fallback: true });
+      } else {
+        res.end();
+      }
+    });
+    nodeStream.pipe(res);
   } catch (err) {
     console.error("ElevenLabs textToSpeech error:", err.message);
     const msg = err.message || "";
-    const isQuota = msg.includes('quota') || msg.includes('credit') || msg.includes('401') || msg.includes('402');
+    const isQuota = msg.includes('quota') || msg.includes('credit') || msg.includes('401') || msg.includes('402') || msg.includes('API Key');
     if (isQuota) {
       elevenLabsQuotaExceeded = true;
       elevenLabsQuotaMessage = msg;

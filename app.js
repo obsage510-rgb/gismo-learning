@@ -4,21 +4,21 @@ window.onerror = function(msg, url, lineNo, columnNo, error) {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({msg: msg, line: lineNo, col: columnNo})
-  });
+  }).catch(() => {});
 };
 window.addEventListener("unhandledrejection", function(e) {
   fetch('/api/log_error', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({msg: e.reason ? e.reason.message : "Unhandled Promise"})
-  });
+  }).catch(() => {});
 });
 
 let lessonsDb = {};
 
 // Global App State
 let appState = {
-  currentTheme: 'dark',
+  currentTheme: 'light',
   fontScale: 1.0,
   activeLesson: null,
   tutorMuted: false,
@@ -30,8 +30,6 @@ let appState = {
   currentView: 'login',
   notes: [],
   persona: 'default',
-  quizActive: false,
-  currentQuizLesson: null,
   currentPageIndex: 0,
   currentLessonPages: [],
   chatSessions: [],
@@ -39,13 +37,18 @@ let appState = {
 };
 window.appState = appState;
 
-// Web Audio API Context (Earcons)
-const AudioContext = window.AudioContext || window.webkitAudioContext;
-const audioCtx = new AudioContext();
+// Web Audio API Context (Earcons) - lazily initialized on user interaction
+const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
 
 function playEarcon(type) {
-  if (!audioCtx || appState.tutorMuted) return;
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (appState.tutorMuted || !AudioContextClass) return;
+  try {
+    if (!audioCtx) audioCtx = new AudioContextClass();
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  } catch (_) {
+    return;
+  }
   const osc = audioCtx.createOscillator();
   const gainNode = audioCtx.createGain();
   osc.connect(gainNode);
@@ -84,7 +87,6 @@ const elements = {
   adminPanel: document.getElementById('admin-panel'),
   adminDbPanel: document.getElementById('admin-db-panel'),
   profileNameDisplay: document.getElementById('profile-name-display'),
-  btnProfileToggle: document.getElementById('btn-profile-toggle'),
   btnHomeToggle: document.getElementById('btn-home-toggle'),
   btnLibraryToggle: document.getElementById('btn-library-toggle'),
   btnAdminToggle: document.getElementById('btn-admin-toggle'),
@@ -204,7 +206,7 @@ window.addEventListener('DOMContentLoaded', () => {
   switchView('login');
   const requestedPortal = new URLSearchParams(window.location.search).get('portal');
   if (typeof selectLoginPortal === 'function') {
-    selectLoginPortal(requestedPortal === 'admin' ? 'admin' : 'student');
+    selectLoginPortal((requestedPortal === 'admin' || requestedPortal === 'instructor') ? 'instructor' : 'student');
   }
   const fab = document.getElementById('fab-tutor');
   if (fab) fab.style.display = 'none';
@@ -707,7 +709,7 @@ function selectLoginPortal(portal) {
   const formAdmin = document.getElementById('form-admin-login');
   hideAuthFeedback();
 
-  if (portal === 'instructor') {
+  if (portal === 'instructor' || portal === 'admin') {
     if (tabStudent) { tabStudent.classList.remove('active'); tabStudent.setAttribute('aria-selected', 'false'); }
     if (tabInstructor) { tabInstructor.classList.add('active'); tabInstructor.setAttribute('aria-selected', 'true'); }
     if (formStudent) formStudent.style.display = 'none';
@@ -3395,7 +3397,7 @@ function renderDbTableRows(rows, columns) {
         td.innerHTML = `
           <div style="display:inline-flex; align-items:center; gap:0.4rem;">
             <span id="${cellId}" style="font-family:monospace; font-size:0.78rem; color:var(--text-secondary);">••••••••••••••••</span>
-            <button class="theme-btn" onclick="togglePasswordReveal('${cellId}', '${escapeHtml(strVal)}')" style="padding:1px 6px; font-size:0.65rem; border-radius:6px;" title="Reveal hash">Show</button>
+            <button class="theme-btn" data-hash="${encodeURIComponent(strVal)}" onclick="togglePasswordReveal('${cellId}', decodeURIComponent(this.dataset.hash))" style="padding:1px 6px; font-size:0.65rem; border-radius:6px;" title="Reveal hash">Show</button>
           </div>
         `;
       } else if (col.name === 'role') {
@@ -3424,7 +3426,7 @@ function renderDbTableRows(rows, columns) {
         const truncated = rawText.slice(0, 32) + '...';
         const safeFieldName = escapeHtml(col.name);
         td.innerHTML = `
-          <span class="db-cell-truncate" title="Click to inspect full content" onclick="inspectDbCell('${safeFieldName}', ${JSON.stringify(rawText)})">
+          <span class="db-cell-truncate" title="Click to inspect full content" data-field="${safeFieldName}" data-val="${encodeURIComponent(rawText)}" onclick="inspectDbCell(this.dataset.field, decodeURIComponent(this.dataset.val))">
             ${escapeHtml(truncated)}
           </span>
         `;
@@ -3597,7 +3599,7 @@ async function executeCustomSqlQuery() {
             td.innerHTML = '<span style="color:var(--text-secondary); font-style:italic;">NULL</span>';
           } else if (String(val).length > 40) {
             const rawStr = String(val);
-            td.innerHTML = `<span class="db-cell-truncate" onclick="inspectDbCell('${escapeHtml(col)}', ${JSON.stringify(rawStr)})">${escapeHtml(rawStr.slice(0, 36))}...</span>`;
+            td.innerHTML = `<span class="db-cell-truncate" data-field="${escapeHtml(col)}" data-val="${encodeURIComponent(rawStr)}" onclick="inspectDbCell(this.dataset.field, decodeURIComponent(this.dataset.val))">${escapeHtml(rawStr.slice(0, 36))}...</span>`;
           } else {
             td.textContent = String(val);
           }
@@ -3666,14 +3668,28 @@ window.copyDbDetailContent = copyDbDetailContent;
 
 async function handleFileUpload() {
   const fileInput = document.getElementById('file-upload');
-  if (!fileInput.files[0]) return;
+  if (!fileInput || !fileInput.files || !fileInput.files[0] || !appState.user) return;
   const formData = new FormData();
   formData.append('file', fileInput.files[0]);
   formData.append('user_id', appState.user.id);
-  
-  await fetch('/api/files', { method: 'POST', body: formData });
-  alert('File uploaded successfully!');
-  loadLibraryFiles();
+  if (appState.user.username) {
+    formData.append('username', appState.user.username);
+  }
+  try {
+    const res = await fetch('/api/files', { method: 'POST', body: formData });
+    if (res.ok) {
+      showToast('File uploaded successfully!', 'check');
+      playEarcon('success');
+      fileInput.value = '';
+      loadLibraryFiles();
+    } else {
+      showToast('Failed to upload file.', 'warning');
+      playEarcon('error');
+    }
+  } catch (err) {
+    console.error("File upload error:", err);
+    showToast('Network error uploading file.', 'warning');
+  }
 }
 
 async function loadLibraryFiles() {
@@ -4111,6 +4127,8 @@ function setTheme(theme) {
   appState.currentTheme = theme;
   elements.body.className = `theme-${theme}`;
   localStorage.setItem('theme', theme);
+  const chk = document.getElementById('theme-checkbox');
+  if (chk) chk.checked = (theme === 'light');
 }
 
 function setupFontSelector() {
@@ -4256,9 +4274,10 @@ function loadLesson(lessonId) {
 }
 
 function showDashboard() {
+  const wasLibraryBook = appState.activeLesson && lessonsDb[appState.activeLesson] &&
+    (lessonsDb[appState.activeLesson].id.startsWith('gutenberg_') || lessonsDb[appState.activeLesson].meta === 'Web Book');
   appState.activeLesson = null;
-  appState.quizActive = false;
-  synth.cancel();
+  stopAllTTS();
   elements.lessonActiveContainer.style.display = 'none';
   if (elements.mainContent) {
     const welcomeBanner = elements.mainContent.querySelector('.welcome-banner');
@@ -4267,6 +4286,8 @@ function showDashboard() {
   
   if (appState.user && appState.user.role === 'admin') {
     return;
+  } else if (wasLibraryBook || appState.currentView === 'library') {
+    switchView('library');
   } else {
     elements.modulesList.style.display = 'flex';
       
@@ -4280,18 +4301,17 @@ function setupNarrator() {
   elements.btnReadLesson.addEventListener('click', () => {
     if (!appState.activeLesson) return;
     const lesson = lessonsDb[appState.activeLesson];
-    const speakText = `Lesson title: ${lesson.title}. Content: ${lesson.content}`;
+    if (!lesson) return;
+    const currentPageHtml = (appState.currentLessonPages && appState.currentLessonPages[appState.currentPageIndex])
+      ? appState.currentLessonPages[appState.currentPageIndex]
+      : lesson.content;
+    const cleanPageText = String(currentPageHtml || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const speakText = `${lesson.title}. ${cleanPageText}`;
     elements.btnPauseLesson.disabled = false; elements.btnStopLesson.disabled = false;
     announceTTS(speakText);
   });
   elements.btnStopLesson.addEventListener('click', () => {
-    if (currentElevenLabsAudio) {
-      currentElevenLabsAudio.pause();
-      currentElevenLabsAudio.currentTime = 0;
-      currentElevenLabsAudio = null;
-    }
-    if (synth) synth.cancel();
-    animateVisualizer(false);
+    stopAllTTS();
     setCaption("Ready.");
   });
   elements.btnPauseLesson.addEventListener('click', () => {
@@ -4757,7 +4777,15 @@ async function handleVoiceInput(speechText) {
   if (cmd.includes('take a note')) {
     const noteContent = speechText.substring(speechText.toLowerCase().indexOf('take a note') + 11).replace(/^[:\s]+/, '');
     if (noteContent && appState.user) {
-      await fetch('/api/notes', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ content: noteContent }) });
+      await fetch('/api/notes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          user_id: appState.user.id,
+          username: appState.user.username,
+          content: noteContent
+        })
+      });
       playEarcon('success'); announceTTS("Note saved: " + noteContent);
       fetchNotes();
     }
@@ -4874,7 +4902,9 @@ function setupKeyBindings() {
     }
     if (e.altKey && e.key.toLowerCase() === 's') { 
       e.preventDefault(); 
-      if (recognition) recognition.start(); 
+      if (recognition && !appState.isListening) {
+        try { recognition.start(); } catch (_) {}
+      }
     }
   });
 }
@@ -5511,53 +5541,73 @@ function executeVoiceCommand(rawTranscript) {
     if (handled) return;
   }
   
-  // 1. Navigation Commands
-  if (t === 'home' || t === 'dashboard' || t.includes('go home') || t.includes('open dashboard') || t.includes('open home')) {
+  const isExplicitTutor = t.startsWith('ask tutor') || t.startsWith('tutor') || t.startsWith('hey gismo') || t.startsWith('ask gismo') || t.startsWith('question');
+  const questionStarters = [
+    'what', 'why', 'how', 'who', 'where', 'when', 'which', 'can you', 'could you', 
+    'tell me', 'explain', 'describe', 'define', 'summarize', 'summarise', 'help me', 
+    'teach me', 'give me', 'show me', 'is there', 'are there', 'do you know'
+  ];
+  const isQuestionStarter = questionStarters.some(starter => t.startsWith(starter + ' ') || t === starter);
+  const isGeneralQuery = isExplicitTutor || isQuestionStarter || rawTranscript.trim().endsWith('?');
+
+  if (t.includes('quiz me on') || t.includes('give me a quiz on')) {
+    const topic = rawTranscript.replace(/.*(quiz me on|give me a quiz on)/i, '').trim() || 'General Science';
     playEarcon('success');
-    updateVoiceHudState('matched', 'Executing Command', 'Navigating to Home Dashboard');
-    switchView('dashboard');
-    announceTTS("Navigated to Home Dashboard.");
-    return;
-  }
-  
-  if (t.includes('profile') || t.includes('my account') || t.includes('student profile')) {
-    playEarcon('success');
-    updateVoiceHudState('matched', 'Executing Command', 'Opening Student Profile');
-    switchView('profile');
-    announceTTS("Opened Student Profile.");
-    return;
-  }
-  
-  if (t.includes('library') || t.includes('books') || t.includes('textbook') || t.includes('read book')) {
-    playEarcon('success');
-    updateVoiceHudState('matched', 'Executing Command', 'Opening Course Library');
-    switchView('library');
-    announceTTS("Opened Course Library.");
-    return;
-  }
-  
-  if (t.includes('quizzes') || t.includes('quiz') || t.includes('open quiz') || t.includes('take quiz')) {
-    playEarcon('success');
-    updateVoiceHudState('matched', 'Executing Command', 'Opening Quizzes');
+    updateVoiceHudState('matched', 'Executing Command', `Generating AI Quiz: ${topic}`);
     switchView('quizzes');
-    announceTTS("Opened Quizzes.");
+    handleTriggerAiQuiz(topic);
     return;
   }
-  
-  if (t.includes('database') || t.includes('db') || t.includes('view database') || t.includes('database explorer')) {
-    playEarcon('success');
-    updateVoiceHudState('matched', 'Executing Command', 'Opening Database Explorer');
-    switchView('admin-db');
-    announceTTS("Opened Database Explorer.");
-    return;
-  }
-  
-  if (t.includes('admin') || t.includes('teacher') || t.includes('instructor') || t.includes('educator')) {
-    playEarcon('success');
-    updateVoiceHudState('matched', 'Executing Command', 'Opening Educator Workspace');
-    switchView('admin');
-    announceTTS("Opened Educator Workspace.");
-    return;
+
+  // 1. Navigation Commands (only when not phrasing an explicit question to the AI Tutor)
+  if (!isExplicitTutor && !isQuestionStarter) {
+    if (t === 'home' || t === 'dashboard' || /\b(go home|open dashboard|open home)\b/.test(t)) {
+      playEarcon('success');
+      updateVoiceHudState('matched', 'Executing Command', 'Navigating to Home Dashboard');
+      switchView('dashboard');
+      announceTTS("Navigated to Home Dashboard.");
+      return;
+    }
+    
+    if (/\b(profile|my account|student profile)\b/.test(t)) {
+      playEarcon('success');
+      updateVoiceHudState('matched', 'Executing Command', 'Opening Student Profile');
+      switchView('profile');
+      announceTTS("Opened Student Profile.");
+      return;
+    }
+    
+    if (/\b(library|books|textbook|read book)\b/.test(t)) {
+      playEarcon('success');
+      updateVoiceHudState('matched', 'Executing Command', 'Opening Course Library');
+      switchView('library');
+      announceTTS("Opened Course Library.");
+      return;
+    }
+    
+    if (/\b(quizzes|quiz|open quiz|take quiz)\b/.test(t)) {
+      playEarcon('success');
+      updateVoiceHudState('matched', 'Executing Command', 'Opening Quizzes');
+      switchView('quizzes');
+      announceTTS("Opened Quizzes.");
+      return;
+    }
+    
+    if (/\b(database|db|view database|database explorer)\b/.test(t)) {
+      playEarcon('success');
+      updateVoiceHudState('matched', 'Executing Command', 'Opening Database Explorer');
+      switchView('admin-db');
+      announceTTS("Opened Database Explorer.");
+      return;
+    }
+    
+    if (/\b(admin|teacher|instructor|educator)\b/.test(t)) {
+      playEarcon('success');
+      updateVoiceHudState('matched', 'Executing Command', 'Opening Educator Workspace');
+      switchView('admin');
+      announceTTS("Opened Educator Workspace.");
+      return;
+    }
   }
   
   if (t.includes('open setting') || t === 'settings' || t.includes('preferences')) {
@@ -5587,8 +5637,6 @@ function executeVoiceCommand(rawTranscript) {
     playEarcon('success');
     updateVoiceHudState('matched', 'Executing Command', 'Switched to Dark Theme');
     setTheme('dark');
-    const chk = document.getElementById('theme-checkbox');
-    if (chk) chk.checked = false;
     announceTTS("Dark theme enabled.");
     return;
   }
@@ -5597,8 +5645,6 @@ function executeVoiceCommand(rawTranscript) {
     playEarcon('success');
     updateVoiceHudState('matched', 'Executing Command', 'Switched to Light Theme');
     setTheme('light');
-    const chk = document.getElementById('theme-checkbox');
-    if (chk) chk.checked = true;
     announceTTS("Light theme enabled.");
     return;
   }
@@ -5673,24 +5719,12 @@ function executeVoiceCommand(rawTranscript) {
   
   if (t === 'stop' || t === 'stop reading' || t === 'stop speaking' || t === 'silence' || t === 'quiet' || t === 'pause') {
     playEarcon('click');
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    stopAllTTS();
     updateVoiceHudState('matched', 'Executing Command', 'Speech narration paused');
     return;
   }
   
   // 4. AI Tutor Interactivity & Query Answering
-  const isExplicitTutor = t.startsWith('ask tutor') || t.startsWith('tutor') || t.startsWith('hey gismo') || t.startsWith('ask gismo') || t.startsWith('question');
-  
-  const questionStarters = [
-    'what', 'why', 'how', 'who', 'where', 'when', 'which', 'can you', 'could you', 
-    'tell me', 'explain', 'describe', 'define', 'summarize', 'summarise', 'help me', 
-    'teach me', 'give me', 'show me', 'is there', 'are there', 'do you know'
-  ];
-  const isQuestionStarter = questionStarters.some(starter => t.startsWith(starter + ' ') || t === starter);
-  
-  // Stricter query trigger: only route to AI Tutor if explicit prefix, question starter, or ends with '?'
-  // NEVER route arbitrary 3-word background noise fragments to the AI tutor!
-  const isGeneralQuery = isExplicitTutor || isQuestionStarter || rawTranscript.trim().endsWith('?');
 
   if (isGeneralQuery) {
     let question = rawTranscript.trim();
@@ -6320,8 +6354,8 @@ async function handleHomeworkFileUpload(hwId, inputEl) {
       showToast(`Submitted "${file.name}" successfully!`, "check");
       announceTTS(`Assignment submitted successfully. File ${file.name} uploaded.`);
       // Refresh profile stats if available
-      if (typeof fetchAnalytics === 'function' && appState.user) {
-        fetchAnalytics(appState.user.id);
+      if (typeof loadAnalytics === 'function' && appState.user) {
+        loadAnalytics();
       }
     } else {
       const errData = await res.json().catch(() => ({}));
@@ -6420,7 +6454,9 @@ function openSettingsModal() {
   const personaSelect = document.getElementById('persona-select');
 
   if (disabilitySelect) {
-    disabilitySelect.value = (appState.user && appState.user.disability) || localStorage.getItem('gismoDisability') || 'None';
+    const rawDis = (appState.user && appState.user.disability) || localStorage.getItem('gismoDisability') || 'None';
+    const disMap = { 'Visual': 'Low Vision', 'Auditory': 'Auditory Impairment', 'Cognitive': 'Dyslexia' };
+    disabilitySelect.value = disMap[rawDis] || rawDis || 'None';
   }
   if (modeSelect) {
     modeSelect.value = (appState.user && appState.user.preferred_learning_mode) || localStorage.getItem('gismoMode') || 'visual';
@@ -6432,7 +6468,7 @@ function openSettingsModal() {
     regInput.value = (appState.user && appState.user.reg_no) || localStorage.getItem('gismoRegNo') || '';
   }
   if (fontSelect) {
-    fontSelect.value = localStorage.getItem('gismoFont') || "'Outfit', sans-serif";
+    fontSelect.value = localStorage.getItem('gismoFont') || "'Plus Jakarta Sans', sans-serif";
   }
   if (scaleSlider) {
     scaleSlider.value = appState.fontScale || parseFloat(localStorage.getItem('fontScale') || '1.0');
@@ -6440,8 +6476,13 @@ function openSettingsModal() {
   if (personaSelect) {
     personaSelect.value = appState.persona || localStorage.getItem('gismoPersona') || 'default';
   }
-  if (voiceSelect && appState.elevenLabsVoiceId) {
-    voiceSelect.value = appState.elevenLabsVoiceId;
+  if (voiceSelect) {
+    if (appState.useElevenLabs && appState.elevenLabsVoiceId) {
+      voiceSelect.value = appState.elevenLabsVoiceId;
+    } else if (appState.selectedVoice && appState.voicesList) {
+      const bIdx = appState.voicesList.indexOf(appState.selectedVoice);
+      if (bIdx !== -1) voiceSelect.value = `browser:${bIdx}`;
+    }
   }
 
   if (typeof refreshVoiceIsolationUI === 'function') {
@@ -6477,8 +6518,18 @@ async function saveSettings() {
     localStorage.setItem('fontScale', appState.fontScale);
   }
   if (voice) {
-    appState.elevenLabsVoiceId = voice;
-    localStorage.setItem('elevenLabsVoiceId', voice);
+    if (voice.startsWith('browser:')) {
+      appState.useElevenLabs = false;
+      const idx = parseInt(voice.split(':')[1], 10);
+      if (appState.voicesList && appState.voicesList[idx]) {
+        appState.selectedVoice = appState.voicesList[idx];
+      }
+      localStorage.removeItem('elevenLabsVoiceId');
+    } else {
+      appState.useElevenLabs = true;
+      appState.elevenLabsVoiceId = voice;
+      localStorage.setItem('elevenLabsVoiceId', voice);
+    }
   }
   if (persona) {
     appState.persona = persona;
@@ -6584,7 +6635,7 @@ async function loadTutorModelInfo() {
     const res = await fetch('/api/tutor/info');
     if (res.ok) {
       const data = await res.json();
-      const meta = document.getElementById('tutor-model-meta');
+      const meta = document.getElementById('tutor-model-badge') || document.getElementById('tutor-model-meta');
       if (meta && data.model) meta.textContent = data.model;
     }
   } catch (err) {
@@ -6815,8 +6866,6 @@ function setupCrossDeviceSync() {
 function initTutorCapabilities() {
   loadTutorModelInfo();
   setupDraggableTutor();
-  setupTutorMuteSystem();
-  initChatSessions();
   setupCrossDeviceSync();
 }
 

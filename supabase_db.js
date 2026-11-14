@@ -242,13 +242,9 @@ class SupabaseDatabaseBridge {
     try {
       const { error } = await this.client.from('users').select('id').limit(1);
       if (!error) {
-        const becameReady = !this.postgresTablesReady;
         this.postgresTablesReady = true;
         this.connected = true;
         this.lastError = null;
-        if (becameReady) {
-          await this.pushLocalToPostgres();
-        }
         return true;
       }
       if (error.code === 'PGRST205' || (error.message && error.message.includes('Could not find the table'))) {
@@ -502,9 +498,6 @@ class SupabaseDatabaseBridge {
             for (const r of remoteRows) {
               if (!r) continue;
               if (r.id !== undefined && deletedSet.has(String(r.id))) continue;
-              if (table === 'textbooks' && (r.user_id === null || r.user_id === undefined) && !/_u\d+$/.test(String(r.id || ''))) {
-                continue;
-              }
               const k = getKey(r);
               if (k) byKey.set(k, r);
             }
@@ -512,7 +505,15 @@ class SupabaseDatabaseBridge {
               if (!r) continue;
               if (r.id !== undefined && deletedSet.has(String(r.id))) continue;
               const k = getKey(r);
-              if (k) byKey.set(k, r);
+              if (k) {
+                const existing = byKey.get(k);
+                // Preserve canonical remote user ID when merging by username
+                if (table === 'users' && existing && existing.id !== undefined) {
+                  byKey.set(k, { ...r, id: existing.id });
+                } else {
+                  byKey.set(k, r);
+                }
+              }
             }
             mergedTables[table] = Array.from(byKey.values());
           }
@@ -551,12 +552,19 @@ class SupabaseDatabaseBridge {
 
     try {
       if (!this.postgresTablesReady) {
-        await this.checkPostgresTables();
+        const ready = await this.checkPostgresTables();
+        if (ready) {
+          await this.pullFromPostgresToSqlite();
+        }
       }
 
       if (this.postgresTablesReady && tableName && TABLES.includes(tableName)) {
-        if (Array.isArray(options.deletedIds) && options.deletedIds.length > 0) {
-          await this.client.from(tableName).delete().in('id', options.deletedIds);
+        const deletedSet = new Set(Array.isArray(options.deletedIds) ? options.deletedIds.map(String) : []);
+        if (this.deletedIdsByTable[tableName]) {
+          for (const id of this.deletedIdsByTable[tableName]) deletedSet.add(String(id));
+        }
+        if (deletedSet.size > 0) {
+          await this.client.from(tableName).delete().in('id', Array.from(deletedSet));
         }
         const rows = this.origPrepare(`SELECT * FROM "${tableName}"`).all();
         if (rows.length > 0) {

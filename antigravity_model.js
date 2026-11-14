@@ -95,7 +95,7 @@ Guidelines:
       };
     }
 
-    if (lower.includes('thank you') || lower.includes('thanks')) {
+    if (/^(thank\s+you|thanks|thx|ty)([!.,\s]+(gismo|so\s+much|very\s+much|a\s+lot))?[!.,\s]*$/i.test(trimmed)) {
       return {
         reply: `You're very welcome! Keep up the fantastic curiosity. Let me know if there's anything else you'd like to explore!`,
         model: this.modelName,
@@ -109,22 +109,33 @@ Guidelines:
         const systemPrompt = this.buildSystemInstructions(persona, context);
         const contents = [];
 
-        // Append recent chat history if available
+        // Append recent chat history if available, ensuring alternating roles starting with 'user'
         if (Array.isArray(history) && history.length > 0) {
           const recent = history.slice(-8);
           for (const item of recent) {
-            contents.push({
-              role: item.role === 'model' || item.role === 'ai' ? 'model' : 'user',
-              parts: [{ text: item.content || item.text || '' }]
-            });
+            const text = (item.content || item.text || '').trim();
+            if (!text) continue;
+            const role = item.role === 'model' || item.role === 'ai' ? 'model' : 'user';
+            if (contents.length === 0 && role !== 'user') continue;
+            const prev = contents[contents.length - 1];
+            if (prev && prev.role === role) {
+              prev.parts[0].text += `\n\n${text}`;
+            } else {
+              contents.push({ role, parts: [{ text }] });
+            }
           }
         }
 
-        // Add current student prompt
-        contents.push({
-          role: 'user',
-          parts: [{ text: trimmed }]
-        });
+        // Add current student prompt (avoiding consecutive 'user' turns)
+        const lastTurn = contents[contents.length - 1];
+        if (lastTurn && lastTurn.role === 'user') {
+          lastTurn.parts[0].text = trimmed;
+        } else {
+          contents.push({
+            role: 'user',
+            parts: [{ text: trimmed }]
+          });
+        }
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
         const response = await fetch(url, {
@@ -363,12 +374,12 @@ Ensure all questions have exactly 4 plausible options, answerIndex is an integer
     } else if (lower.includes('access') || lower.includes('disab') || lower.includes('screen reader') || lower.includes('assist')) {
       questions = [
         {
-          question: "What does the 'A' in the WCAG accessibility principles (POUR) stand for?",
+          question: "What does the 'U' in the WCAG accessibility principles (POUR) stand for?",
           options: [
             "Understandable (from Perceivable, Operable, Understandable, Robust)",
-            "Automated",
-            "Augmented",
-            "Accessible"
+            "Universal",
+            "Uniform",
+            "Unrestricted"
           ],
           answerIndex: 0,
           explanation: "The WCAG foundational principles are Perceivable, Operable, Understandable, and Robust (POUR)."
