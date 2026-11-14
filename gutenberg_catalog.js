@@ -335,17 +335,23 @@ There now is your insular city of the Manhattoes, belted round by wharves as Ind
   }
 ];
 
+function getGutenbergCoverUrl(bookId) {
+  return `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.cover.medium.jpg`;
+}
+
 function searchGutenbergCatalog(query = '') {
   const q = (query || '').trim().toLowerCase();
+  const formatBook = (b) => ({
+    id: b.id,
+    title: b.title,
+    author: b.author,
+    subject: b.subject,
+    image: (b.image && !b.image.includes('assets/')) ? b.image : getGutenbergCoverUrl(b.id),
+    descriptor: b.descriptor
+  });
+
   if (!q || q === 'featured' || q === 'all') {
-    return GUTENBERG_CATALOG.map(b => ({
-      id: b.id,
-      title: b.title,
-      author: b.author,
-      subject: b.subject,
-      image: b.image,
-      descriptor: b.descriptor
-    }));
+    return GUTENBERG_CATALOG.map(formatBook);
   }
 
   return GUTENBERG_CATALOG.filter(b =>
@@ -354,19 +360,17 @@ function searchGutenbergCatalog(query = '') {
     (b.subject && b.subject.toLowerCase().includes(q)) ||
     (b.descriptor && b.descriptor.toLowerCase().includes(q)) ||
     b.id === q
-  ).map(b => ({
-    id: b.id,
-    title: b.title,
-    author: b.author,
-    subject: b.subject,
-    image: b.image,
-    descriptor: b.descriptor
-  }));
+  ).map(formatBook);
 }
 
 function getGutenbergBookById(bookId) {
   const idStr = String(bookId).replace(/^gutenberg_/, '');
-  return GUTENBERG_CATALOG.find(b => b.id === idStr) || null;
+  const found = GUTENBERG_CATALOG.find(b => b.id === idStr);
+  if (!found) return null;
+  return {
+    ...found,
+    image: (found.image && !found.image.includes('assets/')) ? found.image : getGutenbergCoverUrl(found.id)
+  };
 }
 
 module.exports = {

@@ -320,36 +320,61 @@ async function fetchTextbooks() {
       const btn = document.createElement('div');
       btn.className = 'col-12 col-md-4';
       
-      const badge = tb.id.includes('gutenberg') ? 'NEW' : 'FEATURED';
+      const isLibraryBook = tb.id.startsWith('gutenberg_') || tb.meta === 'Web Book';
+      const badge = isLibraryBook ? 'LIBRARY BOOK' : 'FEATURED';
+
+      // Keep original book cover; never substitute assets/pyramids.jpg for library books
+      let coverUrl = tb.image || '';
+      if (isLibraryBook && (!coverUrl || coverUrl.includes('assets/pyramids.jpg'))) {
+        const gutenbergMatch = String(tb.id).match(/^gutenberg_(\d+)/);
+        coverUrl = gutenbergMatch ? `https://www.gutenberg.org/cache/epub/${gutenbergMatch[1]}/pg${gutenbergMatch[1]}.cover.medium.jpg` : '';
+      }
+      if (!isLibraryBook && !coverUrl) {
+        coverUrl = 'assets/pyramids.jpg';
+      }
+
+      const coverHtml = coverUrl
+        ? `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(tb.title)}" style="width:100%; height:100%; object-fit:${isLibraryBook ? 'contain' : 'cover'}; background:var(--bg-secondary);" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+           <div style="display:none; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; padding:1rem; text-align:center; background:linear-gradient(135deg, rgba(15,92,77,0.18), rgba(217,119,6,0.14)); color:var(--text-primary);">
+             ${getAppSvgIcon('book', 28)}
+             <span style="margin-top:0.5rem; font-weight:700; font-size:0.9rem; line-height:1.3;">${escapeHtml(tb.title)}</span>
+           </div>`
+        : `<div style="display:flex; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; padding:1rem; text-align:center; background:linear-gradient(135deg, rgba(15,92,77,0.18), rgba(217,119,6,0.14)); color:var(--text-primary);">
+             ${getAppSvgIcon('book', 28)}
+             <span style="margin-top:0.5rem; font-weight:700; font-size:0.9rem; line-height:1.3;">${escapeHtml(tb.title)}</span>
+           </div>`;
       
       let pillsHtml = '';
       if (tb.meta) {
         const metaParts = tb.meta.split('•');
-        pillsHtml = metaParts.map(p => `<span style="background:var(--bg-secondary); color:var(--text-primary); padding:4px 10px; border-radius:12px; font-size:0.75rem;">${p.trim()}</span>`).join('');
+        pillsHtml = metaParts.map(p => `<span style="background:var(--bg-secondary); color:var(--text-primary); padding:4px 10px; border-radius:12px; font-size:0.75rem;">${escapeHtml(p.trim())}</span>`).join('');
       }
-      
-      btn.innerHTML = `
-      <div class="learner-card w-100 h-100" style="display:flex; flex-direction:column;">
-        <div class="learner-img-wrapper" style="position:relative; height:180px; overflow:hidden; border-radius:12px 12px 0 0;">
-          <img src="${tb.image || 'assets/pyramids.jpg'}" alt="${tb.title}" style="width:100%; height:100%; object-fit:cover;">
-          <span style="position:absolute; top:10px; left:10px; background:var(--accent-color); color:white; padding:4px 10px; border-radius:12px; font-size:0.7rem; font-weight:bold; text-transform:uppercase;">${badge}</span>
-        </div>
-        <div class="learner-body" style="padding:1.5rem; flex:1; display:flex; flex-direction:column; background:var(--bg-card); border:1px solid var(--border-color); border-top:none; border-radius:0 0 12px 12px;">
-          <div class="learner-pills" style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
-            ${pillsHtml}
-          </div>
-          <h3 style="margin-top:0; font-size:1.2rem; margin-bottom:0.75rem; color:var(--text-primary);">${tb.title}</h3>
-          <p style="color:var(--text-secondary); font-size:0.9rem; line-height:1.5; margin-bottom:1.5rem; flex:1;">${tb.descriptor || 'Learn more about this exciting topic.'}</p>
-          
+
+      const instructorHtml = isLibraryBook ? '' : `
           <div class="learner-instructor" style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem; border-top:1px solid var(--border-color); padding-top:1rem;">
             <div style="width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg, var(--accent-color), var(--accent-secondary)); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; flex-shrink:0;">GT</div>
             <div>
               <div style="font-weight:bold; font-size:0.9rem; color:var(--text-primary);">Gismo Tutor</div>
               <div style="font-size:0.75rem; color:var(--text-secondary);">AI Instructor</div>
             </div>
+          </div>`;
+
+      const actionLabel = isLibraryBook ? 'Read Book' : 'Enroll Now';
+      
+      btn.innerHTML = `
+      <div class="learner-card w-100 h-100" style="display:flex; flex-direction:column;">
+        <div class="learner-img-wrapper" style="position:relative; height:210px; overflow:hidden; border-radius:12px 12px 0 0; background:var(--bg-secondary);">
+          ${coverHtml}
+          <span style="position:absolute; top:10px; left:10px; background:var(--accent-color); color:white; padding:4px 10px; border-radius:12px; font-size:0.7rem; font-weight:bold; text-transform:uppercase;">${badge}</span>
+        </div>
+        <div class="learner-body" style="padding:1.5rem; flex:1; display:flex; flex-direction:column; background:var(--bg-card); border:1px solid var(--border-color); border-top:none; border-radius:0 0 12px 12px;">
+          <div class="learner-pills" style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+            ${pillsHtml}
           </div>
-          
-          <button class="btn-primary w-100" onclick="loadLesson('${tb.id}')" style="padding:0.75rem; border-radius:8px; font-weight:bold; font-size:1rem; margin-top:auto;">Enroll Now</button>
+          <h3 style="margin-top:0; font-size:1.2rem; margin-bottom:0.75rem; color:var(--text-primary);">${escapeHtml(tb.title)}</h3>
+          <p style="color:var(--text-secondary); font-size:0.9rem; line-height:1.5; margin-bottom:1.5rem; flex:1;">${escapeHtml(tb.descriptor || 'Open this book to start reading.')}</p>
+          ${instructorHtml}
+          <button class="btn-primary w-100" onclick="loadLesson('${tb.id}')" style="padding:0.75rem; border-radius:8px; font-weight:bold; font-size:1rem; margin-top:auto;">${actionLabel}</button>
         </div>
       </div>
       `;
@@ -5561,14 +5586,18 @@ async function handleWebSearch(loadFeatured = false) {
         const div = document.createElement('div');
         div.className = 'col-12 col-md-6 col-lg-4';
         const subjectBadge = book.subject ? `<span class="badge mb-2" style="align-self:flex-start; background:rgba(15,92,77,0.14); color:var(--accent-color); font-size:0.72rem; border-radius:8px; padding:0.25rem 0.55rem;">${escapeHtml(book.subject)}</span>` : '';
+        const coverThumb = (book.image && !book.image.includes('assets/'))
+          ? `<img src="${escapeHtml(book.image)}" alt="${escapeHtml(book.title)}" style="width:100%; height:140px; object-fit:contain; background:var(--bg-secondary); border-radius:8px; margin-bottom:0.85rem;" onerror="this.style.display='none'">`
+          : '';
         const descHtml = book.descriptor ? `<p class="text-secondary small mb-3 flex-grow-1" style="font-size:0.82rem; opacity:0.85;">${escapeHtml(book.descriptor)}</p>` : '<div class="flex-grow-1"></div>';
         div.innerHTML = `
           <div class="profile-card h-100 d-flex flex-column m-0" style="padding:1.25rem;">
+            ${coverThumb}
             ${subjectBadge}
             <h4 class="mb-1" style="font-size:1.05rem;">${escapeHtml(book.title)}</h4>
             <p class="text-secondary small mb-2" style="font-weight:600;">${escapeHtml(book.author || 'Unknown Author')}</p>
             ${descHtml}
-            <button class="theme-btn w-100 mt-auto" data-title="${escapeHtml(book.title)}" data-author="${escapeHtml(book.author || 'Unknown Author')}" onclick="importWebBook('${book.id}', this)">
+            <button class="theme-btn w-100 mt-auto" data-title="${escapeHtml(book.title)}" data-author="${escapeHtml(book.author || 'Unknown Author')}" data-image="${escapeHtml(book.image || '')}" onclick="importWebBook('${book.id}', this)">
               ${getAppSvgIcon('download', 15)} Import to Library
             </button>
           </div>
@@ -5592,6 +5621,7 @@ async function importWebBook(bookId, btnElement) {
 
   const title = btnElement ? (btnElement.getAttribute('data-title') || '') : '';
   const author = btnElement ? (btnElement.getAttribute('data-author') || '') : '';
+  const image = btnElement ? (btnElement.getAttribute('data-image') || '') : '';
 
   if (btnElement) {
     btnElement.disabled = true;
@@ -5602,7 +5632,7 @@ async function importWebBook(bookId, btnElement) {
     const res = await fetch(`/api/web/import/${encodeURIComponent(bookId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, title, author })
+      body: JSON.stringify({ user_id: userId, title, author, image })
     });
     const data = await res.json();
     if (res.ok) {

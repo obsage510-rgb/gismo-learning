@@ -1064,14 +1064,18 @@ app.get('/api/web/search', async (req, res) => {
       const titleMatch = entry.match(/<title>([\s\S]*?)<\/title>/i);
       const idMatch = entry.match(/ebooks\/(\d+)/i);
       const authorMatch = entry.match(/<author>[\s\S]*?<name>([\s\S]*?)<\/name>[\s\S]*?<\/author>/i);
+      const coverMatch = entry.match(/<link[^>]+rel=["']http:\/\/opds-spec\.org\/image(?:\/thumbnail)?["'][^>]+href=["']([^"']+)["']/i);
       const decodeXml = (s) => (s || '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
       if (!idMatch || !titleMatch) return null;
+      const ebookId = idMatch[1];
+      let coverUrl = coverMatch ? decodeXml(coverMatch[1]) : `https://www.gutenberg.org/cache/epub/${ebookId}/pg${ebookId}.cover.medium.jpg`;
+      if (coverUrl.startsWith('/')) coverUrl = `https://www.gutenberg.org${coverUrl}`;
       return {
-        id: idMatch[1],
+        id: ebookId,
         title: decodeXml(titleMatch[1]),
         author: decodeXml(authorMatch ? authorMatch[1] : 'Project Gutenberg Author'),
         subject: 'Project Gutenberg',
-        image: 'assets/pyramids.jpg'
+        image: coverUrl
       };
     }).filter(Boolean);
   }).catch(() => []);
@@ -1087,7 +1091,7 @@ app.get('/api/web/search', async (req, res) => {
       title: book.title || 'Unknown Title',
       author: book.authors && book.authors[0] ? book.authors[0].name : 'Unknown Author',
       subject: 'Project Gutenberg',
-      image: (book.formats && book.formats['image/jpeg']) || 'assets/pyramids.jpg'
+      image: (book.formats && book.formats['image/jpeg']) || `https://www.gutenberg.org/cache/epub/${book.id}/pg${book.id}.cover.medium.jpg`
     }));
   }).catch(() => []);
 
@@ -1106,7 +1110,7 @@ app.get('/api/web/search', async (req, res) => {
         author: Array.isArray(doc.author_name) && doc.author_name[0] ? doc.author_name[0] : 'Unknown Author',
         subject: 'Open Library',
         descriptor: doc.first_publish_year ? `First published in ${doc.first_publish_year}.` : 'Public catalog book.',
-        image: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : 'assets/pyramids.jpg'
+        image: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : ''
       };
     }).filter(Boolean);
   }).catch(() => []);
@@ -1132,11 +1136,12 @@ app.post('/api/web/import/:book_id', async (req, res) => {
   const catalogBook = getGutenbergBookById(bookId);
   const bodyTitle = (req.body && req.body.title) ? String(req.body.title).trim() : '';
   const bodyAuthor = (req.body && req.body.author) ? String(req.body.author).trim() : '';
+  const bodyImage = (req.body && req.body.image) ? String(req.body.image).trim() : '';
 
   try {
     let title = (catalogBook && catalogBook.title) || bodyTitle || 'Classic Public Domain Work';
     let author = (catalogBook && catalogBook.author) || bodyAuthor || 'Project Gutenberg Author';
-    let image = (catalogBook && catalogBook.image) || 'assets/pyramids.jpg';
+    let image = bodyImage || (catalogBook && catalogBook.image) || (/^\d+$/.test(bookId) ? `https://www.gutenberg.org/cache/epub/${bookId}/pg${bookId}.cover.medium.jpg` : '');
     let descriptor = (catalogBook && catalogBook.descriptor) || `A classic work by ${author}.`;
     let content = catalogBook ? catalogBook.content : '';
     let quiz_q = (catalogBook && catalogBook.quiz_q) || `Who is the author of the book '${title}'?`;
@@ -1153,6 +1158,9 @@ app.post('/api/web/import/:book_id', async (req, res) => {
         if (olRes.ok) {
           const work = await olRes.json();
           title = work.title || title;
+          if (!image && Array.isArray(work.covers) && work.covers[0]) {
+            image = `https://covers.openlibrary.org/b/id/${work.covers[0]}-M.jpg`;
+          }
           const descText = typeof work.description === 'string'
             ? work.description
             : (work.description && work.description.value ? work.description.value : '');
