@@ -184,10 +184,9 @@ window.addEventListener('DOMContentLoaded', () => {
   setupTutorMuteSystem();
   initVoiceIsolationEngine();
   loadSettings();
-  fetchTextbooks();
   setupInteractiveHighlighting();
 
-  // Restore active session on page refresh so users are not logged out
+  // Restore active session on page refresh BEFORE fetching user textbooks
   const savedUserJson = localStorage.getItem('gismoSessionUser') || sessionStorage.getItem('gismoSessionUser');
   const savedView = localStorage.getItem('gismoActiveView') || sessionStorage.getItem('gismoActiveView');
   if (savedUserJson) {
@@ -248,18 +247,110 @@ function setupInteractiveHighlighting() {
   });
 }
 
+function getUserBooksCacheKey() {
+  const uname = (appState.user && appState.user.username) || sessionStorage.getItem('gismoUsername') || localStorage.getItem('gismoUsername') || '';
+  const uid = (appState.user && appState.user.id) || sessionStorage.getItem('gismoUserId') || '';
+  const suffix = uname ? uname.trim().toLowerCase() : String(uid || 'guest');
+  return `gismo_user_books_${suffix}`;
+}
+
+function getUserBooksCache() {
+  try {
+    const raw = localStorage.getItem(getUserBooksCacheKey());
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveUserBooksCache(booksArray) {
+  try {
+    if (!Array.isArray(booksArray)) return;
+    localStorage.setItem(getUserBooksCacheKey(), JSON.stringify(booksArray));
+  } catch (_) {}
+}
+
+function upsertBookInUserCache(bookObj) {
+  if (!bookObj || !bookObj.id) return;
+  const current = getUserBooksCache();
+  const baseNew = String(bookObj.id).replace(/_u\d+$/, '');
+  const filtered = current.filter(b => b && String(b.id).replace(/_u\d+$/, '') !== baseNew);
+  filtered.push(bookObj);
+  saveUserBooksCache(filtered);
+}
+
+function removeBookFromUserCache(bookId) {
+  if (!bookId) return;
+  const baseTarget = String(bookId).replace(/_u\d+$/, '');
+  const current = getUserBooksCache();
+  const filtered = current.filter(b => b && String(b.id) !== String(bookId) && String(b.id).replace(/_u\d+$/, '') !== baseTarget);
+  saveUserBooksCache(filtered);
+}
+
 // --- API Calls ---
 async function fetchTextbooks() {
   try {
     const activeUserId = (appState.user && appState.user.id) || sessionStorage.getItem('gismoUserId') || '';
     const activeUsername = (appState.user && appState.user.username) || sessionStorage.getItem('gismoUsername') || '';
+    if (!activeUserId && !activeUsername) {
+      return;
+    }
+
     const params = new URLSearchParams();
     if (activeUserId) params.set('user_id', activeUserId);
     if (activeUsername) params.set('username', activeUsername);
     const qs = params.toString() ? `?${params.toString()}` : '';
     const res = await fetch(`/api/textbooks${qs}`);
-    const data = await res.json();
+    let data = res.ok ? await res.json() : [];
+    if (!Array.isArray(data)) data = [];
+
+    // Reconcile with client localStorage cache so cold serverless containers never lose imported books on refresh
+    const cachedBooks = getUserBooksCache();
+    if (cachedBooks.length > 0) {
+      const serverBaseIds = new Set(data.map(b => String(b.id).replace(/_u\d+$/, '')));
+      const missingOnServer = cachedBooks.filter(b => b && b.id && !serverBaseIds.has(String(b.id).replace(/_u\d+$/, '')));
+      if (missingOnServer.length > 0) {
+        try {
+          const syncRes = await fetch('/api/textbooks/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: activeUserId,
+              username: activeUsername,
+              books: missingOnServer
+            })
+          });
+          if (syncRes.ok) {
+            const syncedData = await syncRes.json();
+            if (Array.isArray(syncedData) && syncedData.length >= data.length) {
+              data = syncedData;
+            }
+          }
+        } catch (_) {}
+
+        // Ensure any still-missing cached books remain in data locally
+        const afterBaseIds = new Set(data.map(b => String(b.id).replace(/_u\d+$/, '')));
+        for (const mb of missingOnServer) {
+          if (!afterBaseIds.has(String(mb.id).replace(/_u\d+$/, ''))) {
+            data.push(mb);
+          }
+        }
+      }
+    }
+
+    if (data.length > 0) {
+      saveUserBooksCache(data);
+    }
+
     lessonsDb = {};
+    data.forEach(tb => {
+      lessonsDb[tb.id] = tb;
+    });
+
+    renderLibrary();
+
     if (!elements.modulesList) return;
     elements.modulesList.innerHTML = '';
 
@@ -319,81 +410,105 @@ async function fetchTextbooks() {
     }
 
     data.forEach(tb => {
-      lessonsDb[tb.id] = tb;
-      
       const btn = document.createElement('div');
       btn.className = 'col-12 col-md-4';
-      
-      const isLibraryBook = tb.id.startsWith('gutenberg_') || tb.meta === 'Web Book';
-      const badge = isLibraryBook ? 'LIBRARY BOOK' : 'FEATURED';
-
-      // Keep original book cover; never substitute assets/pyramids.jpg for library books
-      let coverUrl = tb.image || '';
-      if (isLibraryBook && (!coverUrl || coverUrl.includes('assets/pyramids.jpg'))) {
-        const gutenbergMatch = String(tb.id).match(/^gutenberg_(\d+)/);
-        coverUrl = gutenbergMatch ? `https://www.gutenberg.org/cache/epub/${gutenbergMatch[1]}/pg${gutenbergMatch[1]}.cover.medium.jpg` : '';
-      }
-      if (!isLibraryBook && !coverUrl) {
-        coverUrl = 'assets/pyramids.jpg';
-      }
-
-      const coverHtml = coverUrl
-        ? `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(tb.title)}" style="width:100%; height:100%; object-fit:${isLibraryBook ? 'contain' : 'cover'}; background:var(--bg-secondary);" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
-           <div style="display:none; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; padding:1rem; text-align:center; background:linear-gradient(135deg, rgba(15,92,77,0.18), rgba(217,119,6,0.14)); color:var(--text-primary);">
-             ${getAppSvgIcon('book', 28)}
-             <span style="margin-top:0.5rem; font-weight:700; font-size:0.9rem; line-height:1.3;">${escapeHtml(tb.title)}</span>
-           </div>`
-        : `<div style="display:flex; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; padding:1rem; text-align:center; background:linear-gradient(135deg, rgba(15,92,77,0.18), rgba(217,119,6,0.14)); color:var(--text-primary);">
-             ${getAppSvgIcon('book', 28)}
-             <span style="margin-top:0.5rem; font-weight:700; font-size:0.9rem; line-height:1.3;">${escapeHtml(tb.title)}</span>
-           </div>`;
-      
-      let pillsHtml = '';
-      if (tb.meta) {
-        const metaParts = tb.meta.split('•');
-        pillsHtml = metaParts.map(p => `<span style="background:var(--bg-secondary); color:var(--text-primary); padding:4px 10px; border-radius:12px; font-size:0.75rem;">${escapeHtml(p.trim())}</span>`).join('');
-      }
-
-      const instructorHtml = isLibraryBook ? '' : `
-          <div class="learner-instructor" style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem; border-top:1px solid var(--border-color); padding-top:1rem;">
-            <div style="width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg, var(--accent-color), var(--accent-secondary)); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; flex-shrink:0;">GT</div>
-            <div>
-              <div style="font-weight:bold; font-size:0.9rem; color:var(--text-primary);">Gismo Tutor</div>
-              <div style="font-size:0.75rem; color:var(--text-secondary);">AI Instructor</div>
-            </div>
-          </div>`;
-
-      const actionButtonsHtml = isLibraryBook
-        ? `<div style="display:flex; gap:0.5rem; margin-top:auto;">
-             <button class="btn-primary" onclick="loadLesson('${tb.id}')" style="flex:1; padding:0.75rem; border-radius:8px; font-weight:bold; font-size:1rem;">Read Book</button>
-             <button type="button" class="theme-btn" onclick="removeLibraryBook('${tb.id}', this)" title="Remove from Library" aria-label="Remove ${escapeHtml(tb.title)} from library" style="padding:0.75rem 0.9rem; border-radius:8px; color:var(--error-color); border-color:var(--border-color); display:inline-flex; align-items:center; justify-content:center;">${getAppSvgIcon('trash', 16) || 'Remove'}</button>
-           </div>`
-        : `<button class="btn-primary w-100" onclick="loadLesson('${tb.id}')" style="padding:0.75rem; border-radius:8px; font-weight:bold; font-size:1rem; margin-top:auto;">Enroll Now</button>`;
-      
-      btn.innerHTML = `
-      <div class="learner-card w-100 h-100" style="display:flex; flex-direction:column;">
-        <div class="learner-img-wrapper" style="position:relative; height:210px; overflow:hidden; border-radius:12px 12px 0 0; background:var(--bg-secondary);">
-          ${coverHtml}
-          <span style="position:absolute; top:10px; left:10px; background:var(--accent-color); color:white; padding:4px 10px; border-radius:12px; font-size:0.7rem; font-weight:bold; text-transform:uppercase;">${badge}</span>
-        </div>
-        <div class="learner-body" style="padding:1.5rem; flex:1; display:flex; flex-direction:column; background:var(--bg-card); border:1px solid var(--border-color); border-top:none; border-radius:0 0 12px 12px;">
-          <div class="learner-pills" style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
-            ${pillsHtml}
-          </div>
-          <h3 style="margin-top:0; font-size:1.2rem; margin-bottom:0.75rem; color:var(--text-primary);">${escapeHtml(tb.title)}</h3>
-          <p style="color:var(--text-secondary); font-size:0.9rem; line-height:1.5; margin-bottom:1.5rem; flex:1;">${escapeHtml(tb.descriptor || 'Open this book to start reading.')}</p>
-          ${instructorHtml}
-          ${actionButtonsHtml}
-        </div>
-      </div>
-      `;
-      
+      btn.innerHTML = buildBookCardHtml(tb);
       elements.modulesList.appendChild(btn);
     });
   } catch (err) {
     console.error("Error fetching textbooks", err);
   }
 }
+
+function buildBookCardHtml(tb) {
+  const isLibraryBook = String(tb.id).startsWith('gutenberg_') || tb.meta === 'Web Book';
+  const badge = isLibraryBook ? 'LIBRARY BOOK' : 'FEATURED';
+
+  let coverUrl = tb.image || '';
+  if (isLibraryBook && (!coverUrl || coverUrl.includes('assets/pyramids.jpg'))) {
+    const gutenbergMatch = String(tb.id).match(/^gutenberg_(\d+)/);
+    coverUrl = gutenbergMatch ? `https://www.gutenberg.org/cache/epub/${gutenbergMatch[1]}/pg${gutenbergMatch[1]}.cover.medium.jpg` : '';
+  }
+  if (!isLibraryBook && !coverUrl) {
+    coverUrl = 'assets/pyramids.jpg';
+  }
+
+  const coverHtml = coverUrl
+    ? `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(tb.title)}" style="width:100%; height:100%; object-fit:${isLibraryBook ? 'contain' : 'cover'}; background:var(--bg-secondary);" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+       <div style="display:none; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; padding:1rem; text-align:center; background:linear-gradient(135deg, rgba(15,92,77,0.18), rgba(217,119,6,0.14)); color:var(--text-primary);">
+         ${getAppSvgIcon('book', 28)}
+         <span style="margin-top:0.5rem; font-weight:700; font-size:0.9rem; line-height:1.3;">${escapeHtml(tb.title)}</span>
+       </div>`
+    : `<div style="display:flex; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; padding:1rem; text-align:center; background:linear-gradient(135deg, rgba(15,92,77,0.18), rgba(217,119,6,0.14)); color:var(--text-primary);">
+         ${getAppSvgIcon('book', 28)}
+         <span style="margin-top:0.5rem; font-weight:700; font-size:0.9rem; line-height:1.3;">${escapeHtml(tb.title)}</span>
+       </div>`;
+
+  let pillsHtml = '';
+  if (tb.meta) {
+    const metaParts = tb.meta.split('•');
+    pillsHtml = metaParts.map(p => `<span style="background:var(--bg-secondary); color:var(--text-primary); padding:4px 10px; border-radius:12px; font-size:0.75rem;">${escapeHtml(p.trim())}</span>`).join('');
+  }
+
+  const instructorHtml = isLibraryBook ? '' : `
+      <div class="learner-instructor" style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem; border-top:1px solid var(--border-color); padding-top:1rem;">
+        <div style="width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg, var(--accent-color), var(--accent-secondary)); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; flex-shrink:0;">GT</div>
+        <div>
+          <div style="font-weight:bold; font-size:0.9rem; color:var(--text-primary);">Gismo Tutor</div>
+          <div style="font-size:0.75rem; color:var(--text-secondary);">AI Instructor</div>
+        </div>
+      </div>`;
+
+  const actionButtonsHtml = isLibraryBook
+    ? `<div style="display:flex; gap:0.5rem; margin-top:auto;">
+         <button class="btn-primary" onclick="loadLesson('${tb.id}')" style="flex:1; padding:0.75rem; border-radius:8px; font-weight:bold; font-size:1rem;">Read Book</button>
+         <button type="button" class="theme-btn" onclick="removeLibraryBook('${tb.id}', this)" title="Remove from Library" aria-label="Remove ${escapeHtml(tb.title)} from library" style="padding:0.75rem 0.9rem; border-radius:8px; color:var(--error-color); border-color:var(--border-color); display:inline-flex; align-items:center; justify-content:center;">${getAppSvgIcon('trash', 16)}</button>
+       </div>`
+    : `<button class="btn-primary w-100" onclick="loadLesson('${tb.id}')" style="padding:0.75rem; border-radius:8px; font-weight:bold; font-size:1rem; margin-top:auto;">Enroll Now</button>`;
+
+  return `
+  <div class="learner-card w-100 h-100" style="display:flex; flex-direction:column;">
+    <div class="learner-img-wrapper" style="position:relative; height:210px; overflow:hidden; border-radius:12px 12px 0 0; background:var(--bg-secondary);">
+      ${coverHtml}
+      <span style="position:absolute; top:10px; left:10px; background:var(--accent-color); color:white; padding:4px 10px; border-radius:12px; font-size:0.7rem; font-weight:bold; text-transform:uppercase;">${badge}</span>
+    </div>
+    <div class="learner-body" style="padding:1.5rem; flex:1; display:flex; flex-direction:column; background:var(--bg-card); border:1px solid var(--border-color); border-top:none; border-radius:0 0 12px 12px;">
+      <div class="learner-pills" style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+        ${pillsHtml}
+      </div>
+      <h3 style="margin-top:0; font-size:1.2rem; margin-bottom:0.75rem; color:var(--text-primary);">${escapeHtml(tb.title)}</h3>
+      <p style="color:var(--text-secondary); font-size:0.9rem; line-height:1.5; margin-bottom:1.5rem; flex:1;">${escapeHtml(tb.descriptor || 'Open this book to start reading.')}</p>
+      ${instructorHtml}
+      ${actionButtonsHtml}
+    </div>
+  </div>
+  `;
+}
+
+function renderLibrary() {
+  const shelfList = document.getElementById('library-books-list');
+  const countBadge = document.getElementById('library-books-count-badge');
+  const books = Object.values(lessonsDb || {});
+
+  if (countBadge) {
+    countBadge.textContent = `${books.length} ${books.length === 1 ? 'Book' : 'Books'}`;
+  }
+
+  if (shelfList) {
+    if (books.length === 0) {
+      shelfList.innerHTML = `<div class="col-12 text-center py-3 text-secondary" style="font-size:0.9rem;">No books imported yet. Search below or click "Show All Classics" to add books to your bookshelf!</div>`;
+    } else {
+      shelfList.innerHTML = '';
+      books.forEach(tb => {
+        const col = document.createElement('div');
+        col.className = 'col-12 col-md-6 col-lg-4';
+        col.innerHTML = buildBookCardHtml(tb);
+        shelfList.appendChild(col);
+      });
+    }
+  }
+}
+window.renderLibrary = renderLibrary;
 
 async function removeLibraryBook(bookId, btnEl) {
   const userId = (appState.user && appState.user.id) || sessionStorage.getItem('gismoUserId') || null;
@@ -408,6 +523,7 @@ async function removeLibraryBook(bookId, btnEl) {
 
   if (btnEl) btnEl.disabled = true;
   try {
+    removeBookFromUserCache(bookId);
     const params = new URLSearchParams();
     if (userId) params.set('user_id', userId);
     if (username) params.set('username', username);
@@ -415,13 +531,13 @@ async function removeLibraryBook(bookId, btnEl) {
       method: 'DELETE'
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Could not remove book.');
+    if (!res.ok && res.status !== 404) throw new Error(data.error || 'Could not remove book.');
     try { localStorage.removeItem(`gismo_book_page_${bookId}`); } catch (_) {}
     delete lessonsDb[bookId];
     showToast(`Removed "${bookTitle}" from your library.`, 'book');
     announceTTS(`Removed ${bookTitle} from your library.`);
     await fetchTextbooks();
-    renderLibrary('all');
+    renderLibrary();
   } catch (err) {
     if (btnEl) btnEl.disabled = false;
     showToast(err.message || 'Failed to remove book.', 'warning');
@@ -898,8 +1014,13 @@ function switchView(viewName) {
     fetchNotes();
   } else if (viewName === 'library') {
     elements.libraryPanel.classList.remove('hidden');
+    renderLibrary();
     fetchTextbooks();
     loadLibraryFiles();
+    const resultsDiv = document.getElementById('web-search-results');
+    if (resultsDiv && resultsDiv.children.length === 0) {
+      handleWebSearch(true);
+    }
   } else if (viewName === 'admin') {
     elements.adminPanel?.classList.remove('hidden');
     if (elements.btnAdminToggle) elements.btnAdminToggle.classList.add('active');
@@ -5840,6 +5961,10 @@ async function reloadFullBook() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Could not load full book.');
+    if (data && data.book) {
+      lessonsDb[data.book.id] = data.book;
+      upsertBookInUserCache(data.book);
+    }
     await fetchTextbooks();
     loadLesson(lessonId);
     showToast(`Loaded full book (${(data.char_count || 0).toLocaleString()} characters)!`, 'book');
@@ -5869,6 +5994,9 @@ async function handleWebSearch(loadFeatured = false) {
     const data = await res.json();
     if (Array.isArray(data) && data.length > 0) {
       resultsDiv.innerHTML = '';
+      const existingBaseIds = new Set(
+        Object.keys(lessonsDb || {}).map(k => String(k).replace(/^gutenberg_/, '').replace(/_u\d+$/, ''))
+      );
       data.forEach(book => {
         const div = document.createElement('div');
         div.className = 'col-12 col-md-6 col-lg-4';
@@ -5877,6 +6005,10 @@ async function handleWebSearch(loadFeatured = false) {
           ? `<img src="${escapeHtml(book.image)}" alt="${escapeHtml(book.title)}" style="width:100%; height:140px; object-fit:contain; background:var(--bg-secondary); border-radius:8px; margin-bottom:0.85rem;" onerror="this.style.display='none'">`
           : '';
         const descHtml = book.descriptor ? `<p class="text-secondary small mb-3 flex-grow-1" style="font-size:0.82rem; opacity:0.85;">${escapeHtml(book.descriptor)}</p>` : '<div class="flex-grow-1"></div>';
+        const alreadyImported = existingBaseIds.has(String(book.id));
+        const btnLabel = alreadyImported
+          ? `${getAppSvgIcon('check', 15)} Imported to Library!`
+          : `${getAppSvgIcon('download', 15)} Import to Library`;
         div.innerHTML = `
           <div class="profile-card h-100 d-flex flex-column m-0" style="padding:1.25rem;">
             ${coverThumb}
@@ -5884,8 +6016,8 @@ async function handleWebSearch(loadFeatured = false) {
             <h4 class="mb-1" style="font-size:1.05rem;">${escapeHtml(book.title)}</h4>
             <p class="text-secondary small mb-2" style="font-weight:600;">${escapeHtml(book.author || 'Unknown Author')}</p>
             ${descHtml}
-            <button class="theme-btn w-100 mt-auto" data-title="${escapeHtml(book.title)}" data-author="${escapeHtml(book.author || 'Unknown Author')}" data-image="${escapeHtml(book.image || '')}" onclick="importWebBook('${book.id}', this)">
-              ${getAppSvgIcon('download', 15)} Import to Library
+            <button class="theme-btn w-100 mt-auto" ${alreadyImported ? 'disabled' : ''} data-title="${escapeHtml(book.title)}" data-author="${escapeHtml(book.author || 'Unknown Author')}" data-image="${escapeHtml(book.image || '')}" onclick="importWebBook('${book.id}', this)">
+              ${btnLabel}
             </button>
           </div>
         `;
@@ -5924,12 +6056,22 @@ async function importWebBook(bookId, btnElement) {
     });
     const data = await res.json();
     if (res.ok) {
-      if (btnElement) btnElement.innerHTML = `${getAppSvgIcon('check', 15)} Imported to Library!`;
-      showToast(`Imported "${(data.book && data.book.title) || 'Book'}"!`, 'book');
+      if (data && data.book) {
+        lessonsDb[data.book.id] = data.book;
+        upsertBookInUserCache(data.book);
+      }
+      if (btnElement) {
+        btnElement.disabled = true;
+        btnElement.innerHTML = `${getAppSvgIcon('check', 15)} Imported to Library!`;
+      }
+      showToast(`Imported "${(data.book && data.book.title) || title || 'Book'}"!`, 'book');
       announceTTS("Book successfully imported to the library.");
-      // Reload lessons to show the new book in dashboard and library
-      await fetchTextbooks();
-      renderLibrary('all');
+      try {
+        renderLibrary();
+        await fetchTextbooks();
+      } catch (refreshErr) {
+        console.warn("Post-import library refresh warning:", refreshErr);
+      }
     } else {
       if (btnElement) {
         btnElement.disabled = false;
@@ -6414,7 +6556,8 @@ function getAppSvgIcon(name = 'check', size = 16) {
     image: `<svg ${attrs}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`,
     music: `<svg ${attrs}><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>`,
     download: `<svg ${attrs}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`,
-    award: `<svg ${attrs}><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>`
+    award: `<svg ${attrs}><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>`,
+    trash: `<svg ${attrs}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`
   };
   return icons[name] || icons.check;
 }

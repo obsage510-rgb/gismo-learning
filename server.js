@@ -184,38 +184,44 @@ function initDb() {
     );
   `);
 
+  const prevHydrating = supabaseBridge.isHydrating;
+  supabaseBridge.isHydrating = true;
   try {
-    db.prepare("ALTER TABLE chats ADD COLUMN session_id TEXT DEFAULT 'default'").run();
-  } catch (_) {
-    // Column already exists
-  }
+    try {
+      db.prepare("ALTER TABLE chats ADD COLUMN session_id TEXT DEFAULT 'default'").run();
+    } catch (_) {
+      // Column already exists
+    }
 
-  try {
-    db.prepare("ALTER TABLE homework ADD COLUMN submission_file TEXT").run();
-  } catch (_) {}
-  try {
-    db.prepare("ALTER TABLE homework ADD COLUMN submission_filename TEXT").run();
-  } catch (_) {}
-  try {
-    db.prepare("ALTER TABLE homework ADD COLUMN submission_date DATETIME").run();
-  } catch (_) {}
-  try {
-    db.prepare("ALTER TABLE textbooks ADD COLUMN user_id INTEGER DEFAULT NULL").run();
-  } catch (_) {}
-  try {
-    db.prepare("DELETE FROM textbooks WHERE user_id IS NULL").run();
-  } catch (_) {}
+    try {
+      db.prepare("ALTER TABLE homework ADD COLUMN submission_file TEXT").run();
+    } catch (_) {}
+    try {
+      db.prepare("ALTER TABLE homework ADD COLUMN submission_filename TEXT").run();
+    } catch (_) {}
+    try {
+      db.prepare("ALTER TABLE homework ADD COLUMN submission_date DATETIME").run();
+    } catch (_) {}
+    try {
+      db.prepare("ALTER TABLE textbooks ADD COLUMN user_id INTEGER DEFAULT NULL").run();
+    } catch (_) {}
+    try {
+      db.prepare("DELETE FROM textbooks WHERE user_id IS NULL AND id NOT LIKE '%\\_u%' ESCAPE '\\'").run();
+    } catch (_) {}
 
-  // Default presentation admin user (username: admin, password: admin123 or admin)
-  const admin = db.prepare("SELECT * FROM users WHERE LOWER(username) = 'admin'").get();
-  if (!admin) {
-    const hPw = generatePasswordHash('admin123');
-    db.prepare(`
-      INSERT INTO users (username, password, school, reg_no, disability, role)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run('admin', hPw, 'Gismo Academy', 'ADM-001', 'None', 'admin');
-  } else if (admin.role !== 'admin') {
-    db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(admin.id);
+    // Default presentation admin user (username: admin, password: admin123 or admin)
+    const admin = db.prepare("SELECT * FROM users WHERE LOWER(username) = 'admin'").get();
+    if (!admin) {
+      const hPw = generatePasswordHash('admin123');
+      db.prepare(`
+        INSERT INTO users (username, password, school, reg_no, disability, role)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run('admin', hPw, 'Gismo Academy', 'ADM-001', 'None', 'admin');
+    } else if (admin.role !== 'admin') {
+      db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(admin.id);
+    }
+  } finally {
+    supabaseBridge.isHydrating = prevHydrating;
   }
 
   supabaseBridge.ensureReady().catch(err => {
@@ -320,7 +326,8 @@ function resolveStudentUser(rawUserId, rawUsername) {
 app.use('/api', async (req, res, next) => {
   if (supabaseBridge.configured) {
     try {
-      await supabaseBridge.ensureReady({ forcePull: req.method !== 'GET' });
+      const shouldForcePull = req.method !== 'GET' || req.path.startsWith('/textbooks');
+      await supabaseBridge.ensureReady({ forcePull: shouldForcePull });
     } catch (_) {}
 
     const origJson = res.json.bind(res);
@@ -1062,7 +1069,46 @@ app.get('/api/textbooks', (req, res) => {
   if (!userId || Number.isNaN(userId)) {
     return res.json([]);
   }
-  const textbooks = db.prepare('SELECT * FROM textbooks WHERE user_id = ?').all(userId);
+  const suffixPattern = `%_u${userId}`;
+  const textbooks = db.prepare('SELECT * FROM textbooks WHERE user_id = ? OR id LIKE ?').all(userId, suffixPattern);
+  res.json(textbooks);
+});
+
+app.post('/api/textbooks/sync', (req, res) => {
+  const { user_id, username, books } = req.body || {};
+  const userId = resolveStudentUser(user_id, username);
+  if (!userId || Number.isNaN(userId) || !Array.isArray(books)) {
+    return res.json([]);
+  }
+  const deletedSet = (supabaseBridge && supabaseBridge.deletedIdsByTable && supabaseBridge.deletedIdsByTable.textbooks) || new Set();
+  for (const b of books) {
+    if (!b || !b.id || !b.title) continue;
+    const rawBaseId = String(b.id).replace(/_u\d+$/, '');
+    const canonicalId = rawBaseId.startsWith('gutenberg_') ? `${rawBaseId}_u${userId}` : String(b.id);
+    if (deletedSet.has(canonicalId) || deletedSet.has(String(b.id))) continue;
+
+    const existing = db.prepare('SELECT id FROM textbooks WHERE id = ?').get(canonicalId);
+    if (!existing) {
+      try {
+        db.prepare(`
+          INSERT OR REPLACE INTO textbooks (id, title, meta, image, descriptor, content, quiz_q, quiz_a, user_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          canonicalId,
+          b.title,
+          b.meta || 'Web Book',
+          b.image || '',
+          b.descriptor || 'Open this book to start reading.',
+          b.content || '',
+          b.quiz_q || '',
+          b.quiz_a || '',
+          userId
+        );
+      } catch (_) {}
+    }
+  }
+  const suffixPattern = `%_u${userId}`;
+  const textbooks = db.prepare('SELECT * FROM textbooks WHERE user_id = ? OR id LIKE ?').all(userId, suffixPattern);
   res.json(textbooks);
 });
 
@@ -1074,7 +1120,17 @@ app.delete('/api/textbooks/:id', (req, res) => {
     return res.status(400).json({ error: 'Please sign in to remove books from your library.' });
   }
   try {
-    const info = db.prepare('DELETE FROM textbooks WHERE id = ? AND user_id = ?').run(req.params.id, userId);
+    const rawBaseId = String(req.params.id).replace(/_u\d+$/, '');
+    const canonicalId = `${rawBaseId}_u${userId}`;
+    const info = db.prepare('DELETE FROM textbooks WHERE (id = ? OR id = ?) AND (user_id = ? OR id LIKE ?)').run(
+      req.params.id,
+      canonicalId,
+      userId,
+      `%_u${userId}`
+    );
+    if (supabaseBridge && typeof supabaseBridge.recordDeletedIds === 'function') {
+      supabaseBridge.recordDeletedIds('textbooks', [req.params.id, canonicalId]);
+    }
     if (info.changes === 0) {
       return res.status(404).json({ error: 'Book not found in your library.' });
     }

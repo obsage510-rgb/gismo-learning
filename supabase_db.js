@@ -47,6 +47,7 @@ class SupabaseDatabaseBridge {
     this.pullInFlight = null;
     this.pendingWrites = [];
     this.dirtySnapshot = false;
+    this.deletedIdsByTable = {};
 
     if (this.supabaseUrl && this.supabaseKey) {
       try {
@@ -62,6 +63,38 @@ class SupabaseDatabaseBridge {
         console.error('Failed to initialize Supabase client:', err.message);
       }
     }
+  }
+
+  recordDeletedIds(tableName, ids) {
+    if (!tableName || !Array.isArray(ids) || ids.length === 0) return;
+    if (!this.deletedIdsByTable[tableName]) {
+      this.deletedIdsByTable[tableName] = new Set();
+    }
+    for (const id of ids) {
+      if (id !== undefined && id !== null) {
+        this.deletedIdsByTable[tableName].add(String(id));
+      }
+    }
+  }
+
+  clearRecordedInsertIds(tableName, rows) {
+    const set = this.deletedIdsByTable[tableName];
+    if (!set || !Array.isArray(rows)) return;
+    for (const r of rows) {
+      if (r && r.id !== undefined && r.id !== null) {
+        set.delete(String(r.id));
+      }
+    }
+  }
+
+  serializeDeletedIds() {
+    const out = {};
+    for (const [tbl, set] of Object.entries(this.deletedIdsByTable)) {
+      if (set && set.size > 0) {
+        out[tbl] = Array.from(set);
+      }
+    }
+    return out;
   }
 
   attachAutoSync() {
@@ -99,6 +132,12 @@ class SupabaseDatabaseBridge {
                 self.origPrepare(`SELECT id FROM "${tableName}"`).all().map(r => r.id)
               );
               deletedIds = beforeIds.filter(id => !afterIds.has(id));
+              self.recordDeletedIds(tableName, deletedIds);
+            } catch (_) {}
+          } else if (op.startsWith('INSERT')) {
+            try {
+              const currentRows = self.origPrepare(`SELECT id FROM "${tableName}"`).all();
+              self.clearRecordedInsertIds(tableName, currentRows);
             } catch (_) {}
           }
           self.dirtySnapshot = true;
@@ -141,7 +180,7 @@ class SupabaseDatabaseBridge {
     await this.initPromise;
 
     const now = Date.now();
-    const isStale = now - this.lastPullTimestamp > 1200;
+    const isStale = now - this.lastPullTimestamp > 500;
     if ((options.forcePull || isStale) && !this.hasPendingWrites()) {
       await this.pullLatestFromCloud();
     }
@@ -155,7 +194,7 @@ class SupabaseDatabaseBridge {
     this.pullInFlight = (async () => {
       try {
         if (this.storageBucketReady) {
-          await this.restoreFromStorageBackup({ replaceTables: true });
+          await this.restoreFromStorageBackup();
         }
         if (this.postgresTablesReady) {
           await this.pullFromPostgresToSqlite();
@@ -265,6 +304,16 @@ class SupabaseDatabaseBridge {
 
   importRowsIntoSqlite(snapshot, options = {}) {
     if (!snapshot || typeof snapshot !== 'object') return;
+    const remoteDeleted = (options && options.deletedIds && typeof options.deletedIds === 'object')
+      ? options.deletedIds
+      : {};
+
+    for (const [tbl, ids] of Object.entries(remoteDeleted)) {
+      if (Array.isArray(ids)) {
+        this.recordDeletedIds(tbl, ids);
+      }
+    }
+
     this.isHydrating = true;
     try {
       for (const table of TABLES) {
@@ -275,12 +324,22 @@ class SupabaseDatabaseBridge {
           const columnsInfo = this.origPrepare(`PRAGMA table_info("${table}")`).all();
           if (!columnsInfo || columnsInfo.length === 0) continue;
           const validCols = new Set(columnsInfo.map(c => c.name));
+          const deletedSet = this.deletedIdsByTable[table] || new Set();
 
-          if (options.replaceTables && table !== 'users') {
-            this.origPrepare(`DELETE FROM "${table}"`).run();
+          // Apply explicit deletions only — never wipe newly inserted local rows
+          if (deletedSet.size > 0) {
+            for (const delId of deletedSet) {
+              try {
+                this.origPrepare(`DELETE FROM "${table}" WHERE CAST(id AS TEXT) = ?`).run(String(delId));
+              } catch (_) {}
+            }
           }
 
           for (const rawRow of rows) {
+            if (!rawRow) continue;
+            if (rawRow.id !== undefined && rawRow.id !== null && deletedSet.has(String(rawRow.id))) {
+              continue;
+            }
             const row = { ...rawRow };
             if (table === 'textbooks' && (row.user_id === null || row.user_id === undefined) && row.id) {
               const m = String(row.id).match(/_u(\d+)$/);
@@ -320,7 +379,7 @@ class SupabaseDatabaseBridge {
 
     let restoredFromStorage = false;
     if (storageReady) {
-      restoredFromStorage = await this.restoreFromStorageBackup({ replaceTables: true });
+      restoredFromStorage = await this.restoreFromStorageBackup();
     }
 
     if (pgReady) {
@@ -382,7 +441,7 @@ class SupabaseDatabaseBridge {
     }
   }
 
-  async restoreFromStorageBackup(options = {}) {
+  async restoreFromStorageBackup() {
     if (!this.client || !this.storageBucketReady) return false;
     try {
       const { data, error } = await this.client.storage.from(BACKUP_BUCKET).download(BACKUP_FILE);
@@ -390,7 +449,7 @@ class SupabaseDatabaseBridge {
       const text = await data.text();
       const parsed = JSON.parse(text);
       if (parsed && parsed.tables) {
-        this.importRowsIntoSqlite(parsed.tables, options);
+        this.importRowsIntoSqlite(parsed.tables, { deletedIds: parsed.deletedIds || {} });
         this.lastSyncAt = parsed.updatedAt || new Date().toISOString();
         return true;
       }
@@ -407,15 +466,72 @@ class SupabaseDatabaseBridge {
       if (!ok) return false;
     }
     try {
+      const localTables = this.exportLocalTables();
+      let mergedTables = { ...localTables };
+
+      try {
+        const { data: remoteData, error: dlErr } = await this.client.storage.from(BACKUP_BUCKET).download(BACKUP_FILE);
+        if (!dlErr && remoteData) {
+          const parsedRemote = JSON.parse(await remoteData.text());
+          const remoteTables = (parsedRemote && parsedRemote.tables) || {};
+          const remoteDeleted = (parsedRemote && parsedRemote.deletedIds) || {};
+
+          for (const [tbl, ids] of Object.entries(remoteDeleted)) {
+            if (Array.isArray(ids)) {
+              const localIds = new Set(
+                (localTables[tbl] || []).map(r => (r && r.id !== undefined ? String(r.id) : null)).filter(Boolean)
+              );
+              // Keep remote deletions unless re-inserted locally
+              this.recordDeletedIds(tbl, ids.filter(id => !localIds.has(String(id))));
+            }
+          }
+
+          for (const table of TABLES) {
+            const remoteRows = Array.isArray(remoteTables[table]) ? remoteTables[table] : [];
+            const localRows = Array.isArray(localTables[table]) ? localTables[table] : [];
+            const deletedSet = this.deletedIdsByTable[table] || new Set();
+
+            const byKey = new Map();
+            const getKey = (r) => {
+              if (!r) return null;
+              if (table === 'users' && r.username) return `u:${String(r.username).toLowerCase()}`;
+              if (r.id !== undefined && r.id !== null) return `id:${String(r.id)}`;
+              return null;
+            };
+
+            for (const r of remoteRows) {
+              if (!r) continue;
+              if (r.id !== undefined && deletedSet.has(String(r.id))) continue;
+              if (table === 'textbooks' && (r.user_id === null || r.user_id === undefined) && !/_u\d+$/.test(String(r.id || ''))) {
+                continue;
+              }
+              const k = getKey(r);
+              if (k) byKey.set(k, r);
+            }
+            for (const r of localRows) {
+              if (!r) continue;
+              if (r.id !== undefined && deletedSet.has(String(r.id))) continue;
+              const k = getKey(r);
+              if (k) byKey.set(k, r);
+            }
+            mergedTables[table] = Array.from(byKey.values());
+          }
+          // Hydrate merged rows back into local SQLite so this instance also has all remote rows
+          this.importRowsIntoSqlite(mergedTables, { deletedIds: this.serializeDeletedIds() });
+        }
+      } catch (_) {}
+
       const payload = JSON.stringify({
         updatedAt: new Date().toISOString(),
-        tables: this.exportLocalTables()
+        deletedIds: this.serializeDeletedIds(),
+        tables: mergedTables
       }, null, 2);
 
       const { error } = await this.client.storage
         .from(BACKUP_BUCKET)
         .upload(BACKUP_FILE, Buffer.from(payload, 'utf-8'), {
           contentType: 'application/json',
+          cacheControl: '0',
           upsert: true
         });
       if (error) {
