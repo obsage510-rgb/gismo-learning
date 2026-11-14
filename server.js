@@ -415,9 +415,10 @@ app.get('/api/donations/config', (req, res) => {
   const publicKey = (process.env.PAYSTACK_PUBLIC_KEY || '').trim();
   const secretKey = (process.env.PAYSTACK_SECRET_KEY || '').trim();
   const zecNodeUrl = (process.env.ZEC_ROCKS_URL || 'https://zec.rocks:443').trim();
-  const zecWallet = (process.env.ZEC_DONATION_ADDRESS || '').trim();
+  const zecWallet = (process.env.ZEC_DONATION_ADDRESS || 'u1gismolearningdemo9x8z7v6w5q4r3t2y1p0m8n7k6j5h4g3f2d1s0a9q8w7e6r5t4y').trim();
   res.json({
     paystackConfigured: !!(publicKey && secretKey),
+    demoMode: !(publicKey && secretKey),
     paystackPublicKey: publicKey,
     defaultCurrency: (process.env.PAYSTACK_CURRENCY || 'NGN').toUpperCase(),
     zecNodeUrl,
@@ -434,64 +435,71 @@ app.post('/api/donations/crypto/verify', async (req, res) => {
     amount = 0,
     name = 'ZEC Supporter',
     email = '',
-    quick_note = ''
+    quick_note = '',
+    allocation = 'General Inclusive Education Fund',
+    is_demo = false
   } = req.body || {};
 
   const cleanHash = String(tx_hash || '').trim().replace(/^0x/i, '');
   const cleanName = String(name || 'ZEC Supporter').trim() || 'ZEC Supporter';
   const cleanEmail = String(email || '').trim() || 'zec-donor@gismo.org';
-  const cleanNote = String(quick_note || '').trim().slice(0, 500);
+  const cleanAllocation = String(allocation || 'General Inclusive Education Fund').trim();
+  const rawNote = String(quick_note || '').trim();
+  const cleanNote = (rawNote ? `[${cleanAllocation}] ${rawNote}` : `[${cleanAllocation}]`).slice(0, 500);
   const numericAmount = Number(amount) || 0;
 
   if (!cleanHash || !/^[a-fA-F0-9]{64}$/.test(cleanHash)) {
     return res.status(400).json({ error: 'Please enter a valid 64-character Zcash transaction ID (txid).' });
   }
 
-  let status = 'recorded';
+  let status = is_demo ? 'demo_verified' : 'recorded';
   let verifiedOnChain = false;
-  let blockHeight = null;
+  let blockHeight = is_demo ? 2748190 : null;
 
-  try {
-    const expRes = await fetch(`https://mainnet.zcashexplorer.app/api/v1/tx/${cleanHash}`, {
-      headers: { 'User-Agent': 'GismoLearning/1.0', 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(6000)
-    });
-    if (expRes.ok) {
-      const txData = await expRes.json();
-      if (txData && (txData.txid || txData.hash)) {
-        blockHeight = txData.blockHeight || txData.height || null;
-        if (blockHeight || (txData.confirmations && txData.confirmations > 0)) {
-          status = 'success';
-          verifiedOnChain = true;
-        } else {
-          status = 'pending_confirmation';
-        }
-      }
-    }
-  } catch (_) {
-    // Fallback to Blockchair Zcash API if zcashexplorer is slow
+  if (!is_demo) {
     try {
-      const bcRes = await fetch(`https://api.blockchair.com/zcash/dashboards/transaction/${cleanHash}`, {
-        headers: { 'User-Agent': 'GismoLearning/1.0' },
+      const expRes = await fetch(`https://mainnet.zcashexplorer.app/api/v1/tx/${cleanHash}`, {
+        headers: { 'User-Agent': 'GismoLearning/1.0', 'Accept': 'application/json' },
         signal: AbortSignal.timeout(6000)
       });
-      if (bcRes.ok) {
-        const bcData = await bcRes.json();
-        const txEntry = bcData && bcData.data && bcData.data[cleanHash] && bcData.data[cleanHash].transaction;
-        if (txEntry) {
-          blockHeight = txEntry.block_id && txEntry.block_id > 0 ? txEntry.block_id : null;
-          status = blockHeight ? 'success' : 'pending_confirmation';
-          verifiedOnChain = !!blockHeight;
+      if (expRes.ok) {
+        const txData = await expRes.json();
+        if (txData && (txData.txid || txData.hash)) {
+          blockHeight = txData.blockHeight || txData.height || null;
+          if (blockHeight || (txData.confirmations && txData.confirmations > 0)) {
+            status = 'success';
+            verifiedOnChain = true;
+          } else {
+            status = 'pending_confirmation';
+          }
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      try {
+        const bcRes = await fetch(`https://api.blockchair.com/zcash/dashboards/transaction/${cleanHash}`, {
+          headers: { 'User-Agent': 'GismoLearning/1.0' },
+          signal: AbortSignal.timeout(6000)
+        });
+        if (bcRes.ok) {
+          const bcData = await bcRes.json();
+          const txEntry = bcData && bcData.data && bcData.data[cleanHash] && bcData.data[cleanHash].transaction;
+          if (txEntry) {
+            blockHeight = txEntry.block_id && txEntry.block_id > 0 ? txEntry.block_id : null;
+            status = blockHeight ? 'success' : 'pending_confirmation';
+            verifiedOnChain = !!blockHeight;
+          }
+        }
+      } catch (_) {}
+    }
+  } else {
+    verifiedOnChain = true;
   }
 
   try {
     db.prepare(`
       INSERT OR REPLACE INTO donations (donor_name, donor_email, amount, currency, frequency, quick_note, payment_method, reference, status)
       VALUES (?, ?, ?, ?, 'one-time', ?, ?, ?, ?)
-    `).run(cleanName, cleanEmail, numericAmount, `${token} (${network})`, cleanNote, 'zec.rocks', cleanHash, status);
+    `).run(cleanName, cleanEmail, numericAmount, `${token} (${network})`, cleanNote, is_demo ? 'zec.rocks_demo' : 'zec.rocks', cleanHash, status);
   } catch (_) {}
 
   return res.json({
@@ -500,8 +508,9 @@ app.post('/api/donations/crypto/verify', async (req, res) => {
     status,
     blockHeight,
     reference: cleanHash,
+    allocation: cleanAllocation,
     message: verifiedOnChain
-      ? `ZEC donation verified on-chain via Zec.rocks (Block #${blockHeight})! Thank you, ${cleanName}, for your ${numericAmount ? `${numericAmount} ZEC ` : ''}gift${cleanNote ? ` ("${cleanNote}")` : ''}.`
+      ? `ZEC donation verified via Zec.rocks (Block #${blockHeight})! Thank you, ${cleanName}, for directing ${numericAmount ? `${numericAmount} ZEC ` : ''}to ${cleanAllocation}.`
       : `ZEC donation recorded via Zec.rocks (Tx: ${cleanHash.slice(0, 12)}...). Confirmation will finalize once mined on Zcash mainnet.`
   });
 });
@@ -514,13 +523,17 @@ app.post('/api/donations/initialize', async (req, res) => {
     name = 'Supporter',
     email,
     quick_note = '',
+    allocation = 'General Inclusive Education Fund',
+    demo_channel = 'Card (4084 •••• 4081)',
     callback_url = ''
   } = req.body || {};
 
   const numericAmount = Number(amount);
   const cleanEmail = (email || '').trim();
   const cleanName = (name || 'Supporter').trim() || 'Supporter';
-  const cleanNote = String(quick_note || '').trim().slice(0, 500);
+  const cleanAllocation = String(allocation || 'General Inclusive Education Fund').trim();
+  const rawNote = String(quick_note || '').trim();
+  const cleanNote = (rawNote ? `[${cleanAllocation}] ${rawNote}` : `[${cleanAllocation}]`).slice(0, 500);
   const cleanCurrency = (currency || 'NGN').toUpperCase();
 
   if (!numericAmount || numericAmount <= 0 || !cleanEmail) {
@@ -548,11 +561,13 @@ app.post('/api/donations/initialize', async (req, res) => {
           metadata: {
             donor_name: cleanName,
             frequency,
+            allocation: cleanAllocation,
             quick_note: cleanNote,
             custom_fields: [
               { display_name: 'Donor Name', variable_name: 'donor_name', value: cleanName },
               { display_name: 'Frequency', variable_name: 'frequency', value: frequency },
-              { display_name: 'Quick Note', variable_name: 'quick_note', value: cleanNote || 'None' }
+              { display_name: 'Allocation', variable_name: 'allocation', value: cleanAllocation },
+              { display_name: 'Quick Note', variable_name: 'quick_note', value: rawNote || 'None' }
             ]
           }
         }),
@@ -585,12 +600,12 @@ app.post('/api/donations/initialize', async (req, res) => {
     }
   }
 
-  // Fallback pledge/demo mode when PAYSTACK_SECRET_KEY is not yet configured in environment
+  // Interactive Demo Mode when PAYSTACK_SECRET_KEY is not configured
   try {
     db.prepare(`
       INSERT INTO donations (donor_name, donor_email, amount, currency, frequency, quick_note, payment_method, reference, status)
-      VALUES (?, ?, ?, ?, ?, ?, 'paystack_pledge', ?, 'recorded')
-    `).run(cleanName, cleanEmail, numericAmount, cleanCurrency, frequency, cleanNote, reference);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'demo_verified')
+    `).run(cleanName, cleanEmail, numericAmount, cleanCurrency, frequency, cleanNote, `paystack_demo (${demo_channel})`, reference);
   } catch (_) {}
 
   const symbol = cleanCurrency === 'NGN' ? '₦' : '$';
@@ -598,7 +613,9 @@ app.post('/api/donations/initialize', async (req, res) => {
     success: true,
     mode: 'demo_pledge',
     reference,
-    message: `Thank you, ${cleanName}! Your ${symbol}${numericAmount.toLocaleString()} ${frequency} contribution${cleanNote ? ` ("${cleanNote}")` : ''} has been recorded (Ref: ${reference}). Add PAYSTACK_PUBLIC_KEY & PAYSTACK_SECRET_KEY in Vercel to enable live card/bank checkout.`
+    allocation: cleanAllocation,
+    channel: demo_channel,
+    message: `Demo payment completed! Thank you, ${cleanName}, for your ${symbol}${numericAmount.toLocaleString()} ${frequency} gift toward ${cleanAllocation} (Ref: ${reference}).`
   });
 });
 

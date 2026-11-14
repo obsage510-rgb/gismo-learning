@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gismo — Accessible AI Learning for Every Student</title>
   <meta name="description" content="Gismo is an accessible AI-powered learning platform built for visually impaired, deaf and hard-of-hearing, and neurodiverse students. Explore our mission, vision, team, and support options.">
-  <link rel="stylesheet" href="landing.css?v=3">
+  <link rel="stylesheet" href="landing.css?v=4">
   <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css">
   <script src="https://js.paystack.co/v1/inline.js"></script>
 </head>
@@ -206,105 +206,141 @@
       <div class="container">
         <div class="donation-wrapper" data-aos="fade-up">
           <div>
-            <span class="eyebrow" style="color: #f6b286;">Support the Mission</span>
+            <span class="eyebrow" style="color: #f6b286;">Support the Mission • Interactive Demo</span>
             <h2 class="section-title">Help keep Gismo free for students who need it most.</h2>
             <p class="section-lead">
               Your contribution directly funds cloud AI tutoring hours, natural voice synthesis credits, and school onboarding workshops for underserved communities.
             </p>
             <ul class="impact-list">
-              <li><strong>$10</strong> — Sponsors 500+ minutes of neural text-to-speech for visually impaired readers.</li>
-              <li><strong>$25</strong> — Equips an entire study group with cloud-synced notes and quiz analytics.</li>
-              <li><strong>$50</strong> — Supports classroom onboarding and accessible curriculum digitization.</li>
-              <li><strong>$100</strong> — Funds a full semester of AI tutor capacity for a partner school.</li>
+              <li><strong>₦15,000 / $10</strong> — Sponsors 500+ minutes of neural text-to-speech for visually impaired readers.</li>
+              <li><strong>₦30,000 / $25</strong> — Equips an entire study group with cloud-synced notes and quiz analytics.</li>
+              <li><strong>₦75,000 / $50</strong> — Supports classroom onboarding and accessible curriculum digitization.</li>
+              <li><strong>0.1 – 1.0 ZEC / $100</strong> — Funds a full semester of AI tutor capacity for a partner school.</li>
             </ul>
+
+            <!-- Visual Allocation Breakdown -->
+            <div class="allocation-breakdown-card" aria-label="Where your donations go">
+              <div class="allocation-breakdown-title">
+                <span>Where 100% of Donations Go</span>
+                <a href="#donation-faq" style="color:#ffffff; text-decoration:underline; font-size:0.74rem; text-transform:none; letter-spacing:0;">Read Full FAQ ↓</a>
+              </div>
+              <div class="allocation-bar-stack" role="img" aria-label="40% Neural Voice & AI Tutoring, 30% Nsukka Study Hubs & School Onboarding, 20% Accessible Book Digitization, 10% Free Cloud Infrastructure">
+                <div class="alloc-seg-1" title="40% Neural Voice & AI Tutoring"></div>
+                <div class="alloc-seg-2" title="30% School Onboarding & Study Hubs"></div>
+                <div class="alloc-seg-3" title="20% Accessible Library & Braille/Dyslexia"></div>
+                <div class="alloc-seg-4" title="10% Free Cloud Sync Infrastructure"></div>
+              </div>
+              <div class="allocation-legend">
+                <div class="allocation-legend-item">
+                  <span class="alloc-dot" style="background:#34d399;"></span>
+                  <span><strong>40% AI &amp; Voice Credits:</strong> ElevenLabs neural TTS &amp; 24/7 Gemini tutoring for blind &amp; low-vision learners.</span>
+                </div>
+                <div class="allocation-legend-item">
+                  <span class="alloc-dot" style="background:#f6b286;"></span>
+                  <span><strong>30% School &amp; Hub Outreach:</strong> Workshops at The Block Hive &amp; Uhere Study Center (Nsukka) &amp; partner schools.</span>
+                </div>
+                <div class="allocation-legend-item">
+                  <span class="alloc-dot" style="background:#60a5fa;"></span>
+                  <span><strong>20% Open Library &amp; Curriculum:</strong> Full-book Gutenberg imports, OpenDyslexic formatting &amp; STEM quizzes.</span>
+                </div>
+                <div class="allocation-legend-item">
+                  <span class="alloc-dot" style="background:#c084fc;"></span>
+                  <span><strong>10% Zero-Paywall Cloud:</strong> Cross-device sync for student notes, streaks &amp; educator portals.</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div class="donation-card">
-            <div class="payment-method-tabs" role="tablist" aria-label="Payment method">
-              <button type="button" class="pm-tab-btn active" id="tab-pm-paystack" role="tab" aria-selected="true" style="display:inline-flex; align-items:center; justify-content:center; gap:0.45rem;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
-                <span>Paystack (Card / Bank)</span>
+          <div class="donation-card" aria-label="Interactive step-by-step donation demo">
+            <div class="demo-mode-banner">
+              <span>✨ Interactive Step-by-Step Demo • No Real Money Charged</span>
+              <button type="button" class="demo-fill-btn" id="btn-Autofill-demo" title="Auto-fill sample donor details">Auto-Fill Demo Info</button>
+            </div>
+
+            <!-- 4-Step Progress Stepper -->
+            <div class="donate-stepper" role="navigation" aria-label="Donation steps">
+              <button type="button" class="donate-step-pill active" data-step="1" id="step-pill-1">
+                <span class="donate-step-num">1</span>
+                <span class="donate-step-label">Method &amp; Amount</span>
               </button>
-              <button type="button" class="pm-tab-btn" id="tab-pm-crypto" role="tab" aria-selected="false" style="display:inline-flex; align-items:center; justify-content:center; gap:0.45rem;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                <span>Zec.rocks (ZEC)</span>
+              <button type="button" class="donate-step-pill" data-step="2" id="step-pill-2">
+                <span class="donate-step-num">2</span>
+                <span class="donate-step-label">Donor &amp; Cause</span>
+              </button>
+              <button type="button" class="donate-step-pill" data-step="3" id="step-pill-3">
+                <span class="donate-step-num">3</span>
+                <span class="donate-step-label">Demo Checkout</span>
+              </button>
+              <button type="button" class="donate-step-pill" data-step="4" id="step-pill-4" disabled>
+                <span class="donate-step-num">4</span>
+                <span class="donate-step-label">Receipt</span>
               </button>
             </div>
 
-            <!-- Paystack Panel -->
-            <div id="panel-pm-paystack">
-              <div class="paystack-header-bar">
-                <span class="paystack-badge">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                  <span>Paystack Checkout</span>
-                </span>
-                <div class="currency-toggle" role="group" aria-label="Currency selector">
-                  <button type="button" class="currency-btn active" data-currency="NGN">NGN ₦</button>
-                  <button type="button" class="currency-btn" data-currency="USD">USD $</button>
+            <!-- STEP 1: Choose Payment Rail (Local Currency vs Crypto) & Amount -->
+            <div id="donate-step-1" class="donate-step-panel">
+              <div class="payment-method-tabs" role="tablist" aria-label="Payment method">
+                <button type="button" class="pm-tab-btn active" id="tab-pm-paystack" role="tab" aria-selected="true" style="display:inline-flex; align-items:center; justify-content:center; gap:0.45rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                  <span>Local Currency (Paystack)</span>
+                </button>
+                <button type="button" class="pm-tab-btn" id="tab-pm-crypto" role="tab" aria-selected="false" style="display:inline-flex; align-items:center; justify-content:center; gap:0.45rem;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                  <span>Crypto (Zec.rocks ZEC)</span>
+                </button>
+              </div>
+
+              <!-- Step 1A: Local Currency (Paystack NGN / USD) -->
+              <div id="panel-pm-paystack">
+                <div class="paystack-header-bar">
+                  <span class="paystack-badge">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <span>Paystack • NGN &amp; USD</span>
+                  </span>
+                  <div class="currency-toggle" role="group" aria-label="Currency selector">
+                    <button type="button" class="currency-btn active" data-currency="NGN">NGN ₦</button>
+                    <button type="button" class="currency-btn" data-currency="USD">USD $</button>
+                  </div>
                 </div>
-              </div>
 
-              <div class="freq-toggle" role="group" aria-label="Donation frequency">
-                <button type="button" class="freq-btn active" data-freq="one-time">One-Time</button>
-                <button type="button" class="freq-btn" data-freq="monthly">Monthly</button>
-              </div>
+                <div class="freq-toggle" role="group" aria-label="Donation frequency">
+                  <button type="button" class="freq-btn active" data-freq="one-time">One-Time Gift</button>
+                  <button type="button" class="freq-btn" data-freq="monthly">Monthly Support</button>
+                </div>
 
-              <div class="amount-grid" id="donation-amount-grid" role="group" aria-label="Preset donation amounts">
-                <button type="button" class="amount-btn" data-amount="5000">₦5,000</button>
-                <button type="button" class="amount-btn active" data-amount="15000">₦15,000</button>
-                <button type="button" class="amount-btn" data-amount="30000">₦30,000</button>
-                <button type="button" class="amount-btn" data-amount="75000">₦75,000</button>
-              </div>
+                <div class="amount-grid" id="donation-amount-grid" role="group" aria-label="Preset donation amounts">
+                  <button type="button" class="amount-btn" data-amount="5000">₦5,000</button>
+                  <button type="button" class="amount-btn active" data-amount="15000">₦15,000</button>
+                  <button type="button" class="amount-btn" data-amount="30000">₦30,000</button>
+                  <button type="button" class="amount-btn" data-amount="75000">₦75,000</button>
+                </div>
 
-              <form id="donation-form">
                 <div class="form-field">
                   <label for="donation-custom-amount" id="donation-amount-label">Custom Amount (NGN)</label>
                   <input type="number" id="donation-custom-amount" class="form-control" min="1" value="15000" required>
                 </div>
-                <div class="form-row-2">
-                  <div class="form-field">
-                    <label for="donation-donor-name">Your Name (Optional)</label>
-                    <input type="text" id="donation-donor-name" class="form-control" placeholder="e.g. Alex Rivera">
-                  </div>
-                  <div class="form-field">
-                    <label for="donation-donor-email">Email for Receipt</label>
-                    <input type="email" id="donation-donor-email" class="form-control" placeholder="you@example.com" required>
-                  </div>
-                </div>
-                <div class="form-field">
-                  <label for="donation-quick-note">Quick Note (Optional)</label>
-                  <textarea id="donation-quick-note" class="form-control" rows="2" maxlength="500" placeholder="Leave an encouraging note for students or specify a school..."></textarea>
-                </div>
-                <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-submit-donation">
-                  Pay with Paystack (₦15,000 One-Time)
-                </button>
-                <div class="paystack-methods-hint">Supports Debit/Credit Cards, Bank Transfer, USSD &amp; Mobile Money</div>
-                <div id="donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
-              </form>
-            </div>
-
-            <!-- Zec.rocks (Zcash) Crypto Panel -->
-            <div id="panel-pm-crypto" class="hidden">
-              <div class="paystack-header-bar">
-                <span class="paystack-badge">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
-                  <span>Zec.rocks • Zcash (ZEC)</span>
-                </span>
-                <span style="font-size:0.78rem; color:var(--text-secondary); font-weight:600;" id="zec-node-label">Node: zec.rocks:443</span>
               </div>
 
-              <div class="crypto-wallet-box">
-                <div style="font-size:0.78rem; font-weight:700; color:var(--text-secondary);">Gismo Zcash Receiving Address (ZEC • Shielded / Unified)</div>
-                <div class="crypto-wallet-row">
-                  <span class="crypto-wallet-addr" id="crypto-wallet-address">Configure ZEC_DONATION_ADDRESS in Vercel</span>
-                  <button type="button" class="btn-copy-wallet" id="btn-copy-wallet">Copy</button>
+              <!-- Step 1B: Crypto (Zec.rocks Zcash ZEC) -->
+              <div id="panel-pm-crypto" class="hidden">
+                <div class="paystack-header-bar">
+                  <span class="paystack-badge">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+                    <span>Zec.rocks • Shielded Zcash (ZEC)</span>
+                  </span>
+                  <span style="font-size:0.76rem; color:var(--text-secondary); font-weight:600;" id="zec-node-label">Node: zec.rocks:443</span>
                 </div>
-              </div>
 
-              <form id="crypto-donation-form">
+                <div class="amount-grid" id="zec-amount-grid" role="group" aria-label="Preset ZEC amounts">
+                  <button type="button" class="amount-btn zec-preset-btn" data-zec="0.05">0.05 ZEC</button>
+                  <button type="button" class="amount-btn zec-preset-btn active" data-zec="0.1">0.1 ZEC</button>
+                  <button type="button" class="amount-btn zec-preset-btn" data-zec="0.5">0.5 ZEC</button>
+                  <button type="button" class="amount-btn zec-preset-btn" data-zec="1">1.0 ZEC</button>
+                </div>
+
                 <div class="form-row-2">
                   <div class="form-field">
-                    <label for="crypto-network">Zcash Pool</label>
+                    <label for="crypto-network">Zcash Privacy Pool</label>
                     <select id="crypto-network" class="form-control">
                       <option value="Zcash Shielded (Unified)">Zcash Shielded (Unified)</option>
                       <option value="Zcash Sapling">Zcash Sapling</option>
@@ -316,39 +352,301 @@
                     <input type="number" id="crypto-amount" class="form-control" step="0.001" min="0.001" value="0.1" required>
                   </div>
                 </div>
+              </div>
 
-                <div class="form-row-2">
-                  <div class="form-field">
-                    <label for="crypto-donor-name">Your Name (Optional)</label>
-                    <input type="text" id="crypto-donor-name" class="form-control" placeholder="e.g. Alex Rivera">
-                  </div>
-                  <div class="form-field">
-                    <label for="crypto-donor-email">Email (Optional)</label>
-                    <input type="email" id="crypto-donor-email" class="form-control" placeholder="you@example.com">
-                  </div>
-                </div>
+              <div class="impact-preview-pill" id="step-1-impact-preview">
+                <strong>Estimated Impact:</strong> Sponsors 500+ minutes of ElevenLabs neural text-to-speech narration for visually impaired students.
+              </div>
 
+              <button type="button" class="btn btn-primary" style="width: 100%;" id="btn-to-step-2">
+                Step 2: Choose Cause &amp; Donor Info →
+              </button>
+            </div>
+
+            <!-- STEP 2: Donor Info & Fund Allocation -->
+            <div id="donate-step-2" class="donate-step-panel hidden">
+              <div class="form-field">
+                <label for="donation-allocation">Where Should Your Donation Go?</label>
+                <select id="donation-allocation" class="form-control">
+                  <option value="General Inclusive Education Fund (40/30/20/10 Split)">Where Most Needed — General Inclusive Fund (40/30/20/10 Split)</option>
+                  <option value="Neural Voice & AI Tutoring Credits (Low-Vision & Blind Students)">Neural Voice &amp; AI Tutoring Credits (Blind &amp; Low-Vision Students)</option>
+                  <option value="Nsukka Community Study Hubs & School Onboarding">Nsukka Community Study Hubs (Block Hive &amp; Uhere) &amp; School Onboarding</option>
+                  <option value="Accessible Library & OpenDyslexic Book Digitization">Accessible Library &amp; OpenDyslexic Book Digitization</option>
+                </select>
+              </div>
+
+              <div class="form-row-2">
                 <div class="form-field">
-                  <label for="crypto-quick-note">Quick Note (Optional)</label>
-                  <textarea id="crypto-quick-note" class="form-control" rows="2" maxlength="500" placeholder="Leave an encouraging note for students..."></textarea>
+                  <label for="donation-donor-name">Your Name (or Anonymous)</label>
+                  <input type="text" id="donation-donor-name" class="form-control" placeholder="e.g. Alex Rivera">
+                </div>
+                <div class="form-field">
+                  <label for="donation-donor-email">Email for Receipt</label>
+                  <input type="email" id="donation-donor-email" class="form-control" placeholder="donor@example.com" required>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label for="donation-quick-note">Encouraging Note for Students or Partner School (Optional)</label>
+                <textarea id="donation-quick-note" class="form-control" rows="2" maxlength="500" placeholder="Leave an encouraging message for students or name a school..."></textarea>
+              </div>
+
+              <div id="step-2-error" class="status-banner hidden" style="background:rgba(239,68,68,0.12); color:#dc2626;" role="alert"></div>
+
+              <div class="step-nav-actions">
+                <button type="button" class="btn btn-secondary" id="btn-back-step-1">← Back</button>
+                <button type="button" class="btn btn-primary" style="flex:1;" id="btn-to-step-3">Step 3: Proceed to Demo Checkout →</button>
+              </div>
+            </div>
+
+            <!-- STEP 3: Interactive Payment Simulation (Paystack Demo or Zec.rocks Demo) -->
+            <div id="donate-step-3" class="donate-step-panel hidden">
+              <div class="demo-summary-box" aria-label="Donation summary">
+                <div class="demo-summary-row">
+                  <span style="color:var(--text-secondary);">Payment Rail:</span>
+                  <strong id="summary-rail">Local Currency (Paystack)</strong>
+                </div>
+                <div class="demo-summary-row">
+                  <span style="color:var(--text-secondary);">Contribution:</span>
+                  <strong id="summary-amount">₦15,000 (One-Time)</strong>
+                </div>
+                <div class="demo-summary-row">
+                  <span style="color:var(--text-secondary);">Directed To:</span>
+                  <strong id="summary-allocation" style="text-align:right;">General Inclusive Fund</strong>
+                </div>
+                <div class="demo-summary-row">
+                  <span style="color:var(--text-secondary);">Supporter:</span>
+                  <strong id="summary-donor">Supporter</strong>
+                </div>
+              </div>
+
+              <!-- Step 3A: Local Currency Paystack Demo Simulator -->
+              <div id="step-3-paystack-box">
+                <label style="display:block; font-size:0.82rem; font-weight:700; color:var(--text-secondary); margin-bottom:0.45rem;">Select Demo Payment Channel:</label>
+                <div class="demo-channel-grid" role="group" aria-label="Simulated Paystack channel">
+                  <button type="button" class="demo-channel-btn active" data-channel="Card (4084 •••• 4081)">
+                    💳 Demo Card
+                    <span>Visa •••• 4081</span>
+                  </button>
+                  <button type="button" class="demo-channel-btn" data-channel="Instant Bank Transfer">
+                    🏦 Bank Transfer
+                    <span>NIP Instant</span>
+                  </button>
+                  <button type="button" class="demo-channel-btn" data-channel="USSD (*737#)">
+                    📱 USSD / Mobile
+                    <span>*737# / *901#</span>
+                  </button>
                 </div>
 
-                <button type="button" class="btn btn-primary" style="width: 100%; margin-bottom: 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;" id="btn-web3-donate">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>
+                <form id="donation-form">
+                  <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-submit-donation">
+                    Simulate Paystack Payment (₦15,000) ✓
+                  </button>
+                  <div class="paystack-methods-hint">In Demo Mode, clicking above simulates an instant verified payment &amp; logs your pledge.</div>
+                  <div id="donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
+                </form>
+              </div>
+
+              <!-- Step 3B: Zec.rocks Crypto Demo Simulator -->
+              <div id="step-3-crypto-box" class="hidden">
+                <div class="crypto-wallet-box">
+                  <div style="font-size:0.76rem; font-weight:700; color:var(--text-secondary);">Gismo Zcash Receiving Address (Unified / Shielded)</div>
+                  <div class="crypto-wallet-row">
+                    <span class="crypto-wallet-addr" id="crypto-wallet-address">u1gismolearningdemo9x8z7v6w5q4r3t2y1p0m8n7k6j5h4g3f2d1s0a9q8w7e6r5t4y</span>
+                    <button type="button" class="btn-copy-wallet" id="btn-copy-wallet">Copy</button>
+                  </div>
+                </div>
+
+                <button type="button" class="btn btn-secondary" style="width: 100%; margin-bottom: 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; font-size:0.86rem;" id="btn-web3-donate">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>
                   <span>Open in Zcash Wallet (Zashi / Zingo)</span>
                 </button>
 
-                <div class="form-field">
-                  <label for="crypto-tx-hash">Or Paste Zcash Transaction ID (txid) to Verify via Zec.rocks</label>
-                  <input type="text" id="crypto-tx-hash" class="form-control" placeholder="64-character ZEC txid...">
-                </div>
+                <form id="crypto-donation-form">
+                  <div class="form-field">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.35rem;">
+                      <label for="crypto-tx-hash" style="margin-bottom:0;">Zcash Transaction ID (64-char hex txid)</label>
+                      <button type="button" class="demo-fill-btn" id="btn-generate-demo-txid">Generate Demo TxID</button>
+                    </div>
+                    <input type="text" id="crypto-tx-hash" class="form-control" placeholder="Click 'Generate Demo TxID' or paste 64-character ZEC txid...">
+                  </div>
 
-                <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-verify-crypto">
-                  Verify &amp; Record ZEC Donation
-                </button>
-                <div id="crypto-donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
-              </form>
+                  <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-verify-crypto">
+                    Simulate Zec.rocks Verification &amp; Complete ✓
+                  </button>
+                  <div id="crypto-donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
+                </form>
+              </div>
+
+              <div class="step-nav-actions">
+                <button type="button" class="btn btn-secondary" id="btn-back-step-2">← Edit Donor / Cause</button>
+              </div>
             </div>
+
+            <!-- STEP 4: Official Demo Donation Receipt -->
+            <div id="donate-step-4" class="donate-step-panel hidden" aria-live="polite">
+              <div style="text-align:center;">
+                <div class="demo-receipt-badge" aria-hidden="true">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <h3 style="margin:0 0 0.25rem; font-family:var(--font-display); font-size:1.35rem;">Demo Donation Complete!</h3>
+                <p style="margin:0; font-size:0.88rem; color:var(--text-secondary);" id="receipt-thank-you-msg">
+                  Thank you for testing Gismo's inclusive funding flow.
+                </p>
+              </div>
+
+              <div class="demo-receipt-card">
+                <div class="demo-summary-row">
+                  <span style="color:var(--text-secondary);">Status:</span>
+                  <strong style="color:var(--brand-primary);" id="receipt-status">Verified (Interactive Demo)</strong>
+                </div>
+                <div class="demo-summary-row">
+                  <span style="color:var(--text-secondary);">Reference / TxID:</span>
+                  <strong style="font-family:monospace; font-size:0.78rem; word-break:break-all; text-align:right;" id="receipt-ref">GISMO-DEMO</strong>
+                </div>
+                <div class="demo-summary-row">
+                  <span style="color:var(--text-secondary);">Amount &amp; Rail:</span>
+                  <strong id="receipt-amount">₦15,000 via Paystack</strong>
+                </div>
+                <div class="demo-summary-row">
+                  <span style="color:var(--text-secondary);">Fund Allocation:</span>
+                  <strong id="receipt-allocation" style="text-align:right;">General Inclusive Fund</strong>
+                </div>
+                <div class="demo-summary-row">
+                  <span style="color:var(--text-secondary);">Donor:</span>
+                  <strong id="receipt-donor">Supporter</strong>
+                </div>
+              </div>
+
+              <button type="button" class="btn btn-primary" style="width:100%;" id="btn-reset-donation-demo">
+                Make Another Demo Donation ↻
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Donation & Payment FAQ Section -->
+        <div id="donation-faq" class="donation-faq-wrap" data-aos="fade-up" data-aos-delay="100">
+          <div class="donation-faq-header">
+            <span class="eyebrow">Transparency &amp; Payment Guide</span>
+            <h3 class="section-title" style="font-size: clamp(1.65rem, 2.6vw, 2.25rem);">Frequently Asked Questions About Donating</h3>
+            <p class="section-lead" style="margin-inline:auto;">
+              Everything you need to know about our local currency &amp; cryptocurrency payment rails, how the step-by-step demo works, and where every contribution goes.
+            </p>
+          </div>
+
+          <div class="donation-faq-grid">
+            <details class="faq-item" open>
+              <summary>
+                <div>
+                  <span class="faq-tag local">Local Currency &amp; Cards</span>
+                  <div>How does the Local Currency (Paystack) payment section work?</div>
+                </div>
+                <span class="faq-chevron" aria-hidden="true">▼</span>
+              </summary>
+              <div class="faq-body">
+                <p>
+                  Our <strong>Local Currency &amp; Card</strong> option is powered by <strong>Paystack</strong> and supports both <strong>Nigerian Naira (NGN ₦)</strong> and <strong>US Dollars (USD $)</strong>.
+                </p>
+                <ul>
+                  <li><strong>Supported Channels:</strong> Visa, Mastercard, and Verve debit/credit cards, instant Nigerian bank transfers (NIP), USSD codes (e.g., <code>*737#</code>), and Mobile Money.</li>
+                  <li><strong>One-Time vs. Monthly:</strong> You can make a single gift or set up a recurring monthly sponsorship for sustained school support.</li>
+                  <li><strong>Instant Receipts:</strong> A verified reference code (`GISMO-...`) and receipt are generated immediately upon completion.</li>
+                </ul>
+              </div>
+            </details>
+
+            <details class="faq-item" open>
+              <summary>
+                <div>
+                  <span class="faq-tag crypto">Cryptocurrency • Zcash</span>
+                  <div>How does the Crypto (Zec.rocks / ZEC) payment section work?</div>
+                </div>
+                <span class="faq-chevron" aria-hidden="true">▼</span>
+              </summary>
+              <div class="faq-body">
+                <p>
+                  Our <strong>Cryptocurrency</strong> rail uses <strong>Zcash (ZEC)</strong> connected via <strong>Zec.rocks (`zec.rocks:443`)</strong> for fast, borderless, and privacy-preserving educational philanthropy.
+                </p>
+                <ul>
+                  <li><strong>Shielded &amp; Unified Pools:</strong> Choose between <em>Zcash Shielded (Unified)</em>, <em>Sapling</em>, or <em>Transparent</em> pools. Shielded transactions use zero-knowledge proofs so donor balances remain private while funding public good.</li>
+                  <li><strong>Wallet Deep-Linking:</strong> Click <em>"Open in Zcash Wallet"</em> to pre-fill the amount and encrypted student memo in Zashi, Zingo, or YWallet, or copy the receiving address directly.</li>
+                  <li><strong>On-Chain Verification:</strong> Paste your 64-character transaction ID (`txid`) to verify block confirmation and log your gift.</li>
+                </ul>
+              </div>
+            </details>
+
+            <details class="faq-item" open>
+              <summary>
+                <div>
+                  <span class="faq-tag impact">Fund Allocation &amp; Impact</span>
+                  <div>What and where do my donations go to?</div>
+                </div>
+                <span class="faq-chevron" aria-hidden="true">▼</span>
+              </summary>
+              <div class="faq-body">
+                <p>
+                  <strong>100% of every contribution goes directly toward student accessibility and inclusive education:</strong>
+                </p>
+                <ul>
+                  <li><strong>40% — Neural Voice &amp; AI Tutoring Credits:</strong> Pays for real-time ElevenLabs natural voice narration and 24/7 Gemini AI tutoring for blind, low-vision, and auditory-impaired students.</li>
+                  <li><strong>30% — Community Study Hubs &amp; School Onboarding:</strong> Funds assistive hardware, teacher training, and student workshops at <strong>The Block Hive (Nsukka)</strong>, <strong>Uhere Study Center (Nsukka)</strong>, and partner inclusive schools.</li>
+                  <li><strong>20% — Accessible Library &amp; Curriculum Digitization:</strong> Expands full-text public-domain literature, OpenDyslexic typography tools, and voice-navigable STEM quizzes.</li>
+                  <li><strong>10% — Zero-Barrier Cloud Infrastructure:</strong> Keeps student accounts, voice-dictated notes, and cross-device syncing completely free with zero ads or paywalls.</li>
+                </ul>
+              </div>
+            </details>
+
+            <details class="faq-item" open>
+              <summary>
+                <div>
+                  <span class="faq-tag local">Interactive Demo</span>
+                  <div>How does the 4-step donation demo work? Will I be charged?</div>
+                </div>
+                <span class="faq-chevron" aria-hidden="true">▼</span>
+              </summary>
+              <div class="faq-body">
+                <p>
+                  The donation widget is currently running in <strong>Interactive Demo Mode</strong> so judges, educators, and visitors can experience the complete 4-step donor journey without spending real money:
+                </p>
+                <ul>
+                  <li><strong>Step 1 (Method &amp; Amount):</strong> Pick Local Currency (NGN/USD) or Crypto (ZEC) and preview your real-time student impact.</li>
+                  <li><strong>Step 2 (Donor &amp; Cause):</strong> Choose which accessibility fund receives your gift and enter your details (or click <em>"Auto-Fill Demo Info"</em>).</li>
+                  <li><strong>Step 3 (Demo Checkout):</strong> Simulate a Paystack card/bank/USSD payment or click <em>"Generate Demo TxID"</em> to simulate a 64-character Zcash transaction.</li>
+                  <li><strong>Step 4 (Official Receipt):</strong> View your instant receipt—which is also saved to the Gismo database and visible in the Admin Database Explorer!</li>
+                </ul>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary>
+                <div>
+                  <span class="faq-tag impact">Direct Sponsorship</span>
+                  <div>Can I earmark my donation for a specific school or disability program?</div>
+                </div>
+                <span class="faq-chevron" aria-hidden="true">▼</span>
+              </summary>
+              <div class="faq-body">
+                <p>
+                  Yes! In <strong>Step 2 (Donor &amp; Cause)</strong>, use the <em>"Where Should Your Donation Go?"</em> dropdown to direct 100% of your gift to Neural Voice Credits, Nsukka Community Study Hubs &amp; School Onboarding, or Accessible Library Digitization. You can also name a specific school or student cohort in the Quick Note field.
+                </p>
+              </div>
+            </details>
+
+            <details class="faq-item">
+              <summary>
+                <div>
+                  <span class="faq-tag crypto">Security &amp; Privacy</span>
+                  <div>Are my payment details and donor identity secure?</div>
+                </div>
+                <span class="faq-chevron" aria-hidden="true">▼</span>
+              </summary>
+              <div class="faq-body">
+                <p>
+                  Absolutely. Gismo never stores raw card numbers or banking credentials—all local currency checkouts are processed through PCI-DSS Level 1 compliant Paystack channels. For donors who prefer complete financial privacy, our Zcash Unified Shielded pool encrypts transaction metadata on-chain while still allowing you to leave an optional public or anonymous note for students.
+                </p>
+              </div>
+            </details>
           </div>
         </div>
       </div>
@@ -453,6 +751,7 @@
           <h4>Get Involved</h4>
           <ul>
             <li><a href="#donations">Donate</a></li>
+            <li><a href="#donation-faq">Donation FAQ</a></li>
             <li><a href="#contact">Contact Us</a></li>
             <li><a href="#contact">Partner a School</a></li>
           </ul>
@@ -505,11 +804,15 @@
       });
     }
 
-    // Donations & Paystack interactive state
+    // Multi-Step Interactive Donation Demo State
+    let currentDonateStep = 1;
+    let activePaymentRail = 'paystack'; // 'paystack' | 'crypto'
     let selectedFreq = 'one-time';
     let selectedCurrency = 'NGN';
     let selectedAmount = 15000;
+    let selectedDemoChannel = 'Card (4084 •••• 4081)';
     let paystackPublicKey = '';
+    let cryptoReceivingWallet = 'u1gismolearningdemo9x8z7v6w5q4r3t2y1p0m8n7k6j5h4g3f2d1s0a9q8w7e6r5t4y';
 
     const currencyPresets = {
       NGN: [5000, 15000, 30000, 75000],
@@ -517,20 +820,39 @@
     };
 
     const customAmountInput = document.getElementById('donation-custom-amount');
+    const cryptoAmountInput = document.getElementById('crypto-amount');
     const donationBtn = document.getElementById('btn-submit-donation');
     const amountGrid = document.getElementById('donation-amount-grid');
     const amountLabel = document.getElementById('donation-amount-label');
+    const impactPreviewEl = document.getElementById('step-1-impact-preview');
 
     function getCurrencySymbol(curr) {
       return curr === 'NGN' ? '₦' : '$';
     }
 
-    function updateDonationBtnLabel() {
+    function computeImpactDescription() {
+      if (activePaymentRail === 'crypto') {
+        const zec = Number(cryptoAmountInput?.value) || 0.1;
+        if (zec >= 0.5) return 'Funds a full semester of AI tutor capacity and assistive voice narration for a partner classroom.';
+        if (zec >= 0.1) return 'Equips a student study group with neural voice synthesis, cloud-synced notes, and adaptive quizzes.';
+        return 'Sponsors 300+ minutes of neural text-to-speech narration for blind and low-vision learners.';
+      }
+      const usdEquiv = selectedCurrency === 'NGN' ? (selectedAmount / 1500) : selectedAmount;
+      if (usdEquiv >= 50) return 'Funds a full semester of AI tutor capacity and classroom onboarding at our Nsukka & partner school hubs.';
+      if (usdEquiv >= 20) return 'Supports classroom onboarding and OpenDyslexic / Braille-ready curriculum digitization.';
+      if (usdEquiv >= 10) return 'Sponsors 500+ minutes of ElevenLabs neural text-to-speech narration for visually impaired students.';
+      return 'Provides free cloud-synced voice notes and interactive AI tutoring sessions for students.';
+    }
+
+    function updateDonationUI() {
       const freqText = selectedFreq === 'monthly' ? 'Monthly' : 'One-Time';
       const sym = getCurrencySymbol(selectedCurrency);
       const formatted = Number(selectedAmount || 0).toLocaleString();
       if (donationBtn) {
-        donationBtn.textContent = `Pay with Paystack (${sym}${formatted} ${freqText})`;
+        donationBtn.textContent = `Simulate Paystack Payment (${sym}${formatted} ${freqText}) ✓`;
+      }
+      if (impactPreviewEl) {
+        impactPreviewEl.innerHTML = `<strong>Estimated Impact:</strong> ${computeImpactDescription()}`;
       }
     }
 
@@ -547,20 +869,154 @@
           btn.dataset.amount = String(amt);
           btn.textContent = `${sym}${amt.toLocaleString()}`;
           btn.addEventListener('click', () => {
-            document.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
+            amountGrid.querySelectorAll('.amount-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             selectedAmount = amt;
             if (customAmountInput) customAmountInput.value = selectedAmount;
-            updateDonationBtnLabel();
+            updateDonationUI();
           });
           amountGrid.appendChild(btn);
         });
       }
       selectedAmount = presets[1];
       if (customAmountInput) customAmountInput.value = selectedAmount;
-      updateDonationBtnLabel();
+      updateDonationUI();
     }
 
+    function goToDonateStep(step) {
+      currentDonateStep = step;
+      for (let i = 1; i <= 4; i++) {
+        const panel = document.getElementById(`donate-step-${i}`);
+        const pill = document.getElementById(`step-pill-${i}`);
+        if (panel) panel.classList.toggle('hidden', i !== step);
+        if (pill) {
+          pill.classList.toggle('active', i === step);
+          pill.classList.toggle('completed', i < step);
+          if (i < 4) pill.disabled = false;
+        }
+      }
+
+      if (step === 3) {
+        const donorName = document.getElementById('donation-donor-name')?.value.trim() || 'Anonymous Supporter';
+        const donorEmail = document.getElementById('donation-donor-email')?.value.trim() || 'demo-donor@gismo.edu';
+        const allocation = document.getElementById('donation-allocation')?.value || 'General Inclusive Fund';
+        const shortAllocation = allocation.split('—')[0].split('(')[0].trim();
+
+        const railEl = document.getElementById('summary-rail');
+        const amtEl = document.getElementById('summary-amount');
+        const allocEl = document.getElementById('summary-allocation');
+        const donorEl = document.getElementById('summary-donor');
+
+        if (activePaymentRail === 'crypto') {
+          const zecAmt = Number(cryptoAmountInput?.value) || 0.1;
+          const pool = document.getElementById('crypto-network')?.value || 'Zcash Shielded (Unified)';
+          if (railEl) railEl.textContent = `Crypto • ${pool}`;
+          if (amtEl) amtEl.textContent = `${zecAmt} ZEC (One-Time)`;
+        } else {
+          const sym = getCurrencySymbol(selectedCurrency);
+          const freqLabel = selectedFreq === 'monthly' ? 'Monthly' : 'One-Time';
+          if (railEl) railEl.textContent = `Paystack (${selectedCurrency})`;
+          if (amtEl) amtEl.textContent = `${sym}${Number(selectedAmount || 0).toLocaleString()} (${freqLabel})`;
+        }
+        if (allocEl) allocEl.textContent = shortAllocation;
+        if (donorEl) donorEl.textContent = `${donorName} (${donorEmail})`;
+
+        document.getElementById('step-3-paystack-box')?.classList.toggle('hidden', activePaymentRail !== 'paystack');
+        document.getElementById('step-3-crypto-box')?.classList.toggle('hidden', activePaymentRail !== 'crypto');
+        updateDonationUI();
+      }
+    }
+
+    function showReceiptStep({ reference, amountLabel, allocation, donorName, donorEmail, statusText, thankYouText }) {
+      const pill4 = document.getElementById('step-pill-4');
+      if (pill4) pill4.disabled = false;
+      const refEl = document.getElementById('receipt-ref');
+      const amtEl = document.getElementById('receipt-amount');
+      const allocEl = document.getElementById('receipt-allocation');
+      const donorEl = document.getElementById('receipt-donor');
+      const statusEl = document.getElementById('receipt-status');
+      const msgEl = document.getElementById('receipt-thank-you-msg');
+
+      if (refEl) refEl.textContent = reference;
+      if (amtEl) amtEl.textContent = amountLabel;
+      if (allocEl) allocEl.textContent = allocation;
+      if (donorEl) donorEl.textContent = donorEmail ? `${donorName} (${donorEmail})` : donorName;
+      if (statusEl) statusEl.textContent = statusText || 'Verified (Interactive Demo)';
+      if (msgEl) msgEl.textContent = thankYouText || 'Your demo contribution has been verified and recorded.';
+      goToDonateStep(4);
+    }
+
+    // Stepper pill clicks (allow jumping between steps 1-3)
+    document.querySelectorAll('.donate-step-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const target = Number(pill.dataset.step);
+        if (target >= 1 && target <= 3) {
+          if (target === 3) {
+            const emailInput = document.getElementById('donation-donor-email');
+            if (emailInput && !emailInput.value.trim()) {
+              emailInput.value = 'demo.supporter@gismo.edu';
+            }
+          }
+          goToDonateStep(target);
+        }
+      });
+    });
+
+    document.getElementById('btn-to-step-2')?.addEventListener('click', () => goToDonateStep(2));
+    document.getElementById('btn-back-step-1')?.addEventListener('click', () => goToDonateStep(1));
+    document.getElementById('btn-back-step-2')?.addEventListener('click', () => goToDonateStep(2));
+
+    document.getElementById('btn-to-step-3')?.addEventListener('click', () => {
+      const emailInput = document.getElementById('donation-donor-email');
+      const errEl = document.getElementById('step-2-error');
+      const emailVal = emailInput?.value.trim() || '';
+      if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+        if (errEl) {
+          errEl.textContent = 'Please enter a valid email address for your receipt (or click "Auto-Fill Demo Info" at the top).';
+          errEl.classList.remove('hidden');
+        }
+        emailInput?.focus();
+        return;
+      }
+      if (errEl) errEl.classList.add('hidden');
+      goToDonateStep(3);
+    });
+
+    // Auto-fill Demo Donor Info button
+    document.getElementById('btn-Autofill-demo')?.addEventListener('click', () => {
+      const nameInput = document.getElementById('donation-donor-name');
+      const emailInput = document.getElementById('donation-donor-email');
+      const noteInput = document.getElementById('donation-quick-note');
+      if (nameInput && !nameInput.value.trim()) nameInput.value = 'Adaobi Okafor (Demo Sponsor)';
+      if (emailInput && !emailInput.value.trim()) emailInput.value = 'adaobi.demo@gismo.edu';
+      if (noteInput && !noteInput.value.trim()) noteInput.value = 'Keep empowering visually impaired and neurodiverse students in Nsukka!';
+      const errEl = document.getElementById('step-2-error');
+      if (errEl) errEl.classList.add('hidden');
+      if (currentDonateStep === 1) {
+        goToDonateStep(2);
+      }
+    });
+
+    document.getElementById('btn-reset-donation-demo')?.addEventListener('click', () => {
+      const pill4 = document.getElementById('step-pill-4');
+      if (pill4) pill4.disabled = true;
+      const status1 = document.getElementById('donation-status');
+      const status2 = document.getElementById('crypto-donation-status');
+      if (status1) status1.classList.add('hidden');
+      if (status2) status2.classList.add('hidden');
+      goToDonateStep(1);
+    });
+
+    // Demo Paystack Channel Selection
+    document.querySelectorAll('.demo-channel-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.demo-channel-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedDemoChannel = btn.dataset.channel || 'Card (4084 •••• 4081)';
+      });
+    });
+
+    // Currency & Frequency Toggles
     document.querySelectorAll('.currency-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.currency-btn').forEach(b => b.classList.remove('active'));
@@ -575,20 +1031,41 @@
         document.querySelectorAll('.freq-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         selectedFreq = btn.dataset.freq;
-        updateDonationBtnLabel();
+        updateDonationUI();
       });
     });
 
-    // Attach listeners to initial NGN buttons
+    // ZEC Preset Buttons
+    document.querySelectorAll('.zec-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.zec-preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (cryptoAmountInput) cryptoAmountInput.value = btn.dataset.zec || '0.1';
+        updateDonationUI();
+      });
+    });
+
+    if (cryptoAmountInput) {
+      cryptoAmountInput.addEventListener('input', () => {
+        const val = Number(cryptoAmountInput.value) || 0;
+        document.querySelectorAll('.zec-preset-btn').forEach(b => {
+          b.classList.toggle('active', Number(b.dataset.zec) === val);
+        });
+        updateDonationUI();
+      });
+    }
+
     renderAmountPresets('NGN');
 
     if (customAmountInput) {
       customAmountInput.addEventListener('input', () => {
         selectedAmount = Math.max(1, Number(customAmountInput.value) || 0);
-        document.querySelectorAll('.amount-btn').forEach(b => {
-          b.classList.toggle('active', Number(b.dataset.amount) === selectedAmount);
-        });
-        updateDonationBtnLabel();
+        if (amountGrid) {
+          amountGrid.querySelectorAll('.amount-btn').forEach(b => {
+            b.classList.toggle('active', Number(b.dataset.amount) === selectedAmount);
+          });
+        }
+        updateDonationUI();
       });
     }
 
@@ -597,38 +1074,33 @@
     const tabCrypto = document.getElementById('tab-pm-crypto');
     const panelPaystack = document.getElementById('panel-pm-paystack');
     const panelCrypto = document.getElementById('panel-pm-crypto');
-    let cryptoReceivingWallet = '';
 
     if (tabPaystack && tabCrypto && panelPaystack && panelCrypto) {
       tabPaystack.addEventListener('click', () => {
+        activePaymentRail = 'paystack';
         tabPaystack.classList.add('active');
         tabCrypto.classList.remove('active');
         tabPaystack.setAttribute('aria-selected', 'true');
         tabCrypto.setAttribute('aria-selected', 'false');
         panelPaystack.classList.remove('hidden');
         panelCrypto.classList.add('hidden');
+        updateDonationUI();
       });
       tabCrypto.addEventListener('click', () => {
+        activePaymentRail = 'crypto';
         tabCrypto.classList.add('active');
         tabPaystack.classList.remove('active');
         tabCrypto.setAttribute('aria-selected', 'true');
         tabPaystack.setAttribute('aria-selected', 'false');
         panelCrypto.classList.remove('hidden');
         panelPaystack.classList.add('hidden');
+        updateDonationUI();
       });
     }
 
     const copyWalletBtn = document.getElementById('btn-copy-wallet');
     if (copyWalletBtn) {
       copyWalletBtn.addEventListener('click', async () => {
-        if (!cryptoReceivingWallet) {
-          const statusEl = document.getElementById('crypto-donation-status');
-          if (statusEl) {
-            statusEl.textContent = 'Zcash receiving address is not configured yet (set ZEC_DONATION_ADDRESS in environment).';
-            statusEl.classList.remove('hidden');
-          }
-          return;
-        }
         try {
           await navigator.clipboard.writeText(cryptoReceivingWallet);
           copyWalletBtn.textContent = 'Copied!';
@@ -636,6 +1108,22 @@
         } catch (_) {}
       });
     }
+
+    // Generate Demo 64-char ZEC TxID button
+    document.getElementById('btn-generate-demo-txid')?.addEventListener('click', () => {
+      const txInput = document.getElementById('crypto-tx-hash');
+      const hexChars = '0123456789abcdef';
+      let demoHash = '';
+      for (let i = 0; i < 64; i++) {
+        demoHash += hexChars[Math.floor(Math.random() * 16)];
+      }
+      if (txInput) txInput.value = demoHash;
+      const statusEl = document.getElementById('crypto-donation-status');
+      if (statusEl) {
+        statusEl.textContent = 'Generated demo 64-character Zcash txid. Click "Simulate Zec.rocks Verification & Complete" below!';
+        statusEl.classList.remove('hidden');
+      }
+    });
 
     // Load Paystack & Zec.rocks config
     fetch('/api/donations/config')
@@ -655,31 +1143,59 @@
       })
       .catch(() => {});
 
-    async function submitCryptoVerification(txHash) {
+    async function submitCryptoVerification(txHash, isDemo = true) {
       const statusEl = document.getElementById('crypto-donation-status');
+      const verifyBtn = document.getElementById('btn-verify-crypto');
       const network = document.getElementById('crypto-network')?.value || 'Zcash Shielded (Unified)';
       const token = 'ZEC';
-      const amount = Number(document.getElementById('crypto-amount')?.value) || 0;
-      const name = document.getElementById('crypto-donor-name')?.value.trim() || 'ZEC Supporter';
-      const email = document.getElementById('crypto-donor-email')?.value.trim() || '';
-      const quickNote = document.getElementById('crypto-quick-note')?.value.trim() || '';
+      const amount = Number(document.getElementById('crypto-amount')?.value) || 0.1;
+      const name = document.getElementById('donation-donor-name')?.value.trim() || 'ZEC Supporter';
+      const email = document.getElementById('donation-donor-email')?.value.trim() || 'zec-donor@gismo.edu';
+      const quickNote = document.getElementById('donation-quick-note')?.value.trim() || '';
+      const allocation = document.getElementById('donation-allocation')?.value || 'General Inclusive Fund';
+
+      if (verifyBtn) {
+        verifyBtn.disabled = true;
+        verifyBtn.textContent = 'Verifying via Zec.rocks...';
+      }
 
       try {
         const res = await fetch('/api/donations/crypto/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tx_hash: txHash, network, token, amount, name, email, quick_note: quickNote })
+          body: JSON.stringify({
+            tx_hash: txHash,
+            network,
+            token,
+            amount,
+            name,
+            email,
+            quick_note: quickNote,
+            allocation,
+            is_demo: isDemo
+          })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Verification failed.');
-        if (statusEl) {
-          statusEl.textContent = data.message;
-          statusEl.classList.remove('hidden');
-        }
+
+        showReceiptStep({
+          reference: `${txHash.slice(0, 16)}...${txHash.slice(-8)}`,
+          amountLabel: `${amount} ZEC (${network})`,
+          allocation: allocation.split('—')[0].split('(')[0].trim(),
+          donorName: name,
+          donorEmail: email,
+          statusText: data.blockHeight ? `Verified on Zec.rocks (Block #${data.blockHeight})` : 'Verified (Zec.rocks Demo)',
+          thankYouText: data.message
+        });
       } catch (err) {
         if (statusEl) {
           statusEl.textContent = err.message || 'Could not verify transaction.';
           statusEl.classList.remove('hidden');
+        }
+      } finally {
+        if (verifyBtn) {
+          verifyBtn.disabled = false;
+          verifyBtn.textContent = 'Simulate Zec.rocks Verification & Complete ✓';
         }
       }
     }
@@ -688,22 +1204,15 @@
     if (web3Btn) {
       web3Btn.addEventListener('click', () => {
         const statusEl = document.getElementById('crypto-donation-status');
-        if (!cryptoReceivingWallet) {
-          if (statusEl) {
-            statusEl.textContent = 'Please configure ZEC_DONATION_ADDRESS in Vercel environment variables first.';
-            statusEl.classList.remove('hidden');
-          }
-          return;
-        }
         const amountZec = Number(document.getElementById('crypto-amount')?.value) || 0.1;
-        const quickNote = document.getElementById('crypto-quick-note')?.value.trim() || 'Gismo Learning Donation';
+        const quickNote = document.getElementById('donation-quick-note')?.value.trim() || 'Gismo Learning Donation';
         const memoBytes = new TextEncoder().encode(quickNote);
         const memoBase64Url = btoa(String.fromCharCode(...memoBytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
         const zcashUri = `zcash:${encodeURIComponent(cryptoReceivingWallet)}?amount=${amountZec}&memo=${memoBase64Url}`;
 
         window.location.href = zcashUri;
         if (statusEl) {
-          statusEl.textContent = 'Opening your Zcash wallet (Zashi / Zingo / YWallet). After sending, paste your 64-character txid below to verify via Zec.rocks.';
+          statusEl.textContent = 'Opening Zcash wallet URI. For a quick demo without a wallet installed, click "Generate Demo TxID" below!';
           statusEl.classList.remove('hidden');
         }
       });
@@ -713,16 +1222,17 @@
     if (cryptoForm) {
       cryptoForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const txHash = document.getElementById('crypto-tx-hash')?.value.trim();
+        const txInput = document.getElementById('crypto-tx-hash');
+        let txHash = txInput?.value.trim() || '';
+        // If empty in demo mode, auto-generate a valid 64-character demo ZEC txid so the user can complete smoothly
         if (!txHash) {
-          const statusEl = document.getElementById('crypto-donation-status');
-          if (statusEl) {
-            statusEl.textContent = 'Please enter your 64-character Zcash transaction ID (txid) to verify.';
-            statusEl.classList.remove('hidden');
+          const hexChars = '0123456789abcdef';
+          for (let i = 0; i < 64; i++) {
+            txHash += hexChars[Math.floor(Math.random() * 16)];
           }
-          return;
+          if (txInput) txInput.value = txHash;
         }
-        await submitCryptoVerification(txHash);
+        await submitCryptoVerification(txHash, true);
       });
     }
 
@@ -732,12 +1242,18 @@
       fetch(`/api/donations/verify/${encodeURIComponent(returnedRef)}`)
         .then(r => r.json())
         .then(v => {
-          const statusEl = document.getElementById('donation-status');
-          if (v && v.verified && statusEl) {
+          if (v && v.verified) {
             const d = v.donation || {};
             const sym = getCurrencySymbol(d.currency || 'NGN');
-            statusEl.textContent = `Payment verified! Thank you, ${d.donor_name || 'Supporter'}, for your ${sym}${Number(d.amount || 0).toLocaleString()} contribution (Ref: ${returnedRef}).`;
-            statusEl.classList.remove('hidden');
+            showReceiptStep({
+              reference: returnedRef,
+              amountLabel: `${sym}${Number(d.amount || 0).toLocaleString()} (${d.currency || 'NGN'})`,
+              allocation: 'Inclusive Education Fund',
+              donorName: d.donor_name || 'Supporter',
+              donorEmail: d.donor_email || '',
+              statusText: 'Verified via Paystack',
+              thankYouText: `Thank you, ${d.donor_name || 'Supporter'}, for your ${sym}${Number(d.amount || 0).toLocaleString()} contribution!`
+            });
             document.getElementById('donations')?.scrollIntoView({ behavior: 'smooth' });
           }
         })
@@ -750,12 +1266,13 @@
         e.preventDefault();
         const statusEl = document.getElementById('donation-status');
         const name = document.getElementById('donation-donor-name')?.value.trim() || 'Supporter';
-        const email = document.getElementById('donation-donor-email')?.value.trim();
+        const email = document.getElementById('donation-donor-email')?.value.trim() || 'demo.supporter@gismo.edu';
         const quickNote = document.getElementById('donation-quick-note')?.value.trim() || '';
+        const allocation = document.getElementById('donation-allocation')?.value || 'General Inclusive Education Fund';
 
         if (donationBtn) {
           donationBtn.disabled = true;
-          donationBtn.textContent = 'Initializing Paystack...';
+          donationBtn.textContent = 'Processing Demo Checkout...';
         }
 
         try {
@@ -769,6 +1286,8 @@
               name,
               email,
               quick_note: quickNote,
+              allocation,
+              demo_channel: selectedDemoChannel,
               callback_url: window.location.origin + '/'
             })
           });
@@ -791,6 +1310,7 @@
                   custom_fields: [
                     { display_name: 'Donor Name', variable_name: 'donor_name', value: name },
                     { display_name: 'Frequency', variable_name: 'frequency', value: selectedFreq },
+                    { display_name: 'Allocation', variable_name: 'allocation', value: allocation },
                     { display_name: 'Quick Note', variable_name: 'quick_note', value: quickNote || 'None' }
                   ]
                 },
@@ -799,14 +1319,15 @@
                     const verRes = await fetch(`/api/donations/verify/${encodeURIComponent(response.reference)}`);
                     const verData = await verRes.json();
                     const sym = getCurrencySymbol(selectedCurrency);
-                    if (statusEl) {
-                      statusEl.textContent = verData.verified
-                        ? `Payment successful! Thank you, ${name}, for your ${sym}${selectedAmount.toLocaleString()} gift${quickNote ? ` ("${quickNote}")` : ''}. Ref: ${response.reference}`
-                        : `Payment received (Ref: ${response.reference}). Verification in progress.`;
-                      statusEl.classList.remove('hidden');
-                    }
-                    donationForm.reset();
-                    if (customAmountInput) customAmountInput.value = selectedAmount;
+                    showReceiptStep({
+                      reference: response.reference,
+                      amountLabel: `${sym}${selectedAmount.toLocaleString()} (${selectedFreq})`,
+                      allocation: allocation.split('—')[0].split('(')[0].trim(),
+                      donorName: name,
+                      donorEmail: email,
+                      statusText: verData.verified ? 'Verified via Paystack' : 'Payment Received',
+                      thankYouText: `Thank you, ${name}, for your ${sym}${selectedAmount.toLocaleString()} gift!`
+                    });
                   } catch (_) {}
                 },
                 onClose: function() {
@@ -824,23 +1345,26 @@
             }
           }
 
-          // Demo / pledge fallback when Paystack keys aren't set yet
-          if (statusEl) {
-            const sym = getCurrencySymbol(selectedCurrency);
-            statusEl.textContent = data.message || `Thank you, ${name}! Your ${sym}${selectedAmount.toLocaleString()} ${selectedFreq} pledge${quickNote ? ` ("${quickNote}")` : ''} has been recorded.`;
-            statusEl.classList.remove('hidden');
-          }
-          donationForm.reset();
-          if (customAmountInput) customAmountInput.value = selectedAmount;
+          // Interactive Demo Completion -> Advance to Step 4 Receipt
+          const sym = getCurrencySymbol(selectedCurrency);
+          showReceiptStep({
+            reference: data.reference || `GISMO-DEMO-${Date.now()}`,
+            amountLabel: `${sym}${Number(selectedAmount || 0).toLocaleString()} (${selectedFreq} • ${selectedDemoChannel})`,
+            allocation: allocation.split('—')[0].split('(')[0].trim(),
+            donorName: name,
+            donorEmail: email,
+            statusText: 'Verified (Paystack Demo Mode)',
+            thankYouText: data.message || `Thank you, ${name}! Your ${sym}${Number(selectedAmount || 0).toLocaleString()} ${selectedFreq} demo donation has been recorded.`
+          });
         } catch (err) {
           if (statusEl) {
-            statusEl.textContent = err.message || 'Could not start Paystack checkout. Please check your details and try again.';
+            statusEl.textContent = err.message || 'Could not complete demo checkout. Please check your details and try again.';
             statusEl.classList.remove('hidden');
           }
         } finally {
           if (donationBtn) {
             donationBtn.disabled = false;
-            updateDonationBtnLabel();
+            updateDonationUI();
           }
         }
       });
