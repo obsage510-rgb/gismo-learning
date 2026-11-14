@@ -252,8 +252,12 @@ function setupInteractiveHighlighting() {
 async function fetchTextbooks() {
   try {
     const activeUserId = (appState.user && appState.user.id) || sessionStorage.getItem('gismoUserId') || '';
-    const uid = activeUserId ? `?user_id=${encodeURIComponent(activeUserId)}` : '';
-    const res = await fetch(`/api/textbooks${uid}`);
+    const activeUsername = (appState.user && appState.user.username) || sessionStorage.getItem('gismoUsername') || '';
+    const params = new URLSearchParams();
+    if (activeUserId) params.set('user_id', activeUserId);
+    if (activeUsername) params.set('username', activeUsername);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`/api/textbooks${qs}`);
     const data = await res.json();
     lessonsDb = {};
     if (!elements.modulesList) return;
@@ -393,7 +397,8 @@ async function fetchTextbooks() {
 
 async function removeLibraryBook(bookId, btnEl) {
   const userId = (appState.user && appState.user.id) || sessionStorage.getItem('gismoUserId') || null;
-  if (!userId) {
+  const username = (appState.user && appState.user.username) || sessionStorage.getItem('gismoUsername') || '';
+  if (!userId && !username) {
     showToast('Please sign in to manage your library.', 'warning');
     return;
   }
@@ -403,7 +408,10 @@ async function removeLibraryBook(bookId, btnEl) {
 
   if (btnEl) btnEl.disabled = true;
   try {
-    const res = await fetch(`/api/textbooks/${encodeURIComponent(bookId)}?user_id=${encodeURIComponent(userId)}`, {
+    const params = new URLSearchParams();
+    if (userId) params.set('user_id', userId);
+    if (username) params.set('username', username);
+    const res = await fetch(`/api/textbooks/${encodeURIComponent(bookId)}?${params.toString()}`, {
       method: 'DELETE'
     });
     const data = await res.json();
@@ -423,7 +431,9 @@ window.removeLibraryBook = removeLibraryBook;
 
 async function fetchNotes() {
   if (!appState.user) return;
-  const res = await fetch(`/api/notes?user_id=${appState.user.id}`);
+  const params = new URLSearchParams({ user_id: appState.user.id });
+  if (appState.user.username) params.set('username', appState.user.username);
+  const res = await fetch(`/api/notes?${params.toString()}`);
   appState.notes = await res.json();
   renderNotes();
 }
@@ -4037,6 +4047,15 @@ function loadLesson(lessonId) {
   const lesson = lessonsDb[lessonId];
   if (!lesson) return;
   appState.activeLesson = lessonId;
+
+  // Ensure main-content is visible and hide the top welcome-banner so the book reader card has full height
+  if (elements.mainContent) {
+    elements.mainContent.classList.remove('hidden');
+    const welcomeBanner = elements.mainContent.querySelector('.welcome-banner');
+    if (welcomeBanner) welcomeBanner.style.display = 'none';
+  }
+  if (elements.libraryPanel) elements.libraryPanel.classList.add('hidden');
+
   elements.modulesList.style.display = 'none';
   elements.lessonActiveContainer.style.display = 'flex';
   elements.activeLessonTitle.textContent = lesson.title;
@@ -4120,10 +4139,12 @@ function showDashboard() {
   appState.quizActive = false;
   synth.cancel();
   elements.lessonActiveContainer.style.display = 'none';
+  if (elements.mainContent) {
+    const welcomeBanner = elements.mainContent.querySelector('.welcome-banner');
+    if (welcomeBanner) welcomeBanner.style.display = '';
+  }
   
   if (appState.user && appState.user.role === 'admin') {
-    // If we're already handling admin elsewhere, we can just return or switch view
-    // But since switchView calls showDashboard, we shouldn't call switchView here.
     return;
   } else {
     elements.modulesList.style.display = 'flex';
@@ -5799,7 +5820,8 @@ async function reloadFullBook() {
   const lessonId = appState.activeLesson;
   const lesson = lessonsDb[lessonId];
   const userId = (appState.user && appState.user.id) || sessionStorage.getItem('gismoUserId') || null;
-  if (!lesson || !userId) return;
+  const username = (appState.user && appState.user.username) || sessionStorage.getItem('gismoUsername') || '';
+  if (!lesson || (!userId && !username)) return;
 
   const m = String(lesson.id).match(/^gutenberg_(\d+)/);
   if (!m) return;
@@ -5814,7 +5836,7 @@ async function reloadFullBook() {
     const res = await fetch(`/api/web/import/${encodeURIComponent(bookId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, title: lesson.title, image: lesson.image || '' })
+      body: JSON.stringify({ user_id: userId, username, title: lesson.title, image: lesson.image || '' })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Could not load full book.');
@@ -5879,7 +5901,8 @@ async function handleWebSearch(loadFeatured = false) {
 
 async function importWebBook(bookId, btnElement) {
   const userId = (appState.user && appState.user.id) || sessionStorage.getItem('gismoUserId') || null;
-  if (!userId) {
+  const username = (appState.user && appState.user.username) || sessionStorage.getItem('gismoUsername') || '';
+  if (!userId && !username) {
     showToast('Please sign in to import books into your library.', 'warning');
     return;
   }
@@ -5897,7 +5920,7 @@ async function importWebBook(bookId, btnElement) {
     const res = await fetch(`/api/web/import/${encodeURIComponent(bookId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: userId, title, author, image })
+      body: JSON.stringify({ user_id: userId, username, title, author, image })
     });
     const data = await res.json();
     if (res.ok) {
@@ -6610,12 +6633,48 @@ function setupDraggableTutor() {
   document.addEventListener('touchend', onDragEnd);
 }
 
+let lastCrossDeviceSyncAt = 0;
+async function triggerCrossDeviceSync() {
+  if (!appState.user || (!appState.user.id && !appState.user.username)) return;
+  const now = Date.now();
+  if (now - lastCrossDeviceSyncAt < 3500) return;
+  lastCrossDeviceSyncAt = now;
+
+  try {
+    if (appState.user.role === 'admin') {
+      loadAdminDashboard();
+    } else {
+      await loadStudentProfile();
+      await fetchTextbooks();
+      if (typeof renderLibrary === 'function') {
+        renderLibrary(appState.currentLibraryTab || 'all');
+      }
+      fetchNotes();
+      fetchHomework();
+    }
+  } catch (err) {
+    console.warn("Cross-device sync check skipped:", err);
+  }
+}
+
+function setupCrossDeviceSync() {
+  window.addEventListener('focus', () => {
+    triggerCrossDeviceSync();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      triggerCrossDeviceSync();
+    }
+  });
+}
+
 // Automatically initialize tutor capabilities on script run
 function initTutorCapabilities() {
   loadTutorModelInfo();
   setupDraggableTutor();
   setupTutorMuteSystem();
   initChatSessions();
+  setupCrossDeviceSync();
 }
 
 if (document.readyState === 'loading') {

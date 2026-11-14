@@ -281,11 +281,46 @@ app.use((req, res, next) => {
   next();
 });
 
-// Ensure Supabase is hydrated on cold starts and flush any writes before Vercel freezes the function
+function resolveStudentUser(rawUserId, rawUsername) {
+  const cleanName = String(rawUsername || '').trim();
+  const numId = rawUserId ? Number(rawUserId) : null;
+  let user = null;
+
+  if (cleanName) {
+    user = db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?)').get(cleanName);
+  }
+  if (!user && numId && !Number.isNaN(numId)) {
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(numId);
+  }
+  if (!user && cleanName) {
+    const today = new Date().toISOString().split('T')[0];
+    const regNo = 'STD-' + Math.floor(1000 + Math.random() * 9000);
+    const info = db.prepare(`
+      INSERT INTO users (username, password, school, reg_no, disability, role, quizzes_passed, last_login_date, current_streak)
+      VALUES (?, '', 'Gismo Academy', ?, 'None', 'student', 0, ?, 1)
+    `).run(cleanName, regNo, today);
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(info.lastInsertRowid));
+  }
+
+  // If the client had an older local user_id on one device that differs from the canonical user.id,
+  // migrate any orphaned textbooks/notes/chats from numId to user.id so devices stay 100% in sync.
+  if (user && numId && !Number.isNaN(numId) && Number(user.id) !== numId) {
+    const otherUser = db.prepare('SELECT id FROM users WHERE id = ?').get(numId);
+    if (!otherUser) {
+      try { db.prepare('UPDATE textbooks SET user_id = ? WHERE user_id = ?').run(user.id, numId); } catch (_) {}
+      try { db.prepare('UPDATE notes SET user_id = ? WHERE user_id = ?').run(user.id, numId); } catch (_) {}
+      try { db.prepare('UPDATE chats SET user_id = ? WHERE user_id = ?').run(user.id, numId); } catch (_) {}
+    }
+  }
+
+  return user ? user.id : (numId && !Number.isNaN(numId) ? numId : null);
+}
+
+// Ensure Supabase is hydrated on cold starts and pulled on warm instances, then flush writes before Vercel freezes
 app.use('/api', async (req, res, next) => {
   if (supabaseBridge.configured) {
     try {
-      await supabaseBridge.ensureReady();
+      await supabaseBridge.ensureReady({ forcePull: req.method !== 'GET' });
     } catch (_) {}
 
     const origJson = res.json.bind(res);
@@ -1023,7 +1058,7 @@ app.get('/api/admin/database/export/:name', (req, res) => {
 
 // --- TEXTBOOKS API ---
 app.get('/api/textbooks', (req, res) => {
-  const userId = req.query.user_id ? Number(req.query.user_id) : null;
+  const userId = resolveStudentUser(req.query.user_id, req.query.username);
   if (!userId || Number.isNaN(userId)) {
     return res.json([]);
   }
@@ -1033,7 +1068,8 @@ app.get('/api/textbooks', (req, res) => {
 
 app.delete('/api/textbooks/:id', (req, res) => {
   const rawUserId = (req.body && req.body.user_id) || req.query.user_id;
-  const userId = rawUserId ? Number(rawUserId) : null;
+  const rawUsername = (req.body && req.body.username) || req.query.username;
+  const userId = resolveStudentUser(rawUserId, rawUsername);
   if (!userId || Number.isNaN(userId)) {
     return res.status(400).json({ error: 'Please sign in to remove books from your library.' });
   }
@@ -1144,7 +1180,8 @@ app.get('/api/web/search', async (req, res) => {
 
 app.post('/api/web/import/:book_id', async (req, res) => {
   const rawUserId = (req.body && req.body.user_id) || req.query.user_id;
-  const userId = rawUserId ? Number(rawUserId) : null;
+  const rawUsername = (req.body && req.body.username) || req.query.username;
+  const userId = resolveStudentUser(rawUserId, rawUsername);
   if (!userId || Number.isNaN(userId)) {
     return res.status(400).json({ error: 'Please sign in to import books into your personal library.' });
   }
@@ -1315,18 +1352,11 @@ app.post('/api/web/import/:book_id', async (req, res) => {
 
 // --- USER PROFILE & DATA ---
 app.get('/api/users/:user_id', (req, res) => {
-  const userId = req.params.user_id;
-  const expectedUsername = (req.query.username || '').trim();
+  const userId = resolveStudentUser(req.params.user_id, req.query.username);
   try {
-    let user = db.prepare('SELECT id, username, school, reg_no, disability, role, quizzes_passed, current_streak, last_login_date, preferred_learning_mode FROM users WHERE id = ?').get(userId);
-
-    // Prevent profile switching if ID in client session belonged to a different username
-    if (expectedUsername && (!user || user.username.toLowerCase() !== expectedUsername.toLowerCase())) {
-      const byUsername = db.prepare('SELECT id, username, school, reg_no, disability, role, quizzes_passed, current_streak, last_login_date, preferred_learning_mode FROM users WHERE LOWER(username) = LOWER(?)').get(expectedUsername);
-      if (byUsername) {
-        user = byUsername;
-      }
-    }
+    const user = userId
+      ? db.prepare('SELECT id, username, school, reg_no, disability, role, quizzes_passed, current_streak, last_login_date, preferred_learning_mode FROM users WHERE id = ?').get(userId)
+      : null;
 
     if (!user) {
       return res.status(404).json({ error: 'User profile not found' });
@@ -1338,10 +1368,10 @@ app.get('/api/users/:user_id', (req, res) => {
 });
 
 app.put('/api/users/:user_id', (req, res) => {
-  const userId = req.params.user_id;
+  const userId = resolveStudentUser(req.params.user_id, (req.body && req.body.username) || req.query.username);
   const { disability, preferred_learning_mode, school, reg_no } = req.body;
   try {
-    const existing = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    const existing = userId ? db.prepare('SELECT * FROM users WHERE id = ?').get(userId) : null;
     if (!existing) return res.status(404).json({ error: 'User not found' });
 
     const newDisability = disability !== undefined ? disability : existing.disability;
@@ -1350,9 +1380,9 @@ app.put('/api/users/:user_id', (req, res) => {
     const newRegNo = reg_no !== undefined ? reg_no : existing.reg_no;
 
     db.prepare('UPDATE users SET disability = ?, preferred_learning_mode = ?, school = ?, reg_no = ? WHERE id = ?')
-      .run(newDisability, newMode, newSchool, newRegNo, userId);
+      .run(newDisability, newMode, newSchool, newRegNo, existing.id);
 
-    const updatedUser = db.prepare('SELECT id, username, school, reg_no, disability, role, quizzes_passed, current_streak, last_login_date, preferred_learning_mode FROM users WHERE id = ?').get(userId);
+    const updatedUser = db.prepare('SELECT id, username, school, reg_no, disability, role, quizzes_passed, current_streak, last_login_date, preferred_learning_mode FROM users WHERE id = ?').get(existing.id);
     res.json(updatedUser);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1360,14 +1390,16 @@ app.put('/api/users/:user_id', (req, res) => {
 });
 
 app.get('/api/notes', (req, res) => {
-  const userId = req.query.user_id;
+  const userId = resolveStudentUser(req.query.user_id, req.query.username);
   if (!userId) return res.status(400).json({ error: 'user_id required' });
   const notes = db.prepare('SELECT * FROM notes WHERE user_id = ? ORDER BY timestamp DESC').all(userId);
   res.json(notes);
 });
 
 app.post('/api/notes', (req, res) => {
-  const userId = req.query.user_id || req.body.user_id;
+  const rawUserId = req.query.user_id || (req.body && req.body.user_id);
+  const rawUsername = req.query.username || (req.body && req.body.username);
+  const userId = resolveStudentUser(rawUserId, rawUsername);
   const content = req.body.content;
   if (!userId || !content) return res.status(400).json({ error: 'user_id and content required' });
   db.prepare('INSERT INTO notes (user_id, content) VALUES (?, ?)').run(userId, content);
@@ -1375,16 +1407,10 @@ app.post('/api/notes', (req, res) => {
 });
 
 app.get('/api/analytics/:user_id', (req, res) => {
-  const userId = req.params.user_id;
-  const expectedUsername = (req.query.username || '').trim();
-  let user = db.prepare('SELECT id, username, quizzes_passed, current_streak FROM users WHERE id = ?').get(userId);
-  if (expectedUsername && (!user || (user.username || '').toLowerCase() !== expectedUsername.toLowerCase())) {
-    const byName = db.prepare('SELECT id, username, quizzes_passed, current_streak FROM users WHERE LOWER(username) = LOWER(?)').get(expectedUsername);
-    if (byName) user = byName;
-  }
-  const effectiveId = user ? user.id : userId;
-  const notesCount = db.prepare('SELECT COUNT(*) as count FROM notes WHERE user_id = ?').get(effectiveId).count;
-  const filesCount = db.prepare('SELECT COUNT(*) as count FROM files WHERE user_id = ?').get(effectiveId).count;
+  const effectiveId = resolveStudentUser(req.params.user_id, req.query.username);
+  const user = effectiveId ? db.prepare('SELECT id, username, quizzes_passed, current_streak FROM users WHERE id = ?').get(effectiveId) : null;
+  const notesCount = effectiveId ? db.prepare('SELECT COUNT(*) as count FROM notes WHERE user_id = ?').get(effectiveId).count : 0;
+  const filesCount = effectiveId ? db.prepare('SELECT COUNT(*) as count FROM files WHERE user_id = ?').get(effectiveId).count : 0;
 
   const quizzes = (user && Number(user.quizzes_passed)) || 0;
   const streak = (user && Number(user.current_streak)) || 1;
@@ -1842,7 +1868,7 @@ app.post('/api/tutor/model', async (req, res) => {
 
 // --- CHAT API (Multi-Session Enabled) ---
 app.get('/api/chat/history', (req, res) => {
-  const userId = req.query.user_id;
+  const userId = resolveStudentUser(req.query.user_id, req.query.username);
   const sessionId = req.query.session_id;
   if (!userId) return res.json([]);
   try {
@@ -1860,7 +1886,7 @@ app.get('/api/chat/history', (req, res) => {
 });
 
 app.get('/api/chat/sessions', (req, res) => {
-  const userId = req.query.user_id;
+  const userId = resolveStudentUser(req.query.user_id, req.query.username);
   if (!userId) return res.json([]);
   try {
     const rows = db.prepare(`
@@ -1879,10 +1905,11 @@ app.get('/api/chat/sessions', (req, res) => {
 });
 
 app.delete('/api/chat/session', (req, res) => {
-  const { user_id, session_id } = req.query;
-  if (user_id && session_id) {
+  const { user_id, username, session_id } = req.query;
+  const resolvedId = resolveStudentUser(user_id, username);
+  if (resolvedId && session_id) {
     try {
-      db.prepare('DELETE FROM chats WHERE user_id = ? AND session_id = ?').run(user_id, session_id);
+      db.prepare('DELETE FROM chats WHERE user_id = ? AND session_id = ?').run(resolvedId, session_id);
     } catch (err) {
       console.error("Error deleting chat session:", err);
     }
@@ -1892,29 +1919,31 @@ app.delete('/api/chat/session', (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message = '', persona = 'default', context = '', user_id, session_id = 'default' } = req.body || {};
+    const { message = '', persona = 'default', context = '', user_id, username, session_id = 'default' } = req.body || {};
     if (!message) return res.status(400).json({ error: 'No message provided' });
 
-    if (user_id) {
+    const resolvedUserId = resolveStudentUser(user_id, username);
+
+    if (resolvedUserId) {
       try {
-        db.prepare('INSERT INTO chats (user_id, role, content, session_id) VALUES (?, ?, ?, ?)').run(user_id, 'user', message, session_id);
+        db.prepare('INSERT INTO chats (user_id, role, content, session_id) VALUES (?, ?, ?, ?)').run(resolvedUserId, 'user', message, session_id);
       } catch (e) {
         try {
-          db.prepare('INSERT INTO chats (user_id, role, content) VALUES (?, ?, ?)').run(user_id, 'user', message);
+          db.prepare('INSERT INTO chats (user_id, role, content) VALUES (?, ?, ?)').run(resolvedUserId, 'user', message);
         } catch (_) {}
       }
     }
 
     let history = [];
-    if (user_id) {
+    if (resolvedUserId) {
       try {
-        const recent = db.prepare("SELECT role, content FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default')) ORDER BY timestamp DESC LIMIT 10").all(user_id, session_id, session_id);
+        const recent = db.prepare("SELECT role, content FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default')) ORDER BY timestamp DESC LIMIT 10").all(resolvedUserId, session_id, session_id);
         if (recent && recent.length > 1) {
           history = recent.reverse().slice(0, -1);
         }
       } catch (e) {
         try {
-          const recent = db.prepare('SELECT role, content FROM chats WHERE user_id = ? ORDER BY timestamp DESC LIMIT 10').all(user_id);
+          const recent = db.prepare('SELECT role, content FROM chats WHERE user_id = ? ORDER BY timestamp DESC LIMIT 10').all(resolvedUserId);
           if (recent && recent.length > 1) {
             history = recent.reverse().slice(0, -1);
           }
@@ -1929,12 +1958,12 @@ app.post('/api/chat', async (req, res) => {
       history
     });
 
-    if (user_id && result.reply) {
+    if (resolvedUserId && result.reply) {
       try {
-        db.prepare('INSERT INTO chats (user_id, role, content, session_id) VALUES (?, ?, ?, ?)').run(user_id, 'model', result.reply, session_id);
+        db.prepare('INSERT INTO chats (user_id, role, content, session_id) VALUES (?, ?, ?, ?)').run(resolvedUserId, 'model', result.reply, session_id);
       } catch (e) {
         try {
-          db.prepare('INSERT INTO chats (user_id, role, content) VALUES (?, ?, ?)').run(user_id, 'model', result.reply);
+          db.prepare('INSERT INTO chats (user_id, role, content) VALUES (?, ?, ?)').run(resolvedUserId, 'model', result.reply);
         } catch (_) {}
       }
     }

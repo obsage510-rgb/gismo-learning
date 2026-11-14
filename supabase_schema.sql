@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS public.textbooks (
   descriptor TEXT,
   content TEXT,
   quiz_q TEXT,
-  quiz_a TEXT
+  quiz_a TEXT,
+  user_id BIGINT DEFAULT NULL
 );
 
 -- 4. Uploaded Files Metadata Table

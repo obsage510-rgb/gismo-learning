@@ -250,7 +250,7 @@ main {
   width: 100%;
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2rem;
 }
 
@@ -5419,6 +5419,13 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-pill .
   font-weight: 700;
 }
 
+#lesson-active-container.novel-reader-mode {
+  width: 100% !important;
+  max-width: 1180px !important;
+  margin: 0 auto !important;
+  padding: 2rem 2.25rem !important;
+}
+
 .novel-reader-mode .lesson-image-wrapper,
 .novel-reader-mode .lesson-visual-descriptor {
   display: none !important;
@@ -5428,89 +5435,92 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-pill .
   font-family: 'Fraunces', Georgia, serif;
   text-align: center;
   font-size: clamp(1.5rem, 2.6vw, 2.05rem);
-  margin: 0.5rem 0 1rem;
+  margin: 0.25rem 0 0.75rem;
 }
 
-.novel-reader-mode .lesson-content {
-  box-sizing: border-box;
-  max-width: 70ch;
-  width: 100%;
-  height: clamp(360px, 56vh, 580px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  margin: 0.5rem auto 0;
-  padding: 2rem 2.25rem;
-  background: #181b20;
-  color: #f1f5f9;
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.1);
+#lesson-active-container.novel-reader-mode #active-lesson-content {
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  height: clamp(500px, 70vh, 780px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  white-space: normal !important;
+  margin: 0.5rem auto 0 !important;
+  padding: 2.5rem 3.25rem !important;
+  background: #181b20 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.1) !important;
   font-family: 'Fraunces', Georgia, serif;
-  font-size: var(--novel-font-size, 1.12rem);
-  line-height: 1.85;
+  font-size: var(--novel-font-size, 1.14rem) !important;
+  line-height: 1.88 !important;
   letter-spacing: 0.005em;
-  overflow-wrap: break-word;
-  word-wrap: break-word;
+  overflow-wrap: anywhere !important;
+  word-wrap: break-word !important;
 }
 
-body.theme-light .novel-reader-mode .lesson-content {
-  background: #ffffff;
-  color: #0f172a;
-  border-color: rgba(15, 23, 42, 0.14);
+body.theme-light #lesson-active-container.novel-reader-mode #active-lesson-content {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: rgba(15, 23, 42, 0.14) !important;
 }
 
-.novel-reader-mode .lesson-content::-webkit-scrollbar {
+#lesson-active-container.novel-reader-mode #active-lesson-content::-webkit-scrollbar {
   width: 8px;
 }
 
-.novel-reader-mode .lesson-content::-webkit-scrollbar-track {
+#lesson-active-container.novel-reader-mode #active-lesson-content::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.novel-reader-mode .lesson-content::-webkit-scrollbar-thumb {
+#lesson-active-container.novel-reader-mode #active-lesson-content::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.4);
   border-radius: 999px;
 }
 
-.novel-reader-mode.novel-font-sans .lesson-content {
-  font-family: var(--font-main, 'Plus Jakarta Sans', sans-serif);
+#lesson-active-container.novel-reader-mode.novel-font-sans #active-lesson-content {
+  font-family: var(--font-main, 'Plus Jakarta Sans', sans-serif) !important;
 }
 
-.novel-reader-mode[data-novel-theme="sepia"] .lesson-content,
-body.theme-light .novel-reader-mode[data-novel-theme="sepia"] .lesson-content {
-  background: #f6efe2;
-  color: #3b2f24;
-  border-color: #e4d7c1;
+#lesson-active-container.novel-reader-mode[data-novel-theme="sepia"] #active-lesson-content,
+body.theme-light #lesson-active-container.novel-reader-mode[data-novel-theme="sepia"] #active-lesson-content {
+  background: #f6efe2 !important;
+  color: #3b2f24 !important;
+  border-color: #e4d7c1 !important;
 }
 
-.novel-reader-mode[data-novel-theme="night"] .lesson-content,
-body.theme-light .novel-reader-mode[data-novel-theme="night"] .lesson-content {
-  background: #13161b;
-  color: #e2e8f0;
-  border-color: #262c36;
+#lesson-active-container.novel-reader-mode[data-novel-theme="night"] #active-lesson-content,
+body.theme-light #lesson-active-container.novel-reader-mode[data-novel-theme="night"] #active-lesson-content {
+  background: #13161b !important;
+  color: #e2e8f0 !important;
+  border-color: #262c36 !important;
 }
 
-.novel-reader-mode .lesson-content p.novel-para {
-  margin: 0 0 1.25em;
+#lesson-active-container.novel-reader-mode #active-lesson-content p.novel-para {
+  margin: 0 0 1.25em !important;
+  padding: 0 0.25rem !important;
   text-align: left;
-  color: inherit;
+  color: inherit !important;
+  max-width: 100% !important;
 }
 
-.novel-reader-mode .lesson-content h4.novel-chapter-heading {
+#lesson-active-container.novel-reader-mode #active-lesson-content h4.novel-chapter-heading {
   font-family: 'Fraunces', Georgia, serif;
   text-align: center;
   font-size: 1.28em;
   font-weight: 700;
   margin: 0.5rem 0 1.5rem;
   letter-spacing: 0.02em;
-  color: inherit;
+  color: inherit !important;
 }
 
 @media (max-width: 768px) {
-  .lesson-container.novel-reader-mode {
-    padding: 1.15rem 0.9rem;
-    gap: 1rem;
+  #lesson-active-container.novel-reader-mode {
+    padding: 1.15rem 0.9rem !important;
+    gap: 1rem !important;
   }
 
   .novel-book-header {
@@ -5523,10 +5533,11 @@ body.theme-light .novel-reader-mode[data-novel-theme="night"] .lesson-content {
     height: 80px;
   }
 
-  .novel-reader-mode .lesson-content {
-    height: clamp(320px, 55vh, 500px);
-    padding: 1.5rem 1.35rem;
-    border-radius: 12px;
+  #lesson-active-container.novel-reader-mode #active-lesson-content {
+    height: clamp(360px, 60vh, 520px) !important;
+    padding: 1.5rem 1.4rem !important;
+    border-radius: 12px !important;
   }
 }
+
 
