@@ -4073,12 +4073,15 @@ function loadLesson(lessonId) {
     const readMins = Math.max(1, Math.round(wordCount / 220));
     const readTimeLabel = readMins >= 60 ? `${Math.floor(readMins / 60)}h ${readMins % 60}m read` : `${readMins} min read`;
 
-    appState.currentLessonPages = paginateText(lesson.content || '', 3200, true);
+    const chapterResult = paginateByChapter(lesson.content || '');
+    appState.currentLessonPages = chapterResult.pages;
+    appState.isChapterMode = chapterResult.isChapterMode;
     const savedPage = parseInt(localStorage.getItem(`gismo_book_page_${lessonId}`) || '0', 10);
     appState.currentPageIndex = (!Number.isNaN(savedPage) && savedPage >= 0 && savedPage < appState.currentLessonPages.length) ? savedPage : 0;
 
     if (statsEl) {
-      statsEl.textContent = `${wordCount.toLocaleString()} words • ${appState.currentLessonPages.length} pages • ~${readTimeLabel}`;
+      const unitLabel = appState.isChapterMode ? 'chapters' : 'pages';
+      statsEl.textContent = `${wordCount.toLocaleString()} words • ${appState.currentLessonPages.length} ${unitLabel} • ~${readTimeLabel}`;
     }
 
     const isNumericGutenberg = /^gutenberg_\d+/.test(lesson.id);
@@ -5499,6 +5502,21 @@ function executeVoiceCommand(rawTranscript) {
     return;
   }
   
+  // 2b. Book Chapter / Page Navigation
+  if (t === 'next' || t.includes('next chapter') || t.includes('next page') || t.includes('turn page')) {
+    playEarcon('success');
+    updateVoiceHudState('matched', 'Executing Command', 'Next Chapter');
+    nextPage();
+    return;
+  }
+
+  if (t === 'previous' || t === 'prev' || t.includes('previous chapter') || t.includes('previous page') || t.includes('last chapter')) {
+    playEarcon('success');
+    updateVoiceHudState('matched', 'Executing Command', 'Previous Chapter');
+    prevPage();
+    return;
+  }
+
   // 3. Audio & Reading
   if (t === 'read page' || t === 'read lesson' || t === 'read text' || t === 'narrate' || t === 'listen') {
     playEarcon('success');
@@ -5598,15 +5616,19 @@ window.closeVoiceHelpModal = closeVoiceHelpModal;
 
 
 // --- Pagination & Novel Reader Logic ---
+function isNovelChapterHeading(trimmed) {
+  if (!trimmed || trimmed.length > 110) return false;
+  return (
+    /^(CHAPTER|BOOK|PART|ACT|SCENE|LETTER|STAVE|CANTO|SECTION)\b/i.test(trimmed) ||
+    /^(PROLOGUE|EPILOGUE|INTRODUCTION|PREFACE)\.?$/i.test(trimmed) ||
+    /^[IVXLCDM]{1,7}\.?$/.test(trimmed)
+  );
+}
+
 function formatNovelBlock(rawBlock) {
   const trimmed = rawBlock.trim();
   if (!trimmed) return '';
-  const isChapterHeading =
-    trimmed.length < 90 &&
-    (/^(CHAPTER|BOOK|PART|ACT|SCENE|LETTER|VOLUME)\b/i.test(trimmed) ||
-      /^(PROLOGUE|EPILOGUE|INTRODUCTION|PREFACE)\.?$/i.test(trimmed) ||
-      /^[IVXLCDM]+\.?$/.test(trimmed));
-  if (isChapterHeading) {
+  if (isNovelChapterHeading(trimmed)) {
     return `<h4 class="novel-chapter-heading">${escapeHtml(trimmed)}</h4>`;
   }
   return `<p class="novel-para">${escapeHtml(trimmed).replace(/\n/g, ' ')}</p>`;
@@ -5635,6 +5657,46 @@ function paginateText(text, maxChars, asNovel = false) {
   return pages.length > 0 ? pages : ['<p class="novel-para">No content available.</p>'];
 }
 
+function paginateByChapter(text) {
+  const paragraphs = String(text || '').replace(/\r\n/g, '\n').split(/\n\n+/);
+  const chapters = [];
+  let currentHtml = '';
+  let currentCharCount = 0;
+  let chapterHeadingsFound = 0;
+
+  for (const p of paragraphs) {
+    const clean = p.trim();
+    if (!clean) continue;
+    const isHeading = isNovelChapterHeading(clean);
+    if (isHeading) {
+      chapterHeadingsFound++;
+      // Start a new chapter card only if the current one already has body text (> 300 chars)
+      // so a Table of Contents list doesn't split into empty 1-line cards
+      if (currentCharCount > 300) {
+        chapters.push(currentHtml);
+        currentHtml = '';
+        currentCharCount = 0;
+      }
+    }
+    currentHtml += formatNovelBlock(clean);
+    currentCharCount += clean.length;
+  }
+
+  if (currentHtml.trim().length > 0) {
+    chapters.push(currentHtml);
+  }
+
+  // If no chapter headings were detected in a long text, fall back to readable 4500-char sections
+  if (chapterHeadingsFound < 2 && chapters.length <= 1 && (text || '').length > 6000) {
+    return { pages: paginateText(text, 4500, true), isChapterMode: false };
+  }
+
+  return {
+    pages: chapters.length > 0 ? chapters : ['<p class="novel-para">No content available.</p>'],
+    isChapterMode: chapterHeadingsFound >= 2 && chapters.length > 1
+  };
+}
+
 function renderPage() {
   if (!appState.currentLessonPages || appState.currentLessonPages.length === 0) return;
   elements.activeLessonContent.innerHTML = appState.currentLessonPages[appState.currentPageIndex];
@@ -5642,6 +5704,7 @@ function renderPage() {
   const total = appState.currentLessonPages.length;
   const current = appState.currentPageIndex + 1;
   const pct = Math.round((current / total) * 100);
+  const unitLabel = appState.isChapterMode ? 'Chapter' : 'Page';
 
   const progressFill = document.getElementById('novel-progress-fill');
   if (progressFill) progressFill.style.width = `${pct}%`;
@@ -5655,24 +5718,25 @@ function renderPage() {
   const paginationControls = document.getElementById('pagination-controls');
   if (total > 1) {
     paginationControls.style.display = 'flex';
-    document.getElementById('page-indicator').textContent = `Page ${current} of ${total} (${pct}%)`;
+    document.getElementById('page-indicator').textContent = `${unitLabel} ${current} of ${total} (${pct}%)`;
     document.getElementById('btn-prev-page').disabled = appState.currentPageIndex === 0;
     document.getElementById('btn-next-page').disabled = appState.currentPageIndex === total - 1;
   } else {
     paginationControls.style.display = 'none';
   }
 
+  // Scroll only inside the book card, without scrolling the outer page
   elements.activeLessonContent.scrollTop = 0;
-  if (elements.lessonActiveContainer) {
-    elements.lessonActiveContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
 }
 
 function prevPage() {
   if (appState.currentPageIndex > 0) {
     appState.currentPageIndex--;
     renderPage();
-    announceTTS(`Page ${appState.currentPageIndex + 1}`);
+    const unitLabel = appState.isChapterMode ? 'Chapter' : 'Page';
+    announceTTS(`${unitLabel} ${appState.currentPageIndex + 1} of ${appState.currentLessonPages.length}`);
+  } else {
+    announceTTS('You are at the first chapter.');
   }
 }
 
@@ -5680,7 +5744,10 @@ function nextPage() {
   if (appState.currentPageIndex < appState.currentLessonPages.length - 1) {
     appState.currentPageIndex++;
     renderPage();
-    announceTTS(`Page ${appState.currentPageIndex + 1}`);
+    const unitLabel = appState.isChapterMode ? 'Chapter' : 'Page';
+    announceTTS(`${unitLabel} ${appState.currentPageIndex + 1} of ${appState.currentLessonPages.length}`);
+  } else {
+    announceTTS('You have reached the end of the book.');
   }
 }
 
