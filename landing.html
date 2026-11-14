@@ -212,10 +212,10 @@
               Your contribution directly funds cloud AI tutoring hours, natural voice synthesis credits, and school onboarding workshops for underserved communities.
             </p>
             <ul class="impact-list">
-              <li><strong>₦15,000 / $10</strong> — Sponsors 500+ minutes of neural text-to-speech for visually impaired readers.</li>
-              <li><strong>₦30,000 / $25</strong> — Equips an entire study group with cloud-synced notes and quiz analytics.</li>
-              <li><strong>₦75,000 / $50</strong> — Supports classroom onboarding and accessible curriculum digitization.</li>
-              <li><strong>0.1 – 1.0 ZEC / $100</strong> — Funds a full semester of AI tutor capacity for a partner school.</li>
+              <li><strong>$10</strong> — Sponsors 500+ minutes of neural text-to-speech for visually impaired readers.</li>
+              <li><strong>$25</strong> — Equips an entire study group with cloud-synced notes and quiz analytics.</li>
+              <li><strong>$50</strong> — Supports classroom onboarding and accessible curriculum digitization.</li>
+              <li><strong>$100 / 0.1 – 1.0 ZEC</strong> — Funds a full semester of AI tutor capacity for a partner school.</li>
             </ul>
 
             <!-- Visual Allocation Breakdown -->
@@ -271,12 +271,12 @@
               </button>
             </div>
 
-            <!-- STEP 1: Choose Payment Rail (Local Currency vs Crypto) & Amount -->
+            <!-- STEP 1: Choose Payment Rail (USD vs Crypto) & Amount -->
             <div id="donate-step-1" class="donate-step-panel">
               <div class="payment-method-tabs" role="tablist" aria-label="Payment method">
                 <button type="button" class="pm-tab-btn active" id="tab-pm-paystack" role="tab" aria-selected="true" style="display:inline-flex; align-items:center; justify-content:center; gap:0.45rem;">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
-                  <span>Local Currency (Paystack)</span>
+                  <span>Paystack (USD $)</span>
                 </button>
                 <button type="button" class="pm-tab-btn" id="tab-pm-crypto" role="tab" aria-selected="false" style="display:inline-flex; align-items:center; justify-content:center; gap:0.45rem;">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
@@ -284,16 +284,15 @@
                 </button>
               </div>
 
-              <!-- Step 1A: Local Currency (Paystack NGN / USD) -->
+              <!-- Step 1A: Paystack USD ($) -->
               <div id="panel-pm-paystack">
                 <div class="paystack-header-bar">
                   <span class="paystack-badge">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                    <span>Paystack • NGN &amp; USD</span>
+                    <span>Paystack • USD ($)</span>
                   </span>
                   <div class="currency-toggle" role="group" aria-label="Currency selector">
-                    <button type="button" class="currency-btn active" data-currency="NGN">NGN ₦</button>
-                    <button type="button" class="currency-btn" data-currency="USD">USD $</button>
+                    <button type="button" class="currency-btn active" data-currency="USD">USD $</button>
                   </div>
                 </div>
 
@@ -303,15 +302,15 @@
                 </div>
 
                 <div class="amount-grid" id="donation-amount-grid" role="group" aria-label="Preset donation amounts">
-                  <button type="button" class="amount-btn" data-amount="5000">₦5,000</button>
-                  <button type="button" class="amount-btn active" data-amount="15000">₦15,000</button>
-                  <button type="button" class="amount-btn" data-amount="30000">₦30,000</button>
-                  <button type="button" class="amount-btn" data-amount="75000">₦75,000</button>
+                  <button type="button" class="amount-btn" data-amount="10">$10</button>
+                  <button type="button" class="amount-btn active" data-amount="25">$25</button>
+                  <button type="button" class="amount-btn" data-amount="50">$50</button>
+                  <button type="button" class="amount-btn" data-amount="100">$100</button>
                 </div>
 
                 <div class="form-field">
-                  <label for="donation-custom-amount" id="donation-amount-label">Custom Amount (NGN)</label>
-                  <input type="number" id="donation-custom-amount" class="form-control" min="1" value="15000" required>
+                  <label for="donation-custom-amount" id="donation-amount-label">Custom Amount (USD)</label>
+                  <input type="number" id="donation-custom-amount" class="form-control" min="1" value="25" required>
                 </div>
               </div>
 
@@ -349,11 +348,11 @@
               </div>
 
               <div class="impact-preview-pill" id="step-1-impact-preview">
-                <strong>Estimated Impact:</strong> Sponsors 500+ minutes of ElevenLabs neural text-to-speech narration for visually impaired students.
+                <strong>Estimated Impact:</strong> Supports classroom onboarding and OpenDyslexic / Braille-ready curriculum digitization.
               </div>
 
               <button type="button" class="btn btn-primary" style="width: 100%;" id="btn-to-step-2">
-                Step 2: Choose Cause &amp; Donor Info →
+                Step 2: Choose Cause &amp; Donor Info
               </button>
             </div>
 
@@ -388,8 +387,8 @@
               <div id="step-2-error" class="status-banner hidden" style="background:rgba(239,68,68,0.12); color:#dc2626;" role="alert"></div>
 
               <div class="step-nav-actions">
-                <button type="button" class="btn btn-secondary" id="btn-back-step-1">← Back</button>
-                <button type="button" class="btn btn-primary" style="flex:1;" id="btn-to-step-3">Step 3: Proceed to Checkout →</button>
+                <button type="button" class="btn btn-secondary" id="btn-back-step-1">Back</button>
+                <button type="button" class="btn btn-primary" style="flex:1;" id="btn-to-step-3">Step 3: Proceed to Checkout</button>
               </div>
             </div>
 
@@ -398,11 +397,11 @@
               <div class="demo-summary-box" aria-label="Donation summary">
                 <div class="demo-summary-row">
                   <span style="color:var(--text-secondary);">Payment Rail:</span>
-                  <strong id="summary-rail">Local Currency (Paystack)</strong>
+                  <strong id="summary-rail">Paystack (USD)</strong>
                 </div>
                 <div class="demo-summary-row">
                   <span style="color:var(--text-secondary);">Contribution:</span>
-                  <strong id="summary-amount">₦15,000 (One-Time)</strong>
+                  <strong id="summary-amount">$25 (One-Time)</strong>
                 </div>
                 <div class="demo-summary-row">
                   <span style="color:var(--text-secondary);">Directed To:</span>
@@ -414,27 +413,27 @@
                 </div>
               </div>
 
-              <!-- Step 3A: Local Currency Paystack Checkout -->
+              <!-- Step 3A: Paystack USD Checkout -->
               <div id="step-3-paystack-box">
                 <label style="display:block; font-size:0.82rem; font-weight:700; color:var(--text-secondary); margin-bottom:0.45rem;">Select Payment Channel:</label>
                 <div class="demo-channel-grid" role="group" aria-label="Paystack payment channel">
                   <button type="button" class="demo-channel-btn active" data-channel="Debit / Credit Card">
-                    💳 Card
+                    Card
                     <span>Visa • Mastercard • Verve</span>
                   </button>
                   <button type="button" class="demo-channel-btn" data-channel="Instant Bank Transfer">
-                    🏦 Bank Transfer
-                    <span>NIP Instant</span>
+                    Bank Transfer
+                    <span>Instant Transfer</span>
                   </button>
-                  <button type="button" class="demo-channel-btn" data-channel="USSD (*737#)">
-                    📱 USSD / Mobile
-                    <span>*737# / *901#</span>
+                  <button type="button" class="demo-channel-btn" data-channel="Mobile / USSD">
+                    USSD / Mobile
+                    <span>Mobile Money &amp; USSD</span>
                   </button>
                 </div>
 
                 <form id="donation-form">
                   <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-submit-donation">
-                    Pay with Paystack (₦15,000 One-Time) ✓
+                    Pay with Paystack ($25 One-Time)
                   </button>
                   <div class="paystack-methods-hint">Secured by Paystack • Instant payment verification &amp; official receipt.</div>
                   <div id="donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
@@ -466,14 +465,14 @@
                   </div>
 
                   <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-verify-crypto">
-                    Verify &amp; Complete ZEC Donation ✓
+                    Verify &amp; Complete ZEC Donation
                   </button>
                   <div id="crypto-donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
                 </form>
               </div>
 
               <div class="step-nav-actions">
-                <button type="button" class="btn btn-secondary" id="btn-back-step-2">← Edit Donor / Cause</button>
+                <button type="button" class="btn btn-secondary" id="btn-back-step-2">Edit Donor / Cause</button>
               </div>
             </div>
 
@@ -500,7 +499,7 @@
                 </div>
                 <div class="demo-summary-row">
                   <span style="color:var(--text-secondary);">Amount &amp; Rail:</span>
-                  <strong id="receipt-amount">₦15,000 via Paystack</strong>
+                  <strong id="receipt-amount">$25 via Paystack</strong>
                 </div>
                 <div class="demo-summary-row">
                   <span style="color:var(--text-secondary);">Fund Allocation:</span>
@@ -550,7 +549,7 @@
                   </div>
                   <div class="demo-summary-row">
                     <span style="color:var(--text-secondary);">Amount &amp; Payment Method:</span>
-                    <strong id="gen-receipt-amount">₦15,000 via Paystack</strong>
+                    <strong id="gen-receipt-amount">$25 via Paystack</strong>
                   </div>
                   <div class="demo-summary-row">
                     <span style="color:var(--text-secondary);">Designated Program:</span>
@@ -727,8 +726,8 @@
     let currentDonateStep = 1;
     let activePaymentRail = 'paystack'; // 'paystack' | 'crypto'
     let selectedFreq = 'one-time';
-    let selectedCurrency = 'NGN';
-    let selectedAmount = 15000;
+    let selectedCurrency = 'USD';
+    let selectedAmount = 25;
     let selectedChannel = 'Debit / Credit Card';
     let paystackPublicKey = '';
     let cryptoReceivingWallet = 'u157q45z9fwy7349t5r7w4d0tpmdzhw6xvuwm4ucqq80ysftk9wxryrru0l7puxpdlujnkmj5d9ewzaxz5x6slfg3xys4egayx7vry57wd';
@@ -737,7 +736,7 @@
       dateIssued: new Date().toLocaleString(),
       reference: 'GISMO-REC-2026',
       fullReference: 'GISMO-REC-2026',
-      amountLabel: '₦15,000 (One-Time)',
+      amountLabel: '$25 (One-Time)',
       allocation: 'General Inclusive Fund',
       donorName: 'Supporter',
       donorEmail: '',
@@ -745,8 +744,8 @@
     };
 
     const currencyPresets = {
-      NGN: [5000, 15000, 30000, 75000],
-      USD: [10, 25, 50, 100]
+      USD: [10, 25, 50, 100],
+      NGN: [5000, 15000, 30000, 75000]
     };
 
     const customAmountInput = document.getElementById('donation-custom-amount');
@@ -779,7 +778,7 @@
       const sym = getCurrencySymbol(selectedCurrency);
       const formatted = Number(selectedAmount || 0).toLocaleString();
       if (donationBtn) {
-        donationBtn.textContent = `Pay with Paystack (${sym}${formatted} ${freqText}) ✓`;
+        donationBtn.textContent = `Pay with Paystack (${sym}${formatted} ${freqText})`;
       }
       if (impactPreviewEl) {
         impactPreviewEl.innerHTML = `<strong>Estimated Impact:</strong> ${computeImpactDescription()}`;
@@ -787,7 +786,7 @@
     }
 
     function renderAmountPresets(curr) {
-      const presets = currencyPresets[curr] || currencyPresets.NGN;
+      const presets = currencyPresets[curr] || currencyPresets.USD;
       const sym = getCurrencySymbol(curr);
       if (amountLabel) amountLabel.textContent = `Custom Amount (${curr})`;
       if (amountGrid) {
@@ -1042,7 +1041,7 @@
       btn.addEventListener('click', () => {
         document.querySelectorAll('.currency-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        selectedCurrency = btn.dataset.currency || 'NGN';
+        selectedCurrency = btn.dataset.currency || 'USD';
         renderAmountPresets(selectedCurrency);
       });
     });
@@ -1076,7 +1075,7 @@
       });
     }
 
-    renderAmountPresets('NGN');
+    renderAmountPresets('USD');
 
     if (customAmountInput) {
       customAmountInput.addEventListener('input', () => {
@@ -1216,7 +1215,7 @@
       } finally {
         if (verifyBtn) {
           verifyBtn.disabled = false;
-          verifyBtn.textContent = 'Verify & Complete ZEC Donation ✓';
+          verifyBtn.textContent = 'Verify & Complete ZEC Donation';
         }
       }
     }
@@ -1264,11 +1263,11 @@
         .then(v => {
           if (v && v.verified) {
             const d = v.donation || {};
-            const sym = getCurrencySymbol(d.currency || 'NGN');
+            const sym = getCurrencySymbol(d.currency || 'USD');
             showReceiptStep({
               reference: returnedRef,
               fullReference: returnedRef,
-              amountLabel: `${sym}${Number(d.amount || 0).toLocaleString()} (${d.currency || 'NGN'})`,
+              amountLabel: `${sym}${Number(d.amount || 0).toLocaleString()} (${d.currency || 'USD'})`,
               allocation: 'Inclusive Education Fund',
               donorName: d.donor_name || 'Supporter',
               donorEmail: d.donor_email || '',
@@ -1321,46 +1320,68 @@
           if (data.mode === 'paystack_live') {
             const activeKey = data.publicKey || paystackPublicKey;
             if (activeKey && typeof window.PaystackPop !== 'undefined') {
-              const handler = window.PaystackPop.setup({
-                key: activeKey,
-                email,
-                amount: Math.round(selectedAmount * 100),
-                currency: selectedCurrency,
-                ref: data.reference,
-                metadata: {
-                  custom_fields: [
-                    { display_name: 'Donor Name', variable_name: 'donor_name', value: name },
-                    { display_name: 'Frequency', variable_name: 'frequency', value: selectedFreq },
-                    { display_name: 'Allocation', variable_name: 'allocation', value: allocation },
-                    { display_name: 'Quick Note', variable_name: 'quick_note', value: quickNote || 'None' }
-                  ]
-                },
-                callback: async function(response) {
-                  try {
-                    const verRes = await fetch(`/api/donations/verify/${encodeURIComponent(response.reference)}`);
-                    const verData = await verRes.json();
-                    const sym = getCurrencySymbol(selectedCurrency);
-                    showReceiptStep({
-                      reference: response.reference,
-                      fullReference: response.reference,
-                      amountLabel: `${sym}${selectedAmount.toLocaleString()} (${selectedFreq})`,
-                      allocation: allocation.split('—')[0].split('(')[0].trim(),
-                      donorName: name,
-                      donorEmail: email,
-                      statusText: verData.verified ? 'Verified via Paystack' : 'Payment Received',
-                      thankYouText: `Thank you, ${name}, for your ${sym}${selectedAmount.toLocaleString()} gift!`
-                    });
-                  } catch (_) {}
-                },
-                onClose: function() {
-                  if (statusEl) {
-                    statusEl.textContent = 'Paystack checkout window closed. You can try again anytime.';
-                    statusEl.classList.remove('hidden');
+              try {
+                // IMPORTANT: Paystack v1 inline.js validates `Object.prototype.toString.call(callback) === '[object Function]'`.
+                // Passing an `async function` has toString tag `[object AsyncFunction]` and throws "Attribute callback must be a valid function".
+                const handler = window.PaystackPop.setup({
+                  key: activeKey,
+                  email: email,
+                  amount: Math.round(selectedAmount * 100),
+                  currency: selectedCurrency,
+                  ref: data.reference,
+                  metadata: {
+                    custom_fields: [
+                      { display_name: 'Donor Name', variable_name: 'donor_name', value: name },
+                      { display_name: 'Frequency', variable_name: 'frequency', value: selectedFreq },
+                      { display_name: 'Allocation', variable_name: 'allocation', value: allocation },
+                      { display_name: 'Quick Note', variable_name: 'quick_note', value: quickNote || 'None' }
+                    ]
+                  },
+                  callback: function(response) {
+                    fetch('/api/donations/verify/' + encodeURIComponent(response.reference))
+                      .then(function(verRes) { return verRes.json(); })
+                      .then(function(verData) {
+                        const sym = getCurrencySymbol(selectedCurrency);
+                        showReceiptStep({
+                          reference: response.reference,
+                          fullReference: response.reference,
+                          amountLabel: sym + selectedAmount.toLocaleString() + ' (' + selectedFreq + ')',
+                          allocation: allocation.split('—')[0].split('(')[0].trim(),
+                          donorName: name,
+                          donorEmail: email,
+                          statusText: (verData && verData.verified) ? 'Verified via Paystack' : 'Payment Received',
+                          thankYouText: 'Thank you, ' + name + ', for your ' + sym + selectedAmount.toLocaleString() + ' gift!'
+                        });
+                      })
+                      .catch(function() {
+                        const sym = getCurrencySymbol(selectedCurrency);
+                        showReceiptStep({
+                          reference: response.reference,
+                          fullReference: response.reference,
+                          amountLabel: sym + selectedAmount.toLocaleString() + ' (' + selectedFreq + ')',
+                          allocation: allocation.split('—')[0].split('(')[0].trim(),
+                          donorName: name,
+                          donorEmail: email,
+                          statusText: 'Payment Received',
+                          thankYouText: 'Thank you, ' + name + ', for your ' + sym + selectedAmount.toLocaleString() + ' gift!'
+                        });
+                      });
+                  },
+                  onClose: function() {
+                    if (statusEl) {
+                      statusEl.textContent = 'Paystack checkout window closed. You can try again anytime.';
+                      statusEl.classList.remove('hidden');
+                    }
                   }
+                });
+                handler.openIframe();
+                return;
+              } catch (popErr) {
+                if (data.authorization_url) {
+                  window.location.href = data.authorization_url;
+                  return;
                 }
-              });
-              handler.openIframe();
-              return;
+              }
             } else if (data.authorization_url) {
               window.location.href = data.authorization_url;
               return;
