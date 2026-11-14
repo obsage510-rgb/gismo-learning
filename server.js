@@ -1031,6 +1031,23 @@ app.get('/api/textbooks', (req, res) => {
   res.json(textbooks);
 });
 
+app.delete('/api/textbooks/:id', (req, res) => {
+  const rawUserId = (req.body && req.body.user_id) || req.query.user_id;
+  const userId = rawUserId ? Number(rawUserId) : null;
+  if (!userId || Number.isNaN(userId)) {
+    return res.status(400).json({ error: 'Please sign in to remove books from your library.' });
+  }
+  try {
+    const info = db.prepare('DELETE FROM textbooks WHERE id = ? AND user_id = ?').run(req.params.id, userId);
+    if (info.changes === 0) {
+      return res.status(404).json({ error: 'Book not found in your library.' });
+    }
+    return res.json({ status: 'success', deleted: req.params.id });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // --- WEB BOOKS API ---
 app.get('/api/web/search', async (req, res) => {
   const query = (req.query.q || '').trim();

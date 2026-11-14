@@ -359,7 +359,12 @@ async function fetchTextbooks() {
             </div>
           </div>`;
 
-      const actionLabel = isLibraryBook ? 'Read Book' : 'Enroll Now';
+      const actionButtonsHtml = isLibraryBook
+        ? `<div style="display:flex; gap:0.5rem; margin-top:auto;">
+             <button class="btn-primary" onclick="loadLesson('${tb.id}')" style="flex:1; padding:0.75rem; border-radius:8px; font-weight:bold; font-size:1rem;">Read Book</button>
+             <button type="button" class="theme-btn" onclick="removeLibraryBook('${tb.id}', this)" title="Remove from Library" aria-label="Remove ${escapeHtml(tb.title)} from library" style="padding:0.75rem 0.9rem; border-radius:8px; color:var(--error-color); border-color:var(--border-color); display:inline-flex; align-items:center; justify-content:center;">${getAppSvgIcon('trash', 16) || 'Remove'}</button>
+           </div>`
+        : `<button class="btn-primary w-100" onclick="loadLesson('${tb.id}')" style="padding:0.75rem; border-radius:8px; font-weight:bold; font-size:1rem; margin-top:auto;">Enroll Now</button>`;
       
       btn.innerHTML = `
       <div class="learner-card w-100 h-100" style="display:flex; flex-direction:column;">
@@ -374,7 +379,7 @@ async function fetchTextbooks() {
           <h3 style="margin-top:0; font-size:1.2rem; margin-bottom:0.75rem; color:var(--text-primary);">${escapeHtml(tb.title)}</h3>
           <p style="color:var(--text-secondary); font-size:0.9rem; line-height:1.5; margin-bottom:1.5rem; flex:1;">${escapeHtml(tb.descriptor || 'Open this book to start reading.')}</p>
           ${instructorHtml}
-          <button class="btn-primary w-100" onclick="loadLesson('${tb.id}')" style="padding:0.75rem; border-radius:8px; font-weight:bold; font-size:1rem; margin-top:auto;">${actionLabel}</button>
+          ${actionButtonsHtml}
         </div>
       </div>
       `;
@@ -385,6 +390,36 @@ async function fetchTextbooks() {
     console.error("Error fetching textbooks", err);
   }
 }
+
+async function removeLibraryBook(bookId, btnEl) {
+  const userId = (appState.user && appState.user.id) || sessionStorage.getItem('gismoUserId') || null;
+  if (!userId) {
+    showToast('Please sign in to manage your library.', 'warning');
+    return;
+  }
+  const book = lessonsDb[bookId];
+  const bookTitle = (book && book.title) ? book.title : 'this book';
+  if (!confirm(`Remove "${bookTitle}" from your library?`)) return;
+
+  if (btnEl) btnEl.disabled = true;
+  try {
+    const res = await fetch(`/api/textbooks/${encodeURIComponent(bookId)}?user_id=${encodeURIComponent(userId)}`, {
+      method: 'DELETE'
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not remove book.');
+    try { localStorage.removeItem(`gismo_book_page_${bookId}`); } catch (_) {}
+    delete lessonsDb[bookId];
+    showToast(`Removed "${bookTitle}" from your library.`, 'book');
+    announceTTS(`Removed ${bookTitle} from your library.`);
+    await fetchTextbooks();
+    renderLibrary('all');
+  } catch (err) {
+    if (btnEl) btnEl.disabled = false;
+    showToast(err.message || 'Failed to remove book.', 'warning');
+  }
+}
+window.removeLibraryBook = removeLibraryBook;
 
 async function fetchNotes() {
   if (!appState.user) return;
