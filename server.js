@@ -414,76 +414,10 @@ app.post('/api/newsletter', async (req, res) => {
 app.get('/api/donations/config', (req, res) => {
   const publicKey = (process.env.PAYSTACK_PUBLIC_KEY || '').trim();
   const secretKey = (process.env.PAYSTACK_SECRET_KEY || '').trim();
-  const zecNodeUrl = (process.env.ZEC_ROCKS_URL || 'https://zec.rocks:443').trim();
-  const zecWallet = (process.env.ZEC_DONATION_ADDRESS || 'u157q45z9fwy7349t5r7w4d0tpmdzhw6xvuwm4ucqq80ysftk9wxryrru0l7puxpdlujnkmj5d9ewzaxz5x6slfg3xys4egayx7vry57wd').trim();
   res.json({
     paystackConfigured: !!(publicKey && secretKey),
     paystackPublicKey: publicKey,
-    defaultCurrency: (process.env.PAYSTACK_CURRENCY || 'USD').toUpperCase(),
-    zecNodeUrl,
-    zecWallet,
-    cryptoWallet: zecWallet
-  });
-});
-
-app.post('/api/donations/crypto/verify', async (req, res) => {
-  const {
-    tx_hash = '',
-    network = 'Zcash Shielded (Unified)',
-    token = 'ZEC',
-    amount = 0,
-    name = 'ZEC Supporter',
-    email = '',
-    quick_note = '',
-    allocation = 'General Inclusive Education Fund'
-  } = req.body || {};
-
-  const cleanHash = String(tx_hash || '').trim().replace(/^0x/i, '');
-  const cleanName = String(name || 'ZEC Supporter').trim() || 'ZEC Supporter';
-  const cleanEmail = String(email || '').trim() || 'zec-donor@gismo.org';
-  const cleanAllocation = String(allocation || 'General Inclusive Education Fund').trim();
-  const rawNote = String(quick_note || '').trim();
-  const cleanNote = (rawNote ? `[${cleanAllocation}] ${rawNote}` : `[${cleanAllocation}]`).slice(0, 500);
-  const numericAmount = Number(amount) || 0;
-
-  if (!cleanHash || !/^[a-fA-F0-9]{64}$/.test(cleanHash)) {
-    return res.status(400).json({ error: 'Please enter a valid 64-character Zcash transaction ID (txid).' });
-  }
-
-  let status = 'verified';
-  let verifiedOnChain = true;
-  let blockHeight = 2748190;
-
-  try {
-    const expRes = await fetch(`https://mainnet.zcashexplorer.app/api/v1/tx/${cleanHash}`, {
-      headers: { 'User-Agent': 'GismoLearning/1.0', 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(4500)
-    });
-    if (expRes.ok) {
-      const txData = await expRes.json();
-      if (txData && (txData.txid || txData.hash)) {
-        blockHeight = txData.blockHeight || txData.height || blockHeight;
-        status = 'success';
-        verifiedOnChain = true;
-      }
-    }
-  } catch (_) {}
-
-  try {
-    db.prepare(`
-      INSERT OR REPLACE INTO donations (donor_name, donor_email, amount, currency, frequency, quick_note, payment_method, reference, status)
-      VALUES (?, ?, ?, ?, 'one-time', ?, 'zec.rocks', ?, ?)
-    `).run(cleanName, cleanEmail, numericAmount, `${token} (${network})`, cleanNote, cleanHash, status);
-  } catch (_) {}
-
-  return res.json({
-    success: true,
-    verifiedOnChain,
-    status,
-    blockHeight,
-    reference: cleanHash,
-    allocation: cleanAllocation,
-    message: `ZEC donation verified via Zec.rocks (Block #${blockHeight})! Thank you, ${cleanName}, for directing ${numericAmount ? `${numericAmount} ZEC ` : ''}to ${cleanAllocation}.`
+    defaultCurrency: (process.env.PAYSTACK_CURRENCY || 'USD').toUpperCase()
   });
 });
 

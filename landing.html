@@ -215,7 +215,7 @@
               <li><strong>$10</strong> — Sponsors 500+ minutes of neural text-to-speech for visually impaired readers.</li>
               <li><strong>$25</strong> — Equips an entire study group with cloud-synced notes and quiz analytics.</li>
               <li><strong>$50</strong> — Supports classroom onboarding and accessible curriculum digitization.</li>
-              <li><strong>$100 / 0.1 – 1.0 ZEC</strong> — Funds a full semester of AI tutor capacity for a partner school.</li>
+              <li><strong>$100</strong> — Funds a full semester of AI tutor capacity for a partner school.</li>
             </ul>
 
             <!-- Visual Allocation Breakdown -->
@@ -255,7 +255,7 @@
             <div class="donate-stepper" role="navigation" aria-label="Donation steps">
               <button type="button" class="donate-step-pill active" data-step="1" id="step-pill-1">
                 <span class="donate-step-num">1</span>
-                <span class="donate-step-label">Method &amp; Amount</span>
+                <span class="donate-step-label">Select Amount</span>
               </button>
               <button type="button" class="donate-step-pill" data-step="2" id="step-pill-2">
                 <span class="donate-step-num">2</span>
@@ -271,20 +271,8 @@
               </button>
             </div>
 
-            <!-- STEP 1: Choose Payment Rail (USD vs Crypto) & Amount -->
+            <!-- STEP 1: Choose Amount -->
             <div id="donate-step-1" class="donate-step-panel">
-              <div class="payment-method-tabs" role="tablist" aria-label="Payment method">
-                <button type="button" class="pm-tab-btn active" id="tab-pm-paystack" role="tab" aria-selected="true" style="display:inline-flex; align-items:center; justify-content:center; gap:0.45rem;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
-                  <span>Paystack (USD $)</span>
-                </button>
-                <button type="button" class="pm-tab-btn" id="tab-pm-crypto" role="tab" aria-selected="false" style="display:inline-flex; align-items:center; justify-content:center; gap:0.45rem;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                  <span>Crypto (Zec.rocks ZEC)</span>
-                </button>
-              </div>
-
-              <!-- Step 1A: Paystack USD ($) -->
               <div id="panel-pm-paystack">
                 <div class="paystack-header-bar">
                   <span class="paystack-badge">
@@ -311,39 +299,6 @@
                 <div class="form-field">
                   <label for="donation-custom-amount" id="donation-amount-label">Custom Amount (USD)</label>
                   <input type="number" id="donation-custom-amount" class="form-control" min="1" value="25" required>
-                </div>
-              </div>
-
-              <!-- Step 1B: Crypto (Zec.rocks Zcash ZEC) -->
-              <div id="panel-pm-crypto" class="hidden">
-                <div class="paystack-header-bar">
-                  <span class="paystack-badge">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
-                    <span>Zec.rocks • Shielded Zcash (ZEC)</span>
-                  </span>
-                  <span style="font-size:0.76rem; color:var(--text-secondary); font-weight:600;" id="zec-node-label">Node: zec.rocks:443</span>
-                </div>
-
-                <div class="amount-grid" id="zec-amount-grid" role="group" aria-label="Preset ZEC amounts">
-                  <button type="button" class="amount-btn zec-preset-btn" data-zec="0.05">0.05 ZEC</button>
-                  <button type="button" class="amount-btn zec-preset-btn active" data-zec="0.1">0.1 ZEC</button>
-                  <button type="button" class="amount-btn zec-preset-btn" data-zec="0.5">0.5 ZEC</button>
-                  <button type="button" class="amount-btn zec-preset-btn" data-zec="1">1.0 ZEC</button>
-                </div>
-
-                <div class="form-row-2">
-                  <div class="form-field">
-                    <label for="crypto-network">Zcash Privacy Pool</label>
-                    <select id="crypto-network" class="form-control">
-                      <option value="Zcash Shielded (Unified)">Zcash Shielded (Unified)</option>
-                      <option value="Zcash Sapling">Zcash Sapling</option>
-                      <option value="Zcash Transparent">Zcash Transparent</option>
-                    </select>
-                  </div>
-                  <div class="form-field">
-                    <label for="crypto-amount">Amount (ZEC)</label>
-                    <input type="number" id="crypto-amount" class="form-control" step="0.001" min="0.001" value="0.1" required>
-                  </div>
                 </div>
               </div>
 
@@ -392,7 +347,7 @@
               </div>
             </div>
 
-            <!-- STEP 3: Payment Checkout (Paystack or Zec.rocks) -->
+            <!-- STEP 3: Payment Checkout (Paystack) -->
             <div id="donate-step-3" class="donate-step-panel hidden">
               <div class="demo-summary-box" aria-label="Donation summary">
                 <div class="demo-summary-row">
@@ -413,7 +368,6 @@
                 </div>
               </div>
 
-              <!-- Step 3A: Paystack USD Checkout -->
               <div id="step-3-paystack-box">
                 <label style="display:block; font-size:0.82rem; font-weight:700; color:var(--text-secondary); margin-bottom:0.45rem;">Select Payment Channel:</label>
                 <div class="demo-channel-grid" role="group" aria-label="Paystack payment channel">
@@ -440,37 +394,6 @@
                 </form>
               </div>
 
-              <!-- Step 3B: Zec.rocks Crypto Checkout -->
-              <div id="step-3-crypto-box" class="hidden">
-                <div class="crypto-wallet-box">
-                  <div style="font-size:0.76rem; font-weight:700; color:var(--text-secondary);">Gismo Zcash Receiving Address (Unified / Shielded)</div>
-                  <div class="crypto-wallet-row">
-                    <span class="crypto-wallet-addr" id="crypto-wallet-address">u157q45z9fwy7349t5r7w4d0tpmdzhw6xvuwm4ucqq80ysftk9wxryrru0l7puxpdlujnkmj5d9ewzaxz5x6slfg3xys4egayx7vry57wd</span>
-                    <button type="button" class="btn-copy-wallet" id="btn-copy-wallet">Copy</button>
-                  </div>
-                </div>
-
-                <button type="button" class="btn btn-secondary" style="width: 100%; margin-bottom: 0.75rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; font-size:0.86rem;" id="btn-web3-donate">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>
-                  <span>Connect to Zcash Wallet</span>
-                </button>
-
-                <form id="crypto-donation-form">
-                  <div class="form-field">
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.35rem;">
-                      <label for="crypto-tx-hash" style="margin-bottom:0;">Zcash Transaction ID (64-char hex txid)</label>
-                      <button type="button" class="demo-fill-btn" id="btn-generate-txid">Generate TxID</button>
-                    </div>
-                    <input type="text" id="crypto-tx-hash" class="form-control" placeholder="Click 'Generate TxID' or paste 64-character ZEC txid...">
-                  </div>
-
-                  <button type="submit" class="btn btn-accent" style="width: 100%;" id="btn-verify-crypto">
-                    Verify &amp; Complete ZEC Donation
-                  </button>
-                  <div id="crypto-donation-status" class="status-banner hidden" role="status" aria-live="polite"></div>
-                </form>
-              </div>
-
               <div class="step-nav-actions">
                 <button type="button" class="btn btn-secondary" id="btn-back-step-2">Edit Donor / Cause</button>
               </div>
@@ -494,7 +417,7 @@
                   <strong style="color:var(--brand-primary);" id="receipt-status">Verified &amp; Confirmed</strong>
                 </div>
                 <div class="demo-summary-row">
-                  <span style="color:var(--text-secondary);">Reference / TxID:</span>
+                  <span style="color:var(--text-secondary);">Transaction Reference:</span>
                   <strong style="font-family:monospace; font-size:0.78rem; word-break:break-all; text-align:right;" id="receipt-ref">GISMO-REC-2026</strong>
                 </div>
                 <div class="demo-summary-row">
@@ -724,13 +647,11 @@
 
     // Multi-Step Donation State
     let currentDonateStep = 1;
-    let activePaymentRail = 'paystack'; // 'paystack' | 'crypto'
     let selectedFreq = 'one-time';
     let selectedCurrency = 'USD';
     let selectedAmount = 25;
     let selectedChannel = 'Debit / Credit Card';
     let paystackPublicKey = '';
-    let cryptoReceivingWallet = 'u157q45z9fwy7349t5r7w4d0tpmdzhw6xvuwm4ucqq80ysftk9wxryrru0l7puxpdlujnkmj5d9ewzaxz5x6slfg3xys4egayx7vry57wd';
     let lastReceiptData = {
       receiptNo: 'REC-2026-0001',
       dateIssued: new Date().toLocaleString(),
@@ -749,7 +670,6 @@
     };
 
     const customAmountInput = document.getElementById('donation-custom-amount');
-    const cryptoAmountInput = document.getElementById('crypto-amount');
     const donationBtn = document.getElementById('btn-submit-donation');
     const amountGrid = document.getElementById('donation-amount-grid');
     const amountLabel = document.getElementById('donation-amount-label');
@@ -760,12 +680,6 @@
     }
 
     function computeImpactDescription() {
-      if (activePaymentRail === 'crypto') {
-        const zec = Number(cryptoAmountInput?.value) || 0.1;
-        if (zec >= 0.5) return 'Funds a full semester of AI tutor capacity and assistive voice narration for a partner classroom.';
-        if (zec >= 0.1) return 'Equips a student study group with neural voice synthesis, cloud-synced notes, and adaptive quizzes.';
-        return 'Sponsors 300+ minutes of neural text-to-speech narration for blind and low-vision learners.';
-      }
       const usdEquiv = selectedCurrency === 'NGN' ? (selectedAmount / 1500) : selectedAmount;
       if (usdEquiv >= 50) return 'Funds a full semester of AI tutor capacity and classroom onboarding at our Nsukka & partner school hubs.';
       if (usdEquiv >= 20) return 'Supports classroom onboarding and OpenDyslexic / Braille-ready curriculum digitization.';
@@ -836,22 +750,13 @@
         const allocEl = document.getElementById('summary-allocation');
         const donorEl = document.getElementById('summary-donor');
 
-        if (activePaymentRail === 'crypto') {
-          const zecAmt = Number(cryptoAmountInput?.value) || 0.1;
-          const pool = document.getElementById('crypto-network')?.value || 'Zcash Shielded (Unified)';
-          if (railEl) railEl.textContent = `Crypto • ${pool}`;
-          if (amtEl) amtEl.textContent = `${zecAmt} ZEC (One-Time)`;
-        } else {
-          const sym = getCurrencySymbol(selectedCurrency);
-          const freqLabel = selectedFreq === 'monthly' ? 'Monthly' : 'One-Time';
-          if (railEl) railEl.textContent = `Paystack (${selectedCurrency})`;
-          if (amtEl) amtEl.textContent = `${sym}${Number(selectedAmount || 0).toLocaleString()} (${freqLabel})`;
-        }
+        const sym = getCurrencySymbol(selectedCurrency);
+        const freqLabel = selectedFreq === 'monthly' ? 'Monthly' : 'One-Time';
+        if (railEl) railEl.textContent = `Paystack (${selectedCurrency})`;
+        if (amtEl) amtEl.textContent = `${sym}${Number(selectedAmount || 0).toLocaleString()} (${freqLabel})`;
         if (allocEl) allocEl.textContent = shortAllocation;
         if (donorEl) donorEl.textContent = `${donorName} (${donorEmail})`;
 
-        document.getElementById('step-3-paystack-box')?.classList.toggle('hidden', activePaymentRail !== 'paystack');
-        document.getElementById('step-3-crypto-box')?.classList.toggle('hidden', activePaymentRail !== 'crypto');
         updateDonationUI();
       }
     }
@@ -930,9 +835,7 @@
       const pill4 = document.getElementById('step-pill-4');
       if (pill4) pill4.disabled = true;
       const status1 = document.getElementById('donation-status');
-      const status2 = document.getElementById('crypto-donation-status');
       if (status1) status1.classList.add('hidden');
-      if (status2) status2.classList.add('hidden');
       document.getElementById('generated-receipt-container')?.classList.add('hidden');
       goToDonateStep(1);
     });
@@ -1009,7 +912,7 @@
         `Contribution & Method: ${d.amountLabel}`,
         `Designated Program:    ${d.allocation}`,
         `Verification Status:   ${d.statusText}`,
-        `Transaction Ref/TxID:  ${d.fullReference}`,
+        `Transaction Reference: ${d.fullReference}`,
         '----------------------------------------------------',
         '100% of your contribution supports student accessibility,',
         'neural voice synthesis, and inclusive study hubs in Nsukka.',
@@ -1055,26 +958,6 @@
       });
     });
 
-    // ZEC Preset Buttons
-    document.querySelectorAll('.zec-preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.zec-preset-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        if (cryptoAmountInput) cryptoAmountInput.value = btn.dataset.zec || '0.1';
-        updateDonationUI();
-      });
-    });
-
-    if (cryptoAmountInput) {
-      cryptoAmountInput.addEventListener('input', () => {
-        const val = Number(cryptoAmountInput.value) || 0;
-        document.querySelectorAll('.zec-preset-btn').forEach(b => {
-          b.classList.toggle('active', Number(b.dataset.zec) === val);
-        });
-        updateDonationUI();
-      });
-    }
-
     renderAmountPresets('USD');
 
     if (customAmountInput) {
@@ -1089,171 +972,13 @@
       });
     }
 
-    // Payment Method Tab Switching (Paystack vs Zec.rocks ZEC)
-    const tabPaystack = document.getElementById('tab-pm-paystack');
-    const tabCrypto = document.getElementById('tab-pm-crypto');
-    const panelPaystack = document.getElementById('panel-pm-paystack');
-    const panelCrypto = document.getElementById('panel-pm-crypto');
-
-    if (tabPaystack && tabCrypto && panelPaystack && panelCrypto) {
-      tabPaystack.addEventListener('click', () => {
-        activePaymentRail = 'paystack';
-        tabPaystack.classList.add('active');
-        tabCrypto.classList.remove('active');
-        tabPaystack.setAttribute('aria-selected', 'true');
-        tabCrypto.setAttribute('aria-selected', 'false');
-        panelPaystack.classList.remove('hidden');
-        panelCrypto.classList.add('hidden');
-        updateDonationUI();
-      });
-      tabCrypto.addEventListener('click', () => {
-        activePaymentRail = 'crypto';
-        tabCrypto.classList.add('active');
-        tabPaystack.classList.remove('active');
-        tabCrypto.setAttribute('aria-selected', 'true');
-        tabPaystack.setAttribute('aria-selected', 'false');
-        panelCrypto.classList.remove('hidden');
-        panelPaystack.classList.add('hidden');
-        updateDonationUI();
-      });
-    }
-
-    const copyWalletBtn = document.getElementById('btn-copy-wallet');
-    if (copyWalletBtn) {
-      copyWalletBtn.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(cryptoReceivingWallet);
-          copyWalletBtn.textContent = 'Copied!';
-          setTimeout(() => { copyWalletBtn.textContent = 'Copy'; }, 2000);
-        } catch (_) {}
-      });
-    }
-
-    // Generate 64-char ZEC TxID button
-    document.getElementById('btn-generate-txid')?.addEventListener('click', () => {
-      const txInput = document.getElementById('crypto-tx-hash');
-      const hexChars = '0123456789abcdef';
-      let generatedHash = '';
-      for (let i = 0; i < 64; i++) {
-        generatedHash += hexChars[Math.floor(Math.random() * 16)];
-      }
-      if (txInput) txInput.value = generatedHash;
-      const statusEl = document.getElementById('crypto-donation-status');
-      if (statusEl) {
-        statusEl.textContent = 'Generated 64-character Zcash txid. Click "Verify & Complete ZEC Donation" below.';
-        statusEl.classList.remove('hidden');
-      }
-    });
-
-    // Load Paystack & Zec.rocks config
+    // Load Paystack config
     fetch('/api/donations/config')
       .then(r => r.json())
       .then(cfg => {
         if (cfg && cfg.paystackPublicKey) paystackPublicKey = cfg.paystackPublicKey;
-        const zecAddr = cfg && (cfg.zecWallet || cfg.cryptoWallet);
-        if (zecAddr) {
-          cryptoReceivingWallet = zecAddr;
-          const walletEl = document.getElementById('crypto-wallet-address');
-          if (walletEl) walletEl.textContent = zecAddr;
-        }
-        if (cfg && cfg.zecNodeUrl) {
-          const nodeLabel = document.getElementById('zec-node-label');
-          if (nodeLabel) nodeLabel.textContent = 'Node: ' + cfg.zecNodeUrl.replace(/^https?:\/\//, '');
-        }
       })
       .catch(() => {});
-
-    async function submitCryptoVerification(txHash) {
-      const statusEl = document.getElementById('crypto-donation-status');
-      const verifyBtn = document.getElementById('btn-verify-crypto');
-      const network = document.getElementById('crypto-network')?.value || 'Zcash Shielded (Unified)';
-      const token = 'ZEC';
-      const amount = Number(document.getElementById('crypto-amount')?.value) || 0.1;
-      const name = document.getElementById('donation-donor-name')?.value.trim() || 'ZEC Supporter';
-      const email = document.getElementById('donation-donor-email')?.value.trim() || 'zec-donor@gismo.edu';
-      const quickNote = document.getElementById('donation-quick-note')?.value.trim() || '';
-      const allocation = document.getElementById('donation-allocation')?.value || 'General Inclusive Fund';
-
-      if (verifyBtn) {
-        verifyBtn.disabled = true;
-        verifyBtn.textContent = 'Verifying via Zec.rocks...';
-      }
-
-      try {
-        const res = await fetch('/api/donations/crypto/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tx_hash: txHash,
-            network,
-            token,
-            amount,
-            name,
-            email,
-            quick_note: quickNote,
-            allocation
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Verification failed.');
-
-        showReceiptStep({
-          reference: `${txHash.slice(0, 16)}...${txHash.slice(-8)}`,
-          fullReference: txHash,
-          amountLabel: `${amount} ZEC (${network})`,
-          allocation: allocation.split('—')[0].split('(')[0].trim(),
-          donorName: name,
-          donorEmail: email,
-          statusText: data.blockHeight ? `Verified on Zec.rocks (Block #${data.blockHeight})` : 'Verified on Zec.rocks',
-          thankYouText: data.message
-        });
-      } catch (err) {
-        if (statusEl) {
-          statusEl.textContent = err.message || 'Could not verify transaction.';
-          statusEl.classList.remove('hidden');
-        }
-      } finally {
-        if (verifyBtn) {
-          verifyBtn.disabled = false;
-          verifyBtn.textContent = 'Verify & Complete ZEC Donation';
-        }
-      }
-    }
-
-    const web3Btn = document.getElementById('btn-web3-donate');
-    if (web3Btn) {
-      web3Btn.addEventListener('click', () => {
-        const statusEl = document.getElementById('crypto-donation-status');
-        const amountZec = Number(document.getElementById('crypto-amount')?.value) || 0.1;
-        const quickNote = document.getElementById('donation-quick-note')?.value.trim() || 'Gismo Learning Donation';
-        const memoBytes = new TextEncoder().encode(quickNote);
-        const memoBase64Url = btoa(String.fromCharCode(...memoBytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        const zcashUri = `zcash:${encodeURIComponent(cryptoReceivingWallet)}?amount=${amountZec}&memo=${memoBase64Url}`;
-
-        window.location.href = zcashUri;
-        if (statusEl) {
-          statusEl.textContent = 'Connecting to your Zcash wallet. After sending, paste your 64-character txid or click "Generate TxID" below.';
-          statusEl.classList.remove('hidden');
-        }
-      });
-    }
-
-    const cryptoForm = document.getElementById('crypto-donation-form');
-    if (cryptoForm) {
-      cryptoForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const txInput = document.getElementById('crypto-tx-hash');
-        let txHash = txInput?.value.trim() || '';
-        if (!txHash) {
-          const hexChars = '0123456789abcdef';
-          for (let i = 0; i < 64; i++) {
-            txHash += hexChars[Math.floor(Math.random() * 16)];
-          }
-          if (txInput) txInput.value = txHash;
-        }
-        await submitCryptoVerification(txHash);
-      });
-    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const returnedRef = urlParams.get('reference') || urlParams.get('trxref');
