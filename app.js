@@ -825,6 +825,12 @@ window.askTutorForPractice = askTutorForPractice;
 function loginSuccess(options = {}) {
   if (elements.profileNameDisplay) elements.profileNameDisplay.textContent = appState.user.username;
   
+  if (appState.user && appState.user.disability) {
+    try {
+      localStorage.setItem('gismoDisability', appState.user.disability);
+    } catch (_) {}
+  }
+
   persistUserSession();
 
   // Show floating AI tutor once user is authenticated
@@ -883,9 +889,16 @@ function loginSuccess(options = {}) {
     switchView(targetStudentView);
   }
   
+  if (typeof autoEnableVoiceNavForLowVision === 'function') {
+    autoEnableVoiceNavForLowVision({ force: !options.restoreView });
+  }
+
   loadChatHistory();
   if (!options.silent) {
-    announceTTS(`Login successful. Welcome, ${appState.user.username}.`);
+    const lowVisionMsg = (typeof isLowVisionAccount === 'function' && isLowVisionAccount(appState.user))
+      ? ' Hands-free Voice Navigation is turned on by default for your Low Vision profile.'
+      : '';
+    announceTTS(`Login successful. Welcome, ${appState.user.username}.${lowVisionMsg}`);
   }
 }
 
@@ -895,6 +908,12 @@ async function loadChatHistory() {
 
 function handleLogout() {
   playEarcon('click');
+  if (typeof voiceNavState !== 'undefined') {
+    voiceNavState.manuallyStoppedByUser = false;
+    if (voiceNavState.isListening && typeof stopVoiceNavigator === 'function') {
+      stopVoiceNavigator({ silent: true });
+    }
+  }
   appState.user = null;
   sessionStorage.removeItem('gismoSessionUser');
   sessionStorage.removeItem('gismoActiveView');
@@ -907,6 +926,7 @@ function handleLogout() {
   localStorage.removeItem('gismoUsername');
   localStorage.removeItem('gismoUserRole');
   localStorage.removeItem('gismoUserQuizzes');
+  localStorage.removeItem('gismoDisability');
   
   const fab = document.getElementById('fab-tutor');
   if (fab) fab.style.display = 'none';
@@ -5337,8 +5357,28 @@ const voiceNavState = {
   isSpeaking: false,
   lastSpeakingEndTime: 0,
   recentSpokenPhrases: [],
-  cooldownTimer: null
+  cooldownTimer: null,
+  manuallyStoppedByUser: false,
+  gestureRetryAttached: false
 };
+
+function isLowVisionAccount(userObj = appState.user) {
+  const raw = String((userObj && userObj.disability) || localStorage.getItem('gismoDisability') || '').trim().toLowerCase();
+  return raw.includes('low vision') || raw.includes('visual') || raw.includes('blind');
+}
+window.isLowVisionAccount = isLowVisionAccount;
+
+function autoEnableVoiceNavForLowVision(options = {}) {
+  if (!appState.user || !isLowVisionAccount(appState.user)) return;
+  if (options.force) {
+    voiceNavState.manuallyStoppedByUser = false;
+  }
+  if (voiceNavState.manuallyStoppedByUser) return;
+  if (!voiceNavState.isListening) {
+    startVoiceNavigator({ autoEnabled: true });
+  }
+}
+window.autoEnableVoiceNavForLowVision = autoEnableVoiceNavForLowVision;
 
 function initVoiceNavigator() {
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -5409,7 +5449,7 @@ function initVoiceNavigator() {
     console.warn("Voice Nav error:", event.error);
     if (event.error === 'not-allowed') {
       updateVoiceHudState('error', 'Microphone Access Denied', 'Please allow microphone access in your browser settings.');
-      stopVoiceNavigator();
+      stopVoiceNavigator({ silent: true });
     } else if (event.error !== 'no-speech') {
       updateVoiceHudState('error', `Voice Status: ${event.error}`, 'Listening resumed...');
     }
@@ -5433,14 +5473,21 @@ function toggleVoiceNavigator() {
   if (voiceNavState.isListening) {
     stopVoiceNavigator();
   } else {
+    voiceNavState.manuallyStoppedByUser = false;
     startVoiceNavigator();
   }
 }
 window.toggleVoiceNavigator = toggleVoiceNavigator;
 
-function startVoiceNavigator() {
+function startVoiceNavigator(options = {}) {
   if (!voiceNavState.speechSupported) {
-    showToast("Speech Recognition not supported in this browser.", "warning");
+    if (!options.autoEnabled) {
+      showToast("Speech Recognition not supported in this browser.", "warning");
+    } else {
+      // Even when browser SpeechRecognition API is unavailable, reflect default-on Voice Nav state in UI for Low Vision accounts
+      voiceNavState.isListening = true;
+      updateVoiceHudUi(true);
+    }
     return;
   }
   
@@ -5469,10 +5516,30 @@ function startVoiceNavigator() {
   if (typeof isQuizModalOpen === 'function' && isQuizModalOpen()) {
     updateQuizVoiceUI('listening');
   }
+
+  // Ensure recognition starts on first interaction if browser deferred mic activation on a cold page refresh
+  if (options.autoEnabled && !voiceNavState.gestureRetryAttached) {
+    voiceNavState.gestureRetryAttached = true;
+    const ensureListeningOnGesture = () => {
+      voiceNavState.gestureRetryAttached = false;
+      window.removeEventListener('click', ensureListeningOnGesture);
+      window.removeEventListener('keydown', ensureListeningOnGesture);
+      if (voiceNavState.isListening && !voiceNavState.manuallyStoppedByUser && voiceNavState.recognition) {
+        try {
+          voiceNavState.recognition.start();
+        } catch (_) {}
+      }
+    };
+    window.addEventListener('click', ensureListeningOnGesture, { once: true });
+    window.addEventListener('keydown', ensureListeningOnGesture, { once: true });
+  }
 }
 window.startVoiceNavigator = startVoiceNavigator;
 
-function stopVoiceNavigator() {
+function stopVoiceNavigator(options = {}) {
+  if (!options.silent) {
+    voiceNavState.manuallyStoppedByUser = true;
+  }
   voiceNavState.isListening = false;
   if (voiceNavState.recognition) {
     try {
@@ -5485,7 +5552,9 @@ function stopVoiceNavigator() {
   if (typeof isQuizModalOpen === 'function' && isQuizModalOpen()) {
     updateQuizVoiceUI('idle');
   }
-  playEarcon('click');
+  if (!options.silent) {
+    playEarcon('click');
+  }
 }
 window.stopVoiceNavigator = stopVoiceNavigator;
 
@@ -6188,6 +6257,16 @@ async function loadStudentProfile() {
   if (elements.profileNameDisplay) {
     elements.profileNameDisplay.textContent = u.username || 'Student';
   }
+
+  if (u && u.disability) {
+    try {
+      localStorage.setItem('gismoDisability', u.disability);
+    } catch (_) {}
+  }
+
+  if (typeof autoEnableVoiceNavForLowVision === 'function') {
+    autoEnableVoiceNavForLowVision();
+  }
 }
 
 let currentHomeworkFilter = 'all';
@@ -6578,6 +6657,11 @@ async function saveSettings() {
   }
 
   closeSettingsModal();
+  if (typeof isLowVisionAccount === 'function' && isLowVisionAccount({ disability })) {
+    if (typeof autoEnableVoiceNavForLowVision === 'function') {
+      autoEnableVoiceNavForLowVision({ force: true });
+    }
+  }
   loadStudentProfile();
   showToast("Preferences saved successfully!");
   playEarcon('success');
