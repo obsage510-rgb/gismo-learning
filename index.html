@@ -148,6 +148,12 @@
             <div class="guide-phrase">"Next question" / "Previous question" / "Repeat question" / "Submit answers"</div>
           </div>
           <div class="voice-guide-card" style="grid-column: 1 / -1;">
+            <div class="guide-category" style="display:flex; align-items:center; gap:0.4rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Hands-Free Voice Login</div>
+            <div class="guide-phrase">"Username [your ID]" <span style="font-size:0.8rem; color:var(--text-secondary);">(e.g. "Username alex" or speak directly when prompted)</span></div>
+            <div class="guide-phrase">"Password [your password]" <span style="font-size:0.8rem; color:var(--text-secondary);">(e.g. "Password 1234" or speak directly when prompted)</span></div>
+            <div class="guide-phrase">"Sign in" / "Log in" / "Clear" / "Create account"</div>
+          </div>
+          <div class="voice-guide-card" style="grid-column: 1 / -1;">
             <div class="guide-category" style="display:flex; align-items:center; gap:0.4rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg> AI Tutor Hands-Free Inquiries</div>
             <div class="guide-phrase">"Ask tutor: [any question]" <span style="font-size:0.8rem; color:var(--text-secondary);">(e.g. "Ask tutor: Explain neural networks simply")</span></div>
             <div class="guide-phrase">"Open tutor" / "Close tutor"</div>
@@ -218,17 +224,29 @@
 
             <!-- Student Login Form -->
             <form id="form-student-login" onsubmit="event.preventDefault(); handleLogin();">
-              <h2 class="auth-heading">Student Login</h2>
-              <p class="auth-subheading">Access your personalized learning workspace</p>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.25rem;">
+                <h2 class="auth-heading" style="margin-bottom:0;">Student Login</h2>
+                <button type="button" id="btn-voice-login-guide" onclick="startGuidedVoiceLogin()" class="theme-btn" style="padding:0.4rem 0.85rem; border-radius:20px; font-size:0.8rem; font-weight:600; display:inline-flex; align-items:center; gap:0.4rem; background:rgba(15,92,77,0.14); color:var(--accent-color); border-color:rgba(15,92,77,0.35);" aria-label="Start Hands-Free Voice Login">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                  <span id="btn-voice-login-guide-text">Voice Login</span>
+                </button>
+              </div>
+              <p class="auth-subheading" id="voice-login-prompt-hint">Access your learning workspace — type or say "Username [ID]" &amp; "Password [pass]"</p>
               
               <div class="input-group-modern mb-3" style="position:relative;">
                 <span class="input-icon" style="position:absolute; left:1.25rem; top:50%; transform:translateY(-50%); color:var(--text-secondary); z-index: 5;"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
-                <input type="text" id="login-username" class="auth-input-modern w-100" placeholder="Email, Username, or Student ID" aria-label="Email, Username, or Student ID" autocomplete="username" required>
+                <input type="text" id="login-username" class="auth-input-modern w-100" style="padding-right: 3rem !important;" placeholder="Email, Username, or Student ID" aria-label="Email, Username, or Student ID" autocomplete="username" required>
+                <button type="button" onclick="promptVoiceAuthField('username')" title="Speak your Username or Student ID" aria-label="Speak your Username or Student ID" style="position:absolute; right:0.85rem; top:50%; transform:translateY(-50%); background:transparent; border:none; color:var(--text-secondary); cursor:pointer; padding:0.35rem; border-radius:8px; z-index:6; display:inline-flex; align-items:center; justify-content:center;">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                </button>
               </div>
               
               <div class="input-group-modern mb-4" style="position:relative;">
                 <span class="input-icon" style="position:absolute; left:1.25rem; top:50%; transform:translateY(-50%); color:var(--text-secondary); z-index: 5;"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span>
-                <input type="password" id="login-password" class="auth-input-modern w-100" placeholder="Password" aria-label="Password" autocomplete="current-password" required>
+                <input type="password" id="login-password" class="auth-input-modern w-100" style="padding-right: 3rem !important;" placeholder="Password" aria-label="Password" autocomplete="current-password" required>
+                <button type="button" onclick="promptVoiceAuthField('password')" title="Speak your Password" aria-label="Speak your Password" style="position:absolute; right:0.85rem; top:50%; transform:translateY(-50%); background:transparent; border:none; color:var(--text-secondary); cursor:pointer; padding:0.35rem; border-radius:8px; z-index:6; display:inline-flex; align-items:center; justify-content:center;">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                </button>
               </div>
               
               <button type="submit" id="btn-login-submit" class="btn-primary w-100 modern-submit-btn">
@@ -2025,7 +2043,7 @@
     </svg>
   </button>
   <div id="toast-feedback" class="toast-feedback"><span id="toast-icon" style="display:inline-flex; align-items:center;" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span id="toast-msg">Settings saved</span></div>
-  <script src="app.js?v=127" defer></script>
+  <script src="app.js?v=128" defer></script>
 </body>
 
 </html>

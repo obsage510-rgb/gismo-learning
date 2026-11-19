@@ -568,6 +568,18 @@ function showAuthError(msg) {
     alert(msg);
   }
   playEarcon('error');
+  if (typeof voiceNavState !== 'undefined' && voiceNavState.isListening && typeof getActiveAuthInputs === 'function') {
+    const { userEl, passEl } = getActiveAuthInputs();
+    if (passEl) passEl.value = '';
+    voiceNavState.authFieldTarget = (userEl && userEl.value.trim()) ? 'password' : 'username';
+    if (typeof updateVoiceHudState === 'function') {
+      updateVoiceHudState('error', 'Login Error', 'Say your password again, or say "Clear" to re-enter username.');
+    }
+    if (typeof announceTTS === 'function') {
+      announceTTS(`${msg} Say your password again, or say Clear to re-enter your username.`);
+    }
+    return;
+  }
   if (typeof announceTTS === 'function') announceTTS(msg);
 }
 
@@ -5359,7 +5371,8 @@ const voiceNavState = {
   recentSpokenPhrases: [],
   cooldownTimer: null,
   manuallyStoppedByUser: false,
-  gestureRetryAttached: false
+  gestureRetryAttached: false,
+  authFieldTarget: null // 'username' | 'password' | null
 };
 
 function isLowVisionAccount(userObj = appState.user) {
@@ -5380,6 +5393,374 @@ function autoEnableVoiceNavForLowVision(options = {}) {
 }
 window.autoEnableVoiceNavForLowVision = autoEnableVoiceNavForLowVision;
 
+function isLoginViewActive() {
+  const loginPanel = document.getElementById('login-panel');
+  return appState.currentView === 'login' || !!(loginPanel && !loginPanel.classList.contains('hidden'));
+}
+
+function getActiveAuthInputs() {
+  const formAdmin = document.getElementById('form-admin-login');
+  const formRegister = document.getElementById('form-student-register');
+  if (formAdmin && formAdmin.style.display !== 'none') {
+    return {
+      mode: 'admin',
+      userEl: document.getElementById('admin-username'),
+      passEl: document.getElementById('admin-password'),
+      submitFn: handleAdminLogin
+    };
+  }
+  if (formRegister && formRegister.style.display !== 'none') {
+    return {
+      mode: 'register',
+      userEl: document.getElementById('reg-username'),
+      passEl: document.getElementById('reg-password'),
+      regNoEl: document.getElementById('reg-reg-no'),
+      schoolEl: document.getElementById('reg-school'),
+      disabilityEl: document.getElementById('reg-disability'),
+      submitFn: handleRegister
+    };
+  }
+  return {
+    mode: 'student',
+    userEl: document.getElementById('login-username'),
+    passEl: document.getElementById('login-password'),
+    submitFn: handleLogin
+  };
+}
+
+function normalizeSpokenCredential(rawValue) {
+  if (!rawValue) return '';
+  const numberWords = {
+    zero: '0', one: '1', two: '2', three: '3', four: '4',
+    five: '5', six: '6', seven: '7', eight: '8', nine: '9'
+  };
+  let cleaned = String(rawValue)
+    .trim()
+    .replace(/^[.,!?;:'"“”\-]+|[.,!?;:'"“”\-]+$/g, '')
+    .replace(/\bat\s+sign\b/gi, '@')
+    .replace(/\s+at\s+/gi, '@')
+    .replace(/\b(?:dot|period)\b/gi, '.')
+    .replace(/\b(?:dash|hyphen)\b/gi, '-')
+    .replace(/\bunderscore\b/gi, '_');
+
+  cleaned = cleaned
+    .split(/\s+/)
+    .map(token => {
+      const lower = token.toLowerCase();
+      return Object.prototype.hasOwnProperty.call(numberWords, lower) ? numberWords[lower] : token;
+    })
+    .join('');
+
+  return cleaned.replace(/[.,!?;:'"“”]+$/g, '');
+}
+window.normalizeSpokenCredential = normalizeSpokenCredential;
+
+function updateVoiceLoginHint(text, isListeningField = false) {
+  const hintEl = document.getElementById('voice-login-prompt-hint');
+  const guideBtnText = document.getElementById('btn-voice-login-guide-text');
+  if (hintEl && text) {
+    hintEl.textContent = text;
+    hintEl.style.color = isListeningField ? 'var(--accent-color)' : '';
+    hintEl.style.fontWeight = isListeningField ? '600' : '';
+  }
+  if (guideBtnText) {
+    guideBtnText.textContent = isListeningField ? 'Voice Login Active' : 'Voice Login';
+  }
+}
+
+function startGuidedVoiceLogin() {
+  voiceNavState.manuallyStoppedByUser = false;
+  if (!voiceNavState.isListening) {
+    startVoiceNavigator({ skipLoginGreeting: true });
+  }
+  const { userEl, passEl } = getActiveAuthInputs();
+  if (userEl && !userEl.value.trim()) {
+    voiceNavState.authFieldTarget = 'username';
+    userEl.focus();
+    updateVoiceLoginHint('Listening: Please say your Username or Student ID now...', true);
+    updateVoiceHudState('listening', 'Voice Login: Username', 'Say your username (e.g. "alex" or "Username alex")');
+    announceTTS('Voice Login active. Please say your username or Student ID.');
+  } else if (passEl && !passEl.value.trim()) {
+    voiceNavState.authFieldTarget = 'password';
+    passEl.focus();
+    updateVoiceLoginHint('Listening: Please say your Password now...', true);
+    updateVoiceHudState('listening', 'Voice Login: Password', 'Say your password (e.g. "1234" or "Password 1234")');
+    announceTTS('Voice Login active. Please say your password.');
+  } else {
+    voiceNavState.authFieldTarget = 'username';
+    if (userEl) userEl.focus();
+    updateVoiceLoginHint('Listening: Say "Sign In", or speak a new Username or Password.', true);
+    updateVoiceHudState('listening', 'Voice Login Ready', 'Say "Sign in", "Username [ID]", or "Password [pass]"');
+    announceTTS('Voice Login active. Say Sign In to log in, or say your username or password.');
+  }
+}
+window.startGuidedVoiceLogin = startGuidedVoiceLogin;
+
+function promptVoiceAuthField(field) {
+  voiceNavState.manuallyStoppedByUser = false;
+  if (!voiceNavState.isListening) {
+    startVoiceNavigator({ skipLoginGreeting: true });
+  }
+  const { userEl, passEl } = getActiveAuthInputs();
+  if (field === 'password') {
+    voiceNavState.authFieldTarget = 'password';
+    if (passEl) passEl.focus();
+    updateVoiceLoginHint('Listening for Password... Speak your password now.', true);
+    updateVoiceHudState('listening', 'Voice Login: Password', 'Speak your password now');
+    announceTTS('Please say your password now.');
+  } else {
+    voiceNavState.authFieldTarget = 'username';
+    if (userEl) userEl.focus();
+    updateVoiceLoginHint('Listening for Username... Speak your username or Student ID now.', true);
+    updateVoiceHudState('listening', 'Voice Login: Username', 'Speak your username or Student ID now');
+    announceTTS('Please say your username or Student ID now.');
+  }
+}
+window.promptVoiceAuthField = promptVoiceAuthField;
+
+function handleLoginVoiceCommand(rawTranscript) {
+  if (!isLoginViewActive()) return false;
+  const trimmedRaw = String(rawTranscript || '').trim();
+  const t = trimmedRaw.toLowerCase().replace(/[.,!?;:]/g, '').trim();
+  if (!t) return false;
+
+  // Let global accessibility/theme/help commands pass through
+  if (
+    t === 'help' || t.includes('voice command') || t.includes('what can i say') || t.includes('show help') ||
+    t.includes('dark mode') || t.includes('theme dark') ||
+    t.includes('light mode') || t.includes('theme light') ||
+    t.includes('high contrast') || t.includes('contrast mode') ||
+    t.includes('bigger text') || t.includes('increase text') || t.includes('larger font') || t.includes('increase font') ||
+    t.includes('smaller text') || t.includes('decrease text') || t.includes('smaller font') || t.includes('decrease font') ||
+    t.includes('reset text') || t.includes('normal text') || t.includes('default text') ||
+    t === 'stop' || t === 'silence' || t === 'quiet' || t === 'pause'
+  ) {
+    return false;
+  }
+
+  const { mode, userEl, passEl, regNoEl, schoolEl, disabilityEl, submitFn } = getActiveAuthInputs();
+
+  // 1. Start guided voice login explicitly
+  if (/\b(voice login|start voice login|guided login|help me log in|login by voice)\b/.test(t)) {
+    playEarcon('success');
+    startGuidedVoiceLogin();
+    return true;
+  }
+
+  // 2. Portal / Form switching commands on Login screen
+  if (/\b(create account|new student|sign up|register account|open registration)\b/.test(t)) {
+    playEarcon('success');
+    showStudentRegister();
+    if (disabilityEl) disabilityEl.value = 'Low Vision';
+    voiceNavState.authFieldTarget = 'username';
+    const regUser = document.getElementById('reg-username');
+    if (regUser) regUser.focus();
+    updateVoiceHudState('matched', 'Student Registration', 'Say "Username [ID]" and "Password [pass]"');
+    announceTTS('Opened Student Registration with Low Vision mode pre-selected. Please say your new Student ID.');
+    return true;
+  }
+
+  if (/\b(student login|student portal|back to login|switch to student)\b/.test(t)) {
+    playEarcon('success');
+    showStudentLogin();
+    voiceNavState.authFieldTarget = 'username';
+    const loginUser = document.getElementById('login-username');
+    if (loginUser) loginUser.focus();
+    updateVoiceHudState('matched', 'Student Login', 'Please say your username or Student ID');
+    announceTTS('Switched to Student Login. Please say your username.');
+    return true;
+  }
+
+  if (/\b(demo admin|presentation admin)\b/.test(t)) {
+    playEarcon('success');
+    updateVoiceHudState('matched', 'Demo Admin Login', 'Signing into Instructor Portal...');
+    quickPresentationAdminLogin();
+    return true;
+  }
+
+  if (/\b(admin login|instructor portal|teacher login|instructor login)\b/.test(t)) {
+    playEarcon('success');
+    selectLoginPortal('instructor');
+    voiceNavState.authFieldTarget = 'username';
+    updateVoiceHudState('matched', 'Instructor Portal', 'Say "Sign in" or speak admin username');
+    announceTTS('Switched to Instructor Portal. Say Sign In to log in.');
+    return true;
+  }
+
+  // 3. Clear / Reset fields
+  if (t === 'clear' || t === 'reset' || t === 'start over' || /\b(clear fields|clear login|reset login)\b/.test(t)) {
+    playEarcon('click');
+    if (userEl) userEl.value = '';
+    if (passEl) passEl.value = '';
+    voiceNavState.authFieldTarget = 'username';
+    if (userEl) userEl.focus();
+    updateVoiceLoginHint('Cleared. Please say your Username or Student ID now...', true);
+    updateVoiceHudState('matched', 'Cleared Login Fields', 'Please say your username or Student ID');
+    announceTTS('Cleared username and password. Please say your username.');
+    return true;
+  }
+
+  // 4. Submit / Sign In command
+  if (t === 'sign in' || t === 'log in' || t === 'login' || t === 'submit' || t === 'enter' || t === 'continue' || /\b(sign me in|log me in|submit login)\b/.test(t)) {
+    const currentU = userEl ? userEl.value.trim() : '';
+    const currentP = passEl ? passEl.value.trim() : '';
+    if (!currentU) {
+      voiceNavState.authFieldTarget = 'username';
+      if (userEl) userEl.focus();
+      updateVoiceLoginHint('Please say your Username or Student ID first...', true);
+      updateVoiceHudState('listening', 'Username Required', 'Please say your username or Student ID');
+      announceTTS('Please say your username first.');
+      return true;
+    }
+    if (!currentP) {
+      voiceNavState.authFieldTarget = 'password';
+      if (passEl) passEl.focus();
+      updateVoiceLoginHint('Please say your Password now...', true);
+      updateVoiceHudState('listening', 'Password Required', 'Please say your password');
+      announceTTS('Please say your password.');
+      return true;
+    }
+    playEarcon('success');
+    voiceNavState.authFieldTarget = null;
+    updateVoiceHudState('matched', 'Signing In...', `Logging in as ${currentU}`);
+    if (mode === 'register') {
+      if (regNoEl && !regNoEl.value.trim()) regNoEl.value = 'STD-' + Math.floor(1000 + Math.random() * 9000);
+      if (schoolEl && !schoolEl.value.trim()) schoolEl.value = 'Gismo Academy';
+      if (disabilityEl && disabilityEl.value === 'None') disabilityEl.value = 'Low Vision';
+    }
+    submitFn();
+    return true;
+  }
+
+  // 5. Combined "Username [X] Password [Y]" in a single utterance
+  const combinedMatch = trimmedRaw.match(/^(?:my\s+)?(?:user\s*name|user\s*id|student\s*id|email)(?:\s+is)?\s+(.+?)\s+(?:and\s+)?(?:my\s+)?(?:pass\s*word|pass\s*code|pin)(?:\s+is)?\s+(.+)$/i);
+  if (combinedMatch) {
+    const cleanU = normalizeSpokenCredential(combinedMatch[1]);
+    const cleanP = normalizeSpokenCredential(combinedMatch[2]);
+    if (cleanU && cleanP && userEl && passEl) {
+      userEl.value = cleanU;
+      passEl.value = cleanP;
+      voiceNavState.authFieldTarget = null;
+      playEarcon('success');
+      updateVoiceLoginHint(`Username "${cleanU}" & Password entered. Signing in...`, true);
+      updateVoiceHudState('matched', 'Credentials Entered', `Signing in as ${cleanU}...`);
+      announceTTS(`Username ${cleanU} and password entered. Signing you in now.`);
+      if (mode === 'register') {
+        if (regNoEl && !regNoEl.value.trim()) regNoEl.value = 'STD-' + Math.floor(1000 + Math.random() * 9000);
+        if (schoolEl && !schoolEl.value.trim()) schoolEl.value = 'Gismo Academy';
+        if (disabilityEl && disabilityEl.value === 'None') disabilityEl.value = 'Low Vision';
+      }
+      submitFn();
+      return true;
+    }
+  }
+
+  // 6. Explicit "Username is [X]" / "Username [X]" / "Student ID [X]"
+  const userPrefixMatch = trimmedRaw.match(/^(?:my\s+|the\s+)?(?:user\s*name|user\s*id|student\s*id|login\s*id|email|id)(?:\s+is)?\s*[:\-]?\s*(.+)$/i);
+  if (userPrefixMatch) {
+    const cleanU = normalizeSpokenCredential(userPrefixMatch[1]);
+    if (cleanU && userEl) {
+      userEl.value = cleanU;
+      playEarcon('success');
+      const hasPass = !!(passEl && passEl.value.trim());
+      if (!hasPass) {
+        voiceNavState.authFieldTarget = 'password';
+        if (passEl) passEl.focus();
+        updateVoiceLoginHint(`Username set to "${cleanU}". Now say your Password...`, true);
+        updateVoiceHudState('matched', `Username: ${cleanU}`, 'Now say your password (e.g. "Password 1234")');
+        announceTTS(`Username set to ${cleanU}. Now please say your password.`);
+      } else {
+        voiceNavState.authFieldTarget = null;
+        updateVoiceLoginHint(`Username set to "${cleanU}". Say "Sign In" to continue.`, true);
+        updateVoiceHudState('matched', `Username: ${cleanU}`, 'Say "Sign in" to log in');
+        announceTTS(`Username set to ${cleanU}. Say Sign In to log in.`);
+      }
+      return true;
+    }
+  }
+
+  // 7. Explicit "Password is [Y]" / "Password [Y]"
+  const passPrefixMatch = trimmedRaw.match(/^(?:my\s+|the\s+)?(?:pass\s*word|pass\s*code|pin|secret)(?:\s+is)?\s*[:\-]?\s*(.+)$/i);
+  if (passPrefixMatch) {
+    const cleanP = normalizeSpokenCredential(passPrefixMatch[1]);
+    if (cleanP && passEl) {
+      passEl.value = cleanP;
+      playEarcon('success');
+      const currentU = userEl ? userEl.value.trim() : '';
+      if (currentU) {
+        voiceNavState.authFieldTarget = null;
+        updateVoiceLoginHint(`Password entered for "${currentU}". Signing in...`, true);
+        updateVoiceHudState('matched', 'Password Set', `Signing in as ${currentU}...`);
+        announceTTS(`Password set. Signing in as ${currentU}.`);
+        if (mode === 'register') {
+          if (regNoEl && !regNoEl.value.trim()) regNoEl.value = 'STD-' + Math.floor(1000 + Math.random() * 9000);
+          if (schoolEl && !schoolEl.value.trim()) schoolEl.value = 'Gismo Academy';
+          if (disabilityEl && disabilityEl.value === 'None') disabilityEl.value = 'Low Vision';
+        }
+        submitFn();
+      } else {
+        voiceNavState.authFieldTarget = 'username';
+        if (userEl) userEl.focus();
+        updateVoiceLoginHint('Password entered. Now please say your Username or Student ID...', true);
+        updateVoiceHudState('matched', 'Password Set', 'Now please say your username or Student ID');
+        announceTTS('Password set. Now please say your username.');
+      }
+      return true;
+    }
+  }
+
+  // 8. Unprefixed direct speech when a login field is targeted or empty
+  const activeEl = document.activeElement;
+  const targetField =
+    voiceNavState.authFieldTarget ||
+    (activeEl === passEl ? 'password' : (activeEl === userEl ? 'username' : (!userEl?.value.trim() ? 'username' : (!passEl?.value.trim() ? 'password' : null))));
+
+  if (targetField === 'username' && userEl) {
+    const cleanU = normalizeSpokenCredential(trimmedRaw);
+    if (cleanU.length >= 2) {
+      userEl.value = cleanU;
+      playEarcon('success');
+      voiceNavState.authFieldTarget = 'password';
+      if (passEl) passEl.focus();
+      updateVoiceLoginHint(`Username set to "${cleanU}". Now please say your Password...`, true);
+      updateVoiceHudState('matched', `Username: ${cleanU}`, 'Now please say your password');
+      announceTTS(`Username set to ${cleanU}. Now please say your password.`);
+      return true;
+    }
+  }
+
+  if (targetField === 'password' && passEl) {
+    const cleanP = normalizeSpokenCredential(trimmedRaw);
+    if (cleanP.length >= 2) {
+      passEl.value = cleanP;
+      playEarcon('success');
+      const currentU = userEl ? userEl.value.trim() : '';
+      if (currentU) {
+        voiceNavState.authFieldTarget = null;
+        updateVoiceLoginHint(`Password entered for "${currentU}". Signing in...`, true);
+        updateVoiceHudState('matched', 'Password Set', `Signing in as ${currentU}...`);
+        announceTTS(`Password set. Signing in as ${currentU}.`);
+        if (mode === 'register') {
+          if (regNoEl && !regNoEl.value.trim()) regNoEl.value = 'STD-' + Math.floor(1000 + Math.random() * 9000);
+          if (schoolEl && !schoolEl.value.trim()) schoolEl.value = 'Gismo Academy';
+          if (disabilityEl && disabilityEl.value === 'None') disabilityEl.value = 'Low Vision';
+        }
+        submitFn();
+      } else {
+        voiceNavState.authFieldTarget = 'username';
+        if (userEl) userEl.focus();
+        updateVoiceLoginHint('Password entered. Now please say your Username...', true);
+        updateVoiceHudState('matched', 'Password Set', 'Now please say your username');
+        announceTTS('Password set. Now please say your username.');
+      }
+      return true;
+    }
+  }
+
+  return false;
+}
+window.handleLoginVoiceCommand = handleLoginVoiceCommand;
+
 function initVoiceNavigator() {
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRec) {
@@ -5394,7 +5775,11 @@ function initVoiceNavigator() {
   
   rec.onstart = () => {
     voiceNavState.isListening = true;
-    updateVoiceHudState('listening', 'Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
+    if (isLoginViewActive()) {
+      updateVoiceHudState('listening', 'Voice Login Active', 'Say "Username [ID]", "Password [pass]", or speak when prompted');
+    } else {
+      updateVoiceHudState('listening', 'Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
+    }
     const btn = document.getElementById('btn-voice-nav');
     if (btn) btn.classList.add('listening');
     playEarcon('click');
@@ -5517,6 +5902,24 @@ function startVoiceNavigator(options = {}) {
     updateQuizVoiceUI('listening');
   }
 
+  // If Voice Nav was turned on while on the Login screen, guide the blind student through Voice Login
+  if (isLoginViewActive() && !options.skipLoginGreeting) {
+    const { userEl, passEl } = getActiveAuthInputs();
+    if (userEl && !userEl.value.trim()) {
+      voiceNavState.authFieldTarget = 'username';
+      userEl.focus();
+      updateVoiceLoginHint('Listening: Please say your Username or Student ID now...', true);
+      updateVoiceHudState('listening', 'Voice Login: Username', 'Say your username (e.g. "alex" or "Username alex")');
+      announceTTS('Voice Login active. Please say your username or Student ID.');
+    } else if (passEl && !passEl.value.trim()) {
+      voiceNavState.authFieldTarget = 'password';
+      passEl.focus();
+      updateVoiceLoginHint('Listening: Please say your Password now...', true);
+      updateVoiceHudState('listening', 'Voice Login: Password', 'Say your password (e.g. "1234" or "Password 1234")');
+      announceTTS('Voice Login active. Please say your password.');
+    }
+  }
+
   // Ensure recognition starts on first interaction if browser deferred mic activation on a cold page refresh
   if (options.autoEnabled && !voiceNavState.gestureRetryAttached) {
     voiceNavState.gestureRetryAttached = true;
@@ -5541,12 +5944,14 @@ function stopVoiceNavigator(options = {}) {
     voiceNavState.manuallyStoppedByUser = true;
   }
   voiceNavState.isListening = false;
+  voiceNavState.authFieldTarget = null;
   if (voiceNavState.recognition) {
     try {
       voiceNavState.recognition.stop();
     } catch (e) {}
   }
   updateVoiceHudUi(false);
+  updateVoiceLoginHint('Access your learning workspace — type or say "Username [ID]" & "Password [pass]"', false);
   const btn = document.getElementById('btn-voice-nav');
   if (btn) btn.classList.remove('listening');
   if (typeof isQuizModalOpen === 'function' && isQuizModalOpen()) {
@@ -5604,7 +6009,13 @@ function executeVoiceCommand(rawTranscript) {
   voiceNavState.lastCommand = t;
   console.log('[Voice Nav Command Heard]:', t);
 
-  // 0. If the Interactive Quiz Modal is open, prioritize Quiz Voice Answer & Quiz Navigation commands
+  // 0a. If on the Login / Registration View, handle spoken username, password, and sign-in commands
+  if (isLoginViewActive()) {
+    const loginHandled = handleLoginVoiceCommand(rawTranscript);
+    if (loginHandled) return;
+  }
+
+  // 0b. If the Interactive Quiz Modal is open, prioritize Quiz Voice Answer & Quiz Navigation commands
   if (typeof isQuizModalOpen === 'function' && isQuizModalOpen()) {
     const handled = handleQuizVoiceCommand(rawTranscript);
     if (handled) return;
