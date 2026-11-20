@@ -639,15 +639,7 @@ app.post('/api/auth/login', (req, res) => {
   }
 
   if (!user) {
-    const hPw = generatePasswordHash(cleanPassword);
-    const assignedSchool = (school || '').trim() || 'Gismo Academy';
-    const assignedRegNo = (reg_no || '').trim() || ('STD-' + Math.floor(1000 + Math.random() * 9000));
-    const info = db.prepare(`
-      INSERT INTO users (username, password, school, reg_no, disability, role, quizzes_passed, last_login_date, current_streak)
-      VALUES (?, ?, ?, ?, ?, 'student', 0, ?, 1)
-    `).run(cleanUsername, hPw, assignedSchool, assignedRegNo, disability || 'None', today);
-    const createdUser = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(info.lastInsertRowid));
-    return res.json(sanitizeUser(createdUser));
+    return res.status(401).json({ error: 'Account not found. Please create an account first.' });
   }
 
   let validPassword = false;

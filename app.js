@@ -573,6 +573,19 @@ function showAuthError(msg) {
   if (typeof voiceNavState !== 'undefined' && voiceNavState.isListening && typeof getActiveAuthInputs === 'function') {
     const { userEl, passEl } = getActiveAuthInputs();
     if (passEl) passEl.value = '';
+    const isNotFound = /account not found/i.test(msg);
+    if (isNotFound && userEl) {
+      userEl.value = '';
+      voiceNavState.authFieldTarget = 'username';
+      userEl.focus();
+      if (typeof updateVoiceHudState === 'function') {
+        updateVoiceHudState('error', 'Account Not Found', 'Say your registered username, or say "Create account" to sign up.');
+      }
+      if (typeof announceTTS === 'function') {
+        announceTTS(`${msg} Please say your registered username, or say Create Account to register.`);
+      }
+      return;
+    }
     voiceNavState.authFieldTarget = (userEl && userEl.value.trim()) ? 'password' : 'username';
     if (typeof updateVoiceHudState === 'function') {
       updateVoiceHudState('error', 'Login Error', 'Say your password again, or say "Clear" to re-enter username.');
