@@ -339,14 +339,20 @@ class SupabaseDatabaseBridge {
               const m = String(row.id).match(/_u(\d+)$/);
               if (m) row.user_id = Number(m[1]);
             }
-            if (table === 'users' && row.username && row.id !== undefined) {
-              const existingUser = this.origPrepare('SELECT id, password FROM users WHERE LOWER(username) = LOWER(?) OR id = ?')
-                .get(String(row.username), row.id);
-              if (existingUser && existingUser.password && (!row.password || !String(row.password).trim())) {
-                row.password = existingUser.password;
+            if (table === 'users' && row.username) {
+              const existingByName = this.origPrepare('SELECT id, password FROM users WHERE LOWER(username) = LOWER(?)')
+                .get(String(row.username));
+              if (existingByName) {
+                row.id = existingByName.id;
+                if (existingByName.password && (!row.password || !String(row.password).trim())) {
+                  row.password = existingByName.password;
+                }
+              } else if (row.id !== undefined && row.id !== null) {
+                const collisionById = this.origPrepare('SELECT username FROM users WHERE id = ?').get(row.id);
+                if (collisionById && String(collisionById.username).toLowerCase() !== String(row.username).toLowerCase()) {
+                  delete row.id;
+                }
               }
-              this.origPrepare('DELETE FROM users WHERE LOWER(username) = LOWER(?) AND id != ?')
-                .run(String(row.username), row.id);
             }
             const cols = Object.keys(row).filter(k => validCols.has(k) && row[k] !== undefined);
             if (cols.length === 0) continue;
@@ -526,7 +532,26 @@ class SupabaseDatabaseBridge {
                 }
               }
             }
-            mergedTables[table] = Array.from(byKey.values());
+            let mergedList = Array.from(byKey.values());
+            if (table === 'users') {
+              const usedIds = new Set();
+              let maxId = 0;
+              for (const u of mergedList) {
+                const numId = Number(u.id);
+                if (Number.isInteger(numId) && numId > maxId) maxId = numId;
+              }
+              mergedList = mergedList.map(u => {
+                const numId = Number(u.id);
+                if (!Number.isInteger(numId) || numId <= 0 || usedIds.has(numId)) {
+                  maxId += 1;
+                  usedIds.add(maxId);
+                  return { ...u, id: maxId };
+                }
+                usedIds.add(numId);
+                return { ...u, id: numId };
+              });
+            }
+            mergedTables[table] = mergedList;
           }
           // Hydrate merged rows back into local SQLite so this instance also has all remote rows
           this.importRowsIntoSqlite(mergedTables, { deletedIds: this.serializeDeletedIds() });
