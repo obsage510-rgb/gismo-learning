@@ -6359,7 +6359,28 @@ function executeVoiceCommand(rawTranscript) {
     return;
   }
   
-  // 4. AI Tutor Interactivity & Query Answering
+  // 4. AI Tutor Card Open / Close & Query Answering
+  if (
+    /\b(open|show|expand)\s+(?:the\s+)?(?:ai|a\s*i|tutor|ai\s+tutor|gismo)\b/.test(t) ||
+    t === 'openai' || t === 'showai'
+  ) {
+    playEarcon('success');
+    updateVoiceHudState('matched', 'Executing Command', 'Opened AI Tutor');
+    openTutorPanel();
+    announceTTS("AI Tutor opened.");
+    return;
+  }
+
+  if (
+    /\b(close|hide|minimize|dismiss)\s+(?:the\s+)?(?:ai|a\s*i|tutor|ai\s+tutor|gismo)\b/.test(t) ||
+    t === 'closeai' || t === 'hideai'
+  ) {
+    playEarcon('success');
+    updateVoiceHudState('matched', 'Executing Command', 'Closed AI Tutor');
+    closeTutorPanel();
+    announceTTS("AI Tutor closed.");
+    return;
+  }
 
   if (isGeneralQuery) {
     let question = rawTranscript.trim();
@@ -6382,20 +6403,6 @@ function executeVoiceCommand(rawTranscript) {
       announceTTS("AI Tutor is ready. What would you like to ask?");
       return;
     }
-  }
-  
-  if (t.includes('open tutor') || t.includes('show tutor') || t.includes('expand tutor')) {
-    playEarcon('success');
-    updateVoiceHudState('matched', 'Executing Command', 'Opened AI Tutor Workspace');
-    openTutorPanel();
-    return;
-  }
-  
-  if (t.includes('close tutor') || t.includes('hide tutor') || t.includes('minimize tutor')) {
-    playEarcon('success');
-    updateVoiceHudState('matched', 'Executing Command', 'Minimized AI Tutor');
-    closeTutorPanel();
-    return;
   }
   
   // 5. Help Guide
