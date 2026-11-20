@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gismo — Accessible AI Learning for Every Student</title>
   <meta name="description" content="Gismo is an accessible AI-powered learning platform built for visually impaired, deaf and hard-of-hearing, and neurodiverse students. Explore our mission, vision, team, and support options.">
-  <link rel="stylesheet" href="landing.css?v=5">
+  <link rel="stylesheet" href="landing.css?v=6">
   <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css">
   <script src="https://js.paystack.co/v1/inline.js"></script>
 </head>
@@ -29,6 +29,16 @@
       </ul>
 
       <div class="nav-actions">
+        <button id="btn-landing-voice-nav" class="btn-voice-nav-landing listening" type="button" aria-label="Toggle Hands-Free Voice Navigator (Alt + V)" title="Toggle Hands-Free Voice Commands (Alt + V)">
+          <span class="voice-nav-dot" aria-hidden="true"></span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v1a7 7 0 0 1-14 0v-1"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+          <span class="voice-nav-label">Voice Nav</span>
+        </button>
         <button id="landing-theme-toggle" class="btn-theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle light/dark theme">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
@@ -45,6 +55,79 @@
       </div>
     </div>
   </header>
+
+  <!-- Floating Hands-Free Voice Command HUD (Active by Default) -->
+  <aside id="landing-voice-hud" class="landing-voice-hud" role="status" aria-live="assertive" aria-label="Hands-free voice assistant">
+    <div class="landing-voice-hud-inner">
+      <div class="landing-voice-hud-mic" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v1a7 7 0 0 1-14 0v-1"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      </div>
+      <div class="landing-voice-hud-text">
+        <div class="landing-voice-hud-title" id="landing-voice-hud-title">Listening for Voice Commands...</div>
+        <div class="landing-voice-hud-sub" id="landing-voice-hud-sub">Try: "Launch app", "About", "Donations", "Read page"</div>
+      </div>
+      <div class="landing-voice-hud-actions">
+        <button type="button" class="landing-voice-hud-btn" id="btn-landing-voice-help" title="Voice Commands Guide" aria-label="Open Voice Commands Guide">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </button>
+        <button type="button" class="landing-voice-hud-btn" id="btn-landing-voice-close" title="Turn Off Voice Nav" aria-label="Close Voice Navigator">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Landing Page Voice Commands Help Modal -->
+  <div id="landing-voice-help-modal" class="landing-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="landing-voice-help-title">
+    <div class="landing-modal-card">
+      <div class="landing-modal-header">
+        <div>
+          <h3 id="landing-voice-help-title" style="margin:0; font-family:var(--font-display); font-size:1.25rem;">Hands-Free Voice Navigator</h3>
+          <span style="font-size:0.82rem; color:var(--text-secondary);">Explore Gismo, listen to sections, or launch the portal by voice</span>
+        </div>
+        <button type="button" class="landing-voice-hud-btn" id="btn-close-landing-voice-help" aria-label="Close Voice Help">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="landing-modal-body">
+        <div class="landing-voice-grid">
+          <div class="landing-voice-card">
+            <div class="landing-voice-cat">Launch &amp; Sign In</div>
+            <div class="landing-voice-phrase">"Launch app" / "Open app"</div>
+            <div class="landing-voice-phrase">"Log in" / "Sign in" / "Student portal"</div>
+            <div class="landing-voice-phrase">"Admin portal" / "Instructor portal"</div>
+          </div>
+          <div class="landing-voice-card">
+            <div class="landing-voice-cat">Section Navigation</div>
+            <div class="landing-voice-phrase">"About" / "Our vision" / "Team"</div>
+            <div class="landing-voice-phrase">"Donations" / "Contact us" / "Home"</div>
+            <div class="landing-voice-phrase">"Scroll down" / "Scroll up"</div>
+          </div>
+          <div class="landing-voice-card">
+            <div class="landing-voice-cat">Listen &amp; Accessibility</div>
+            <div class="landing-voice-phrase">"Read page" / "Read about" / "Read vision"</div>
+            <div class="landing-voice-phrase">"Read team" / "Read donations"</div>
+            <div class="landing-voice-phrase">"Stop reading" / "Dark mode" / "Light mode"</div>
+          </div>
+          <div class="landing-voice-card">
+            <div class="landing-voice-cat">Hands-Free Donations</div>
+            <div class="landing-voice-phrase">"Donate 25 dollars" / "Donate 50"</div>
+            <div class="landing-voice-phrase">"Monthly support" / "One time"</div>
+            <div class="landing-voice-phrase">"Next step" / "Step 2" / "Step 3"</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding: 0.95rem 1.4rem; border-top: 1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <span style="font-size:0.8rem; color:var(--text-secondary);">Shortcut: Press <strong>Alt + V</strong> anywhere to toggle</span>
+        <button type="button" class="btn btn-primary" id="btn-got-it-landing-voice" style="padding:0.45rem 1.15rem; font-size:0.85rem;">Got it</button>
+      </div>
+    </div>
+  </div>
 
   <main>
     <!-- 1. Hero Section -->
@@ -1210,6 +1293,425 @@
         }
       });
     }
+
+    // ====================================================================
+    // --- Hands-Free Voice Navigator for Gismo Landing Page (Default On) ---
+    // ====================================================================
+    const landingVoiceState = {
+      isListening: true,
+      engineRunning: false,
+      recognition: null,
+      speechSupported: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+      isSpeaking: false,
+      lastSpeakingEndTime: 0,
+      manuallyStoppedByUser: false,
+      gestureRetryAttached: false
+    };
+
+    const landingVoiceBtn = document.getElementById('btn-landing-voice-nav');
+    const landingVoiceHud = document.getElementById('landing-voice-hud');
+    const landingVoiceTitle = document.getElementById('landing-voice-hud-title');
+    const landingVoiceSub = document.getElementById('landing-voice-hud-sub');
+    const landingHelpModal = document.getElementById('landing-voice-help-modal');
+
+    function updateLandingVoiceHud(mode, title, subtitle) {
+      if (landingVoiceHud && mode === 'matched') {
+        landingVoiceHud.classList.add('action-matched');
+        setTimeout(() => landingVoiceHud.classList.remove('action-matched'), 1500);
+      }
+      if (landingVoiceTitle && title) landingVoiceTitle.textContent = title;
+      if (landingVoiceSub && subtitle) landingVoiceSub.textContent = subtitle;
+    }
+
+    function speakLandingTTS(text) {
+      if (!window.speechSynthesis || !text) return;
+      try {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = 'en-US';
+        utter.rate = 1.02;
+        utter.onstart = () => {
+          landingVoiceState.isSpeaking = true;
+        };
+        utter.onend = () => {
+          landingVoiceState.isSpeaking = false;
+          landingVoiceState.lastSpeakingEndTime = Date.now();
+        };
+        utter.onerror = () => {
+          landingVoiceState.isSpeaking = false;
+          landingVoiceState.lastSpeakingEndTime = Date.now();
+        };
+        window.speechSynthesis.speak(utter);
+      } catch (_) {}
+    }
+
+    function stopLandingTTS() {
+      if (window.speechSynthesis) {
+        try { window.speechSynthesis.cancel(); } catch (_) {}
+      }
+      landingVoiceState.isSpeaking = false;
+      landingVoiceState.lastSpeakingEndTime = Date.now();
+    }
+
+    function openLandingVoiceHelp() {
+      if (landingHelpModal) landingHelpModal.classList.remove('hidden');
+    }
+
+    function closeLandingVoiceHelp() {
+      if (landingHelpModal) landingHelpModal.classList.add('hidden');
+    }
+
+    function scrollToLandingSection(sectionId, label, readAloudOnArrive = false) {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        updateLandingVoiceHud('matched', `Navigated: ${label}`, `Viewing ${label} section`);
+        if (readAloudOnArrive) {
+          readLandingSection(sectionId);
+        } else {
+          speakLandingTTS(`Navigated to ${label}.`);
+        }
+      }
+    }
+
+    function readLandingSection(sectionId) {
+      const summaries = {
+        hero: 'Welcome to Gismo Accessible AI Learning. Learning designed so no student is left behind. Gismo pairs an adaptive AI tutor with voice-first navigation, natural text-to-speech, dyslexia-friendly typography, and a curated public-domain library. Say Launch App to enter the learning portal, or say About, Vision, Team, Donations, or Contact.',
+        about: 'About Gismo: Technology that adapts to the student. Featuring a Hands-Free Voice Workspace, Adaptive Reading and OpenDyslexic Library, and an Educator and Admin Command Center.',
+        vision: 'Our Vision: An inclusive classroom where blindness, deafness, or dyslexia never limits potential. Focused on zero-barrier onboarding, real-time AI companionship, and community-driven open curricula.',
+        team: 'Meet the Gismo Team: Nwani Tochukwu, Co-founder and Chief Technical Officer; Nwani Johnpaul, Co-founder and Team Lead; and Richard Jennifer, Project Designer.',
+        donations: 'Support the Mission: Help keep Gismo free for students who need it most. 40 percent funds AI and ElevenLabs voice credits, 30 percent supports Nsukka study hubs and school outreach, 20 percent funds open library digitization, and 10 percent powers zero-paywall cloud sync. Say Donate 25 dollars or Next Step to contribute.',
+        contact: 'Contact Us: Reach Gismo at gismolearning@gmail.com or call 09162900417, Monday through Friday, 9 AM to 4 PM West Africa Time, at The Block Hive and Uhere Study Center in Nsukka.'
+      };
+      const text = summaries[sectionId] || summaries.hero;
+      updateLandingVoiceHud('matched', 'Reading Aloud...', text.slice(0, 68) + '...');
+      speakLandingTTS(text);
+    }
+
+    function executeLandingVoiceCommand(rawTranscript) {
+      const t = String(rawTranscript || '').toLowerCase().trim().replace(/[.,!?;:]/g, '');
+      if (!t) return;
+
+      // 1. Stop reading / silence
+      if (t === 'stop' || t === 'stop reading' || t === 'stop speaking' || t === 'silence' || t === 'quiet' || t === 'pause') {
+        stopLandingTTS();
+        updateLandingVoiceHud('matched', 'Speech Paused', 'Listening for voice commands...');
+        return;
+      }
+
+      // 2. Launch App / Login / Admin Portal
+      if (/\b(admin portal|instructor portal|teacher portal|teacher dashboard|admin login|instructor login)\b/.test(t)) {
+        updateLandingVoiceHud('matched', 'Opening Instructor Portal...', 'Redirecting to /app?portal=admin');
+        speakLandingTTS('Opening Instructor and Admin Portal.');
+        setTimeout(() => { window.location.href = '/app?portal=admin'; }, 350);
+        return;
+      }
+
+      if (/\b(launch app|open app|start learning|open portal|learning portal|student portal|log in|login|sign in|open library)\b/.test(t)) {
+        updateLandingVoiceHud('matched', 'Launching Gismo App...', 'Redirecting to /app');
+        speakLandingTTS('Opening Gismo Learning Portal.');
+        setTimeout(() => { window.location.href = '/app'; }, 350);
+        return;
+      }
+
+      // 3. Help modal
+      if (t === 'help' || t.includes('voice command') || t.includes('what can i say') || t.includes('show help')) {
+        openLandingVoiceHelp();
+        updateLandingVoiceHud('matched', 'Voice Commands Guide', 'Showing available landing page voice commands');
+        speakLandingTTS('Opened Voice Commands Guide. You can say Launch App, About, Vision, Team, Donations, Contact, Read Page, or Dark Mode.');
+        return;
+      }
+
+      if (t.includes('close help') || t.includes('close modal') || t === 'got it') {
+        closeLandingVoiceHelp();
+        updateLandingVoiceHud('matched', 'Closed Guide', 'Listening for voice commands...');
+        return;
+      }
+
+      // 4. Theme toggles
+      if (t.includes('dark mode') || t.includes('theme dark')) {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('landingTheme', 'dark');
+        updateLandingVoiceHud('matched', 'Dark Mode Enabled', 'Switched to dark theme');
+        speakLandingTTS('Dark mode enabled.');
+        return;
+      }
+
+      if (t.includes('light mode') || t.includes('theme light')) {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('landingTheme', 'light');
+        updateLandingVoiceHud('matched', 'Light Mode Enabled', 'Switched to light theme');
+        speakLandingTTS('Light mode enabled.');
+        return;
+      }
+
+      // 5. Read section commands
+      if (/\b(read about|tell me about gismo)\b/.test(t)) {
+        scrollToLandingSection('about', 'About Gismo', true);
+        return;
+      }
+      if (/\b(read vision|what is your vision|our mission)\b/.test(t)) {
+        scrollToLandingSection('vision', 'Our Vision', true);
+        return;
+      }
+      if (/\b(read team|who built gismo|meet the team)\b/.test(t)) {
+        scrollToLandingSection('team', 'Meet the Team', true);
+        return;
+      }
+      if (/\b(read donation|read donations|where do donations go|how do donations work)\b/.test(t)) {
+        scrollToLandingSection('donations', 'Donations', true);
+        return;
+      }
+      if (/\b(read contact|contact info|phone number|email address)\b/.test(t)) {
+        scrollToLandingSection('contact', 'Contact Us', true);
+        return;
+      }
+      if (/\b(read page|read summary|read hero|introduce gismo|narrate|listen)\b/.test(t)) {
+        readLandingSection('hero');
+        return;
+      }
+
+      // 6. Donation amount & step voice commands
+      const donateAmtMatch = t.match(/\bdonate\s+\$?(\d+)\b/);
+      if (donateAmtMatch) {
+        const amt = Number(donateAmtMatch[1]);
+        if (amt > 0) {
+          document.getElementById('donations')?.scrollIntoView({ behavior: 'smooth' });
+          goToDonateStep(1);
+          selectedAmount = amt;
+          if (customAmountInput) customAmountInput.value = amt;
+          if (amountGrid) {
+            amountGrid.querySelectorAll('.amount-btn').forEach(b => {
+              b.classList.toggle('active', Number(b.dataset.amount) === amt);
+            });
+          }
+          updateDonationUI();
+          updateLandingVoiceHud('matched', `Donation Amount: $${amt}`, 'Say "Next step" to choose cause & donor info');
+          speakLandingTTS(`Selected ${amt} dollars donation. ${computeImpactDescription()} Say Next Step to continue.`);
+          return;
+        }
+      }
+
+      if (t.includes('monthly support') || t === 'monthly') {
+        document.querySelectorAll('.freq-btn').forEach(b => b.classList.toggle('active', b.dataset.freq === 'monthly'));
+        selectedFreq = 'monthly';
+        updateDonationUI();
+        updateLandingVoiceHud('matched', 'Monthly Support', 'Set donation frequency to Monthly');
+        speakLandingTTS('Monthly donation selected.');
+        return;
+      }
+
+      if (t.includes('one time') || t.includes('one-time')) {
+        document.querySelectorAll('.freq-btn').forEach(b => b.classList.toggle('active', b.dataset.freq === 'one-time'));
+        selectedFreq = 'one-time';
+        updateDonationUI();
+        updateLandingVoiceHud('matched', 'One-Time Gift', 'Set donation frequency to One-Time');
+        speakLandingTTS('One-time donation selected.');
+        return;
+      }
+
+      if (t === 'step 1' || t === 'step one') {
+        document.getElementById('donations')?.scrollIntoView({ behavior: 'smooth' });
+        goToDonateStep(1);
+        updateLandingVoiceHud('matched', 'Donation Step 1', 'Select Amount');
+        speakLandingTTS('Donation Step 1: Select Amount.');
+        return;
+      }
+
+      if (t === 'step 2' || t === 'step two' || (t === 'next step' && currentDonateStep === 1)) {
+        document.getElementById('donations')?.scrollIntoView({ behavior: 'smooth' });
+        goToDonateStep(2);
+        updateLandingVoiceHud('matched', 'Donation Step 2', 'Choose Cause & Donor Info');
+        speakLandingTTS('Donation Step 2: Choose where your donation should go and enter your email for the receipt.');
+        return;
+      }
+
+      if (t === 'step 3' || t === 'step three' || t === 'proceed to checkout' || (t === 'next step' && currentDonateStep === 2)) {
+        document.getElementById('donations')?.scrollIntoView({ behavior: 'smooth' });
+        const emailInput = document.getElementById('donation-donor-email');
+        if (emailInput && !emailInput.value.trim()) {
+          emailInput.value = 'supporter@gismo.edu';
+        }
+        goToDonateStep(3);
+        updateLandingVoiceHud('matched', 'Donation Step 3', 'Proceed to Paystack Checkout');
+        speakLandingTTS(`Donation Step 3: Ready to pay ${selectedAmount} dollars via Paystack.`);
+        return;
+      }
+
+      // 7. Section Navigation
+      if (t === 'home' || t === 'top' || t === 'go home' || t === 'top of page' || t === 'hero') {
+        scrollToLandingSection('hero', 'Home');
+        return;
+      }
+      if (t === 'about' || t === 'about us' || t === 'go to about' || t === 'our story') {
+        scrollToLandingSection('about', 'About Gismo');
+        return;
+      }
+      if (t === 'vision' || t === 'our vision' || t === 'go to vision' || t === 'mission') {
+        scrollToLandingSection('vision', 'Our Vision');
+        return;
+      }
+      if (t === 'team' || t === 'our team' || t === 'go to team' || t === 'founders') {
+        scrollToLandingSection('team', 'Meet the Team');
+        return;
+      }
+      if (t === 'donate' || t === 'donations' || t === 'go to donations' || t === 'support') {
+        scrollToLandingSection('donations', 'Donations');
+        return;
+      }
+      if (t === 'contact' || t === 'contact us' || t === 'go to contact' || t === 'partner') {
+        scrollToLandingSection('contact', 'Contact Us');
+        return;
+      }
+
+      // 8. Scrolling
+      if (t.includes('scroll down') || t === 'down' || t === 'next section') {
+        window.scrollBy({ top: Math.round(window.innerHeight * 0.75), behavior: 'smooth' });
+        updateLandingVoiceHud('matched', 'Scrolling Down', 'Moved down the page');
+        return;
+      }
+      if (t.includes('scroll up') || t === 'up' || t === 'previous section') {
+        window.scrollBy({ top: -Math.round(window.innerHeight * 0.75), behavior: 'smooth' });
+        updateLandingVoiceHud('matched', 'Scrolling Up', 'Moved up the page');
+        return;
+      }
+    }
+
+    function initLandingVoiceNavigator() {
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) return null;
+
+      const rec = new SpeechRec();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'en-US';
+
+      rec.onstart = () => {
+        landingVoiceState.isListening = true;
+        landingVoiceState.engineRunning = true;
+        if (landingVoiceBtn) landingVoiceBtn.classList.add('listening');
+        if (landingVoiceHud) landingVoiceHud.classList.remove('hidden');
+        updateLandingVoiceHud('listening', 'Listening for Voice Commands...', 'Try: "Launch app", "About", "Donations", "Read page"');
+      };
+
+      rec.onresult = (event) => {
+        if (landingVoiceState.isSpeaking || (Date.now() - (landingVoiceState.lastSpeakingEndTime || 0) < 800)) {
+          return;
+        }
+        let interim = '';
+        let finalText = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalText += event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        const heard = (finalText || interim).trim();
+        if (heard && landingVoiceSub) {
+          landingVoiceSub.textContent = `Heard: "${heard}"`;
+        }
+        if (finalText.trim()) {
+          executeLandingVoiceCommand(finalText.trim());
+        }
+      };
+
+      rec.onerror = (event) => {
+        if (event.error === 'aborted') return;
+        if (event.error === 'not-allowed') {
+          landingVoiceState.engineRunning = false;
+          updateLandingVoiceHud('error', 'Microphone Access Denied', 'Allow microphone access or click Voice Nav to retry.');
+        }
+      };
+
+      rec.onend = () => {
+        landingVoiceState.engineRunning = false;
+        if (landingVoiceState.isListening && !landingVoiceState.manuallyStoppedByUser && !landingVoiceState.isSpeaking) {
+          try { rec.start(); } catch (_) {}
+        }
+      };
+
+      return rec;
+    }
+
+    function startLandingVoiceNavigator() {
+      landingVoiceState.isListening = true;
+      if (landingVoiceBtn) landingVoiceBtn.classList.add('listening');
+      if (landingVoiceHud) landingVoiceHud.classList.remove('hidden');
+
+      if (!landingVoiceState.speechSupported) {
+        updateLandingVoiceHud('listening', 'Voice Nav Active', 'Say "Launch app", "About", "Donations", or "Read page"');
+        return;
+      }
+
+      if (!landingVoiceState.recognition) {
+        landingVoiceState.recognition = initLandingVoiceNavigator();
+      }
+
+      try {
+        landingVoiceState.recognition.start();
+      } catch (_) {}
+
+      if (!landingVoiceState.gestureRetryAttached) {
+        landingVoiceState.gestureRetryAttached = true;
+        const retryOnGesture = () => {
+          if (landingVoiceState.isListening && !landingVoiceState.manuallyStoppedByUser && !landingVoiceState.engineRunning && landingVoiceState.recognition) {
+            try { landingVoiceState.recognition.start(); } catch (_) {}
+          }
+          if (landingVoiceState.engineRunning || landingVoiceState.manuallyStoppedByUser) {
+            landingVoiceState.gestureRetryAttached = false;
+            window.removeEventListener('click', retryOnGesture);
+            window.removeEventListener('keydown', retryOnGesture);
+            window.removeEventListener('touchstart', retryOnGesture);
+          }
+        };
+        window.addEventListener('click', retryOnGesture);
+        window.addEventListener('keydown', retryOnGesture);
+        window.addEventListener('touchstart', retryOnGesture, { passive: true });
+      }
+    }
+
+    function stopLandingVoiceNavigator() {
+      landingVoiceState.manuallyStoppedByUser = true;
+      landingVoiceState.isListening = false;
+      landingVoiceState.engineRunning = false;
+      stopLandingTTS();
+      if (landingVoiceState.recognition) {
+        try { landingVoiceState.recognition.stop(); } catch (_) {}
+      }
+      if (landingVoiceBtn) landingVoiceBtn.classList.remove('listening');
+      if (landingVoiceHud) landingVoiceHud.classList.add('hidden');
+    }
+
+    function toggleLandingVoiceNavigator() {
+      if (landingVoiceState.isListening) {
+        stopLandingVoiceNavigator();
+      } else {
+        landingVoiceState.manuallyStoppedByUser = false;
+        startLandingVoiceNavigator();
+      }
+    }
+
+    landingVoiceBtn?.addEventListener('click', toggleLandingVoiceNavigator);
+    document.getElementById('btn-landing-voice-close')?.addEventListener('click', stopLandingVoiceNavigator);
+    document.getElementById('btn-landing-voice-help')?.addEventListener('click', openLandingVoiceHelp);
+    document.getElementById('btn-close-landing-voice-help')?.addEventListener('click', closeLandingVoiceHelp);
+    document.getElementById('btn-got-it-landing-voice')?.addEventListener('click', closeLandingVoiceHelp);
+    landingHelpModal?.addEventListener('click', (e) => {
+      if (e.target === landingHelpModal) closeLandingVoiceHelp();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.altKey && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        toggleLandingVoiceNavigator();
+      } else if (e.key === 'Escape') {
+        closeLandingVoiceHelp();
+      }
+    });
+
+    // Auto-start Voice Navigator by default when the landing page loads
+    startLandingVoiceNavigator();
   </script>
   <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
   <script>
