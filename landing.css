@@ -613,67 +613,6 @@ a {
   color: var(--text-secondary);
 }
 
-.payment-method-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  margin-bottom: 1.15rem;
-}
-
-.pm-tab-btn {
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-page);
-  color: var(--text-secondary);
-  font-family: var(--font-sans);
-  font-size: 0.86rem;
-  font-weight: 700;
-  padding: 0.65rem 0.75rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.pm-tab-btn.active {
-  background: var(--brand-primary);
-  color: #ffffff;
-  border-color: var(--brand-primary);
-}
-
-.crypto-wallet-box {
-  background: var(--bg-muted);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 0.85rem 1rem;
-  margin-bottom: 1rem;
-}
-
-.crypto-wallet-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.3rem;
-}
-
-.crypto-wallet-addr {
-  font-family: monospace;
-  font-size: 0.8rem;
-  word-break: break-all;
-  color: var(--text-main);
-}
-
-.btn-copy-wallet {
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-surface);
-  color: var(--text-main);
-  font-size: 0.76rem;
-  font-weight: 700;
-  padding: 0.35rem 0.7rem;
-  border-radius: 8px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
 .freq-toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -827,40 +766,6 @@ a {
   border-radius: 50%;
   margin-top: 0.25rem;
   flex-shrink: 0;
-}
-
-.demo-mode-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  background: var(--brand-accent-soft);
-  color: var(--brand-accent);
-  border: 1px dashed var(--brand-accent);
-  padding: 0.55rem 0.85rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.78rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-}
-
-.demo-fill-btn {
-  border: 1px solid var(--brand-accent);
-  background: var(--bg-surface);
-  color: var(--brand-accent);
-  font-family: var(--font-sans);
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 0.22rem 0.6rem;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.demo-fill-btn:hover {
-  background: var(--brand-accent);
-  color: #ffffff;
 }
 
 .donate-stepper {

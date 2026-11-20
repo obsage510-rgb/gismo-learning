@@ -542,7 +542,6 @@ async function removeLibraryBook(bookId, btnEl) {
     showToast(`Removed "${bookTitle}" from your library.`, 'book');
     announceTTS(`Removed ${bookTitle} from your library.`);
     await fetchTextbooks();
-    renderLibrary();
   } catch (err) {
     if (btnEl) btnEl.disabled = false;
     showToast(err.message || 'Failed to remove book.', 'warning');
@@ -3178,8 +3177,26 @@ async function handleDeleteAdminQuiz(quizId) {
 }
 window.handleDeleteAdminQuiz = handleDeleteAdminQuiz;
 
-async function handleBroadcastAnnouncement() {
+async function fetchGlobalAnnouncement() {
+  const banner = document.getElementById('global-announcement-banner');
+  const textEl = document.getElementById('global-announcement-text');
+  if (!banner || !textEl) return;
+  try {
+    const res = await fetch('/api/announcement');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.announcement) {
+      textEl.textContent = data.announcement;
+      banner.style.display = 'flex';
+      banner.classList.remove('hidden');
+    } else {
+      banner.classList.add('hidden');
+    }
+  } catch (_) {}
+}
+window.fetchGlobalAnnouncement = fetchGlobalAnnouncement;
 
+async function handleBroadcastAnnouncement() {
   const input = document.getElementById('admin-announcement-input');
   const msg = input ? input.value.trim() : '';
   if (!msg) {
@@ -3197,6 +3214,7 @@ async function handleBroadcastAnnouncement() {
       playEarcon('success');
       announceTTS(`Broadcast announcement dispatched: ${msg}`);
       if (input) input.value = '';
+      fetchGlobalAnnouncement();
     }
   } catch (e) {
     console.error("handleBroadcastAnnouncement error:", e);
@@ -3761,38 +3779,45 @@ async function handleFileUpload() {
 
 async function loadLibraryFiles() {
   if (!appState.user) return;
-  const res = await fetch(`/api/files?user_id=${appState.user.id}`);
-  const files = await res.json();
   const list = document.getElementById('library-files-list');
-  list.innerHTML = '';
-  if(files.length === 0) {
-    list.innerHTML = '<li class="note-item" style="grid-column: 1 / -1; text-align: center; opacity: 0.7;">No files uploaded yet.</li>';
-    return;
-  }
-  files.forEach(f => {
-    const li = document.createElement('li');
-    li.className = 'note-item col-12 col-md-6 d-flex align-items-center gap-3 p-3';
-    li.style.cursor = 'pointer';
-    li.style.transition = 'transform 0.2s';
-    li.onmouseover = () => li.style.transform = 'translateY(-2px)';
-    li.onmouseout = () => li.style.transform = 'translateY(0)';
-    li.onclick = () => window.open(`/uploads/${f.filepath}`, '_blank');
-    
-    const ext = f.filename.split('.').pop().toLowerCase();
-    let icon = getAppSvgIcon('file', 22);
-    if (['jpg', 'png', 'gif', 'jpeg'].includes(ext)) icon = getAppSvgIcon('image', 22);
-    if (['mp3', 'wav', 'ogg'].includes(ext)) icon = getAppSvgIcon('music', 22);
-    if (ext === 'pdf') icon = getAppSvgIcon('book', 22);
+  if (!list) return;
+  try {
+    const res = await fetch(`/api/files?user_id=${encodeURIComponent(appState.user.id)}`);
+    if (!res.ok) return;
+    const files = await res.json();
+    list.innerHTML = '';
+    if (!Array.isArray(files) || files.length === 0) {
+      list.innerHTML = '<li class="note-item" style="grid-column: 1 / -1; text-align: center; opacity: 0.7;">No files uploaded yet.</li>';
+      return;
+    }
+    files.forEach(f => {
+      const li = document.createElement('li');
+      li.className = 'note-item col-12 col-md-6 d-flex align-items-center gap-3 p-3';
+      li.style.cursor = 'pointer';
+      li.style.transition = 'transform 0.2s';
+      li.onmouseover = () => li.style.transform = 'translateY(-2px)';
+      li.onmouseout = () => li.style.transform = 'translateY(0)';
+      const fileUrl = String(f.filepath || '').startsWith('/uploads/') ? f.filepath : `/uploads/${f.filepath}`;
+      li.onclick = () => window.open(fileUrl, '_blank');
+      
+      const ext = String(f.filename || '').split('.').pop().toLowerCase();
+      let icon = getAppSvgIcon('file', 22);
+      if (['jpg', 'png', 'gif', 'jpeg'].includes(ext)) icon = getAppSvgIcon('image', 22);
+      if (['mp3', 'wav', 'ogg'].includes(ext)) icon = getAppSvgIcon('music', 22);
+      if (ext === 'pdf') icon = getAppSvgIcon('book', 22);
 
-    li.innerHTML = `
-      <div style="font-size: 2rem; background: var(--bg-primary); padding: 0.5rem; border-radius: 8px;">${icon}</div>
-      <div style="overflow: hidden; text-align: left;">
-        <div style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);" title="${f.filename}">${f.filename}</div>
-        <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">${ext} File</div>
-      </div>
-    `;
-    list.appendChild(li);
-  });
+      li.innerHTML = `
+        <div style="font-size: 2rem; background: var(--bg-primary); padding: 0.5rem; border-radius: 8px;">${icon}</div>
+        <div style="overflow: hidden; text-align: left;">
+          <div style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);" title="${escapeHtml(f.filename)}">${escapeHtml(f.filename)}</div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">${escapeHtml(ext)} File</div>
+        </div>
+      `;
+      list.appendChild(li);
+    });
+  } catch (err) {
+    console.warn('Could not load library files:', err);
+  }
 }
 
 // --- TTS and Voices (Local Browser Web Speech API + Optional ElevenLabs Cloud) ---
@@ -3833,6 +3858,7 @@ function populateBrowserVoices() {
       appState.selectedVoice = (synth ? synth.getVoices() : []).find(v => v.name === vName);
       appState.useElevenLabs = false;
       localStorage.setItem('gismo_browser_voice', vName);
+      localStorage.removeItem('elevenLabsVoiceId');
     } else {
       appState.elevenLabsVoiceId = val;
       appState.useElevenLabs = true;
@@ -3876,8 +3902,10 @@ async function setupVoices() {
 
       if (data.voices && data.voices.length > 0 && elements.voiceSelect) {
         elements.voiceSelect.innerHTML = '';
-        const savedVoice = localStorage.getItem('elevenLabsVoiceId') || data.voices[0].voice_id;
-        appState.elevenLabsVoiceId = savedVoice;
+        const savedElevenVoice = localStorage.getItem('elevenLabsVoiceId');
+        const savedBrowserVoice = localStorage.getItem('gismo_browser_voice');
+        const defaultElevenVoice = savedElevenVoice || data.voices[0].voice_id;
+        appState.elevenLabsVoiceId = defaultElevenVoice;
 
         const elGroup = document.createElement('optgroup');
         elGroup.label = 'ElevenLabs AI Voices (Cloud)';
@@ -3885,7 +3913,7 @@ async function setupVoices() {
           const option = document.createElement('option');
           option.value = voice.voice_id;
           option.textContent = `${voice.name} (ElevenLabs AI)`;
-          if (voice.voice_id === savedVoice) option.selected = true;
+          if (!savedBrowserVoice && voice.voice_id === defaultElevenVoice) option.selected = true;
           elGroup.appendChild(option);
         });
         elements.voiceSelect.appendChild(elGroup);
@@ -3898,6 +3926,11 @@ async function setupVoices() {
             const opt = document.createElement('option');
             opt.value = `browser:${v.name}`;
             opt.textContent = `${v.name} (${v.lang})`;
+            if (savedBrowserVoice && v.name === savedBrowserVoice) {
+              opt.selected = true;
+              appState.selectedVoice = v;
+              appState.useElevenLabs = false;
+            }
             sysGroup.appendChild(opt);
           });
           if (sysVoices.length > 0) elements.voiceSelect.appendChild(sysGroup);
@@ -3909,6 +3942,7 @@ async function setupVoices() {
             appState.selectedVoice = (synth ? synth.getVoices() : []).find(v => v.name === vName);
             appState.useElevenLabs = false;
             localStorage.setItem('gismo_browser_voice', vName);
+            localStorage.removeItem('elevenLabsVoiceId');
           } else {
             appState.elevenLabsVoiceId = e.target.value;
             appState.useElevenLabs = true;
@@ -4192,7 +4226,11 @@ function toggleThemeSwitch(checkbox) {
 
 function setTheme(theme) {
   appState.currentTheme = theme;
-  elements.body.className = `theme-${theme}`;
+  elements.body.classList.remove('theme-light', 'theme-dark', 'theme-hc', 'theme-high-contrast');
+  elements.body.classList.add(`theme-${theme}`);
+  if (typeof isLoginViewActive === 'function') {
+    elements.body.classList.toggle('login-view-active', isLoginViewActive());
+  }
   localStorage.setItem('theme', theme);
   const chk = document.getElementById('theme-checkbox');
   if (chk) chk.checked = (theme === 'light');
@@ -7328,15 +7366,10 @@ function closeTutorPanel() {
   if (typeof playEarcon === 'function') playEarcon('click');
 }
 
-function toggleFloatingTutor() {
-  toggleTutorPanel();
-}
-
 // Expose functions globally for onclick attributes and external callers
 window.toggleTutorPanel = toggleTutorPanel;
 window.openTutorPanel = openTutorPanel;
 window.closeTutorPanel = closeTutorPanel;
-window.toggleFloatingTutor = toggleFloatingTutor;
 
 function setupDraggableTutor() {
   const header = document.getElementById('tutor-header');
@@ -7426,11 +7459,9 @@ async function triggerCrossDeviceSync() {
     } else {
       await loadStudentProfile();
       await fetchTextbooks();
-      if (typeof renderLibrary === 'function') {
-        renderLibrary(appState.currentLibraryTab || 'all');
-      }
       fetchNotes();
       fetchHomework();
+      fetchGlobalAnnouncement();
     }
   } catch (err) {
     console.warn("Cross-device sync check skipped:", err);

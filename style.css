@@ -4901,7 +4901,7 @@ html, body {
   transition: width 0.22s ease, height 0.22s ease, max-height 0.22s ease, opacity 0.2s ease, transform 0.2s ease !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel.tutor-panel {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel.tutor-panel {
   background: #141918 !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55) !important;
@@ -4925,7 +4925,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel.tutor-panel {
   gap: 0.75rem !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-header {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-header {
   background: #1c2422 !important;
   border-bottom-color: rgba(255, 255, 255, 0.1) !important;
 }
@@ -4943,7 +4943,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-header {
   flex-shrink: 0 !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-avatar {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-avatar {
   background: rgba(15, 92, 77, 0.22) !important;
   color: #e2e8f0 !important;
   border-color: rgba(255, 255, 255, 0.14) !important;
@@ -4963,7 +4963,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-avatar {
   line-height: 1.15 !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-title {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-title {
   color: #f8fafc !important;
 }
 
@@ -4984,7 +4984,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-title {
   border-radius: 999px !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .antigravity-pill {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .antigravity-pill {
   background: rgba(255, 255, 255, 0.12) !important;
   color: #e2e8f0 !important;
 }
@@ -4998,7 +4998,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .antigravity-pill 
   gap: 0.32rem !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-status {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-status {
   color: #34d399 !important;
 }
 
@@ -5023,8 +5023,8 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-status {
   box-shadow: none !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-header-actions button,
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-header-actions #btn-close-tutor {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-header-actions button,
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-header-actions #btn-close-tutor {
   background: rgba(255, 255, 255, 0.08) !important;
   color: #f8fafc !important;
   border-color: rgba(255, 255, 255, 0.14) !important;
@@ -5047,7 +5047,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-header-acti
   gap: 0.5rem !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-tabs-container {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-tabs-container {
   background: #141918 !important;
   border-bottom-color: rgba(255, 255, 255, 0.1) !important;
 }
@@ -5076,11 +5076,11 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-tabs-contai
   background: transparent !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-tab {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-tab {
   color: #94a3b8 !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-tab.active {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-tab.active {
   color: #f8fafc !important;
   border-bottom-color: #34d399 !important;
 }
@@ -5101,7 +5101,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-tab.active 
   flex-shrink: 0 !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-new-tab-btn {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-new-tab-btn {
   color: #e2e8f0 !important;
 }
 
@@ -5116,7 +5116,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-new-tab-btn
   gap: 0.85rem !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-messages {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .chat-messages {
   background: #141918 !important;
 }
 
@@ -5146,7 +5146,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-messages {
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04) !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .message-ai {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .message-ai {
   background: #1c2422 !important;
   color: #f1f5f9 !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
@@ -5159,7 +5159,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .message-ai {
   display: inline-block !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .message-timestamp {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .message-timestamp {
   color: #94a3b8 !important;
 }
 
@@ -5179,7 +5179,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .message-timestamp
   flex-shrink: 0 !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-feedback-module {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-feedback-module {
   background: #19201e !important;
   border-top-color: rgba(255, 255, 255, 0.08) !important;
 }
@@ -5220,7 +5220,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-feedback-mo
   flex-shrink: 0;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-quick-chips {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-quick-chips {
   background: #141918;
   border-top-color: rgba(255, 255, 255, 0.08);
 }
@@ -5242,7 +5242,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-quick-chips
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-chip-btn {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .tutor-chip-btn {
   background: #1c2422;
   color: #e2e8f0;
   border-color: rgba(255, 255, 255, 0.12);
@@ -5262,7 +5262,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .tutor-chip-btn {
   flex-shrink: 0 !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-bar {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .chat-input-bar {
   background: #141918 !important;
 }
 
@@ -5278,7 +5278,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-bar {
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-pill {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .chat-input-pill {
   background: #1c2422;
   border-color: rgba(255, 255, 255, 0.14);
 }
@@ -5302,7 +5302,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-pill {
   padding: 0 !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-pill .btn-voice {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .chat-input-pill .btn-voice {
   background: rgba(255, 255, 255, 0.1) !important;
   color: #f8fafc !important;
 }
@@ -5318,7 +5318,7 @@ body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-pill .
   box-shadow: none !important;
 }
 
-body:not(.theme-light):not(.theme-high-contrast) #tutor-panel .chat-input-pill .chat-input {
+body:not(.theme-light):not(.theme-high-contrast):not(.theme-hc) #tutor-panel .chat-input-pill .chat-input {
   color: #f8fafc !important;
 }
 

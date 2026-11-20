@@ -47,20 +47,8 @@ try {
   }
 } catch (_) {}
 
-// Load .env
-let GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || '';
-if (fs.existsSync(path.join(__dirname, '.env'))) {
-  const envContent = fs.readFileSync(path.join(__dirname, '.env'), 'utf-8');
-  for (const line of envContent.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
-      const idx = trimmed.indexOf('=');
-      const k = trimmed.slice(0, idx).trim();
-      const v = trimmed.slice(idx + 1).trim();
-      if (k === 'GOOGLE_API_KEY') GOOGLE_API_KEY = v;
-    }
-  }
-}
+// Load GOOGLE_API_KEY from environment
+const GOOGLE_API_KEY = (process.env.GOOGLE_API_KEY || '').trim();
 
 // Initialize SQLite + Supabase Bridge
 const db = new DatabaseSync(DB_PATH);
@@ -309,13 +297,16 @@ function resolveStudentUser(rawUserId, rawUsername) {
   }
 
   // If the client had an older local user_id on one device that differs from the canonical user.id,
-  // migrate any orphaned textbooks/notes/chats from numId to user.id so devices stay 100% in sync.
+  // migrate any orphaned records from numId to user.id so devices stay 100% in sync.
   if (user && numId && !Number.isNaN(numId) && Number(user.id) !== numId) {
     const otherUser = db.prepare('SELECT id FROM users WHERE id = ?').get(numId);
     if (!otherUser) {
       try { db.prepare('UPDATE textbooks SET user_id = ? WHERE user_id = ?').run(user.id, numId); } catch (_) {}
       try { db.prepare('UPDATE notes SET user_id = ? WHERE user_id = ?').run(user.id, numId); } catch (_) {}
       try { db.prepare('UPDATE chats SET user_id = ? WHERE user_id = ?').run(user.id, numId); } catch (_) {}
+      try { db.prepare('UPDATE files SET user_id = ? WHERE user_id = ?').run(user.id, numId); } catch (_) {}
+      try { db.prepare('UPDATE homework SET student_id = ? WHERE student_id = ?').run(user.id, numId); } catch (_) {}
+      try { db.prepare('UPDATE quiz_submissions SET student_id = ? WHERE student_id = ?').run(user.id, numId); } catch (_) {}
     }
   }
 
@@ -337,6 +328,15 @@ app.use('/api', async (req, res, next) => {
       }
       return origJson(body);
     };
+  }
+  next();
+});
+
+// Block direct HTTP access to database files, server scripts, and environment configs
+app.use((req, res, next) => {
+  const blocked = /^\/(gismo\.db.*|server\.js|supabase_db\.js|antigravity_model\.js|gutenberg_catalog\.js|supabase_schema\.sql|package(-lock)?\.json|vercel\.json|\.env.*)$/i;
+  if (blocked.test(req.path)) {
+    return res.status(404).end();
   }
   next();
 });
@@ -482,17 +482,18 @@ app.post('/api/donations/initialize', async (req, res) => {
 
       const paystackData = await paystackRes.json();
       if (paystackRes.ok && paystackData.status && paystackData.data) {
+        const inlineRef = `GISMO-INLINE-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
         try {
           db.prepare(`
             INSERT INTO donations (donor_name, donor_email, amount, currency, frequency, quick_note, payment_method, reference, status)
             VALUES (?, ?, ?, ?, ?, ?, 'paystack', ?, 'pending')
-          `).run(cleanName, cleanEmail, numericAmount, cleanCurrency, frequency, cleanNote, reference);
+          `).run(cleanName, cleanEmail, numericAmount, cleanCurrency, frequency, cleanNote, inlineRef);
         } catch (_) {}
 
         return res.json({
           success: true,
           mode: 'paystack_live',
-          reference: `GISMO-INLINE-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+          reference: inlineRef,
           server_reference: reference,
           publicKey,
           access_code: paystackData.data.access_code,

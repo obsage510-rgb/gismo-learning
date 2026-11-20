@@ -1379,7 +1379,7 @@
         hero: 'Welcome to Gismo Accessible AI Learning. Learning designed so no student is left behind. Gismo pairs an adaptive AI tutor with voice-first navigation, natural text-to-speech, dyslexia-friendly typography, and a curated public-domain library. Say Launch App to enter the learning portal, or say About, Vision, Team, Donations, or Contact.',
         about: 'About Gismo: Technology that adapts to the student. Featuring a Hands-Free Voice Workspace, Adaptive Reading and OpenDyslexic Library, and an Educator and Admin Command Center.',
         vision: 'Our Vision: An inclusive classroom where blindness, deafness, or dyslexia never limits potential. Focused on zero-barrier onboarding, real-time AI companionship, and community-driven open curricula.',
-        team: 'Meet the Gismo Team: Nwani Tochukwu, Co-founder and Chief Technical Officer; Nwani Johnpaul, Co-founder and Team Lead; and Richard Jennifer, Project Designer.',
+        team: 'Meet the Gismo Team: Obieze Chibueze, Co-founder and Technical Director; Nwani Johnpaul, Co-founder and Team Lead; and Richard Jennifer, Project Designer.',
         donations: 'Support the Mission: Help keep Gismo free for students who need it most. 40 percent funds AI and ElevenLabs voice credits, 30 percent supports Nsukka study hubs and school outreach, 20 percent funds open library digitization, and 10 percent powers zero-paywall cloud sync. Say Donate 25 dollars or Next Step to contribute.',
         contact: 'Contact Us: Reach Gismo at gismolearning@gmail.com or call 09162900417, Monday through Friday, 9 AM to 4 PM West Africa Time, at The Block Hive and Uhere Study Center in Nsukka.'
       };
@@ -1529,9 +1529,11 @@
       if (t === 'step 3' || t === 'step three' || t === 'proceed to checkout' || (t === 'next step' && currentDonateStep === 2)) {
         document.getElementById('donations')?.scrollIntoView({ behavior: 'smooth' });
         const emailInput = document.getElementById('donation-donor-email');
+        const step2Err = document.getElementById('step-2-error');
         if (emailInput && !emailInput.value.trim()) {
           emailInput.value = 'supporter@gismo.edu';
         }
+        if (step2Err) step2Err.style.display = 'none';
         goToDonateStep(3);
         updateLandingVoiceHud('matched', 'Donation Step 3', 'Proceed to Paystack Checkout');
         speakLandingTTS(`Donation Step 3: Ready to pay ${selectedAmount} dollars via Paystack.`);

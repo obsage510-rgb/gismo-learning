@@ -81,8 +81,10 @@ class SupabaseDatabaseBridge {
     const set = this.deletedIdsByTable[tableName];
     if (!set || !Array.isArray(rows)) return;
     for (const r of rows) {
-      if (r && r.id !== undefined && r.id !== null) {
+      if (r && typeof r === 'object' && r.id !== undefined && r.id !== null) {
         set.delete(String(r.id));
+      } else if (typeof r === 'string' || typeof r === 'number') {
+        set.delete(String(r));
       }
     }
   }
@@ -584,17 +586,10 @@ class SupabaseDatabaseBridge {
   }
 
   async syncTable(tableName, options = {}) {
-    if (!this.configured || !this.client) return;
+    if (!this.configured || !this.client || !this.postgresTablesReady) return;
 
     try {
-      if (!this.postgresTablesReady) {
-        const ready = await this.checkPostgresTables();
-        if (ready) {
-          await this.pullFromPostgresToSqlite();
-        }
-      }
-
-      if (this.postgresTablesReady && tableName && TABLES.includes(tableName)) {
+      if (tableName && TABLES.includes(tableName)) {
         const deletedSet = new Set(Array.isArray(options.deletedIds) ? options.deletedIds.map(String) : []);
         if (this.deletedIdsByTable[tableName]) {
           for (const id of this.deletedIdsByTable[tableName]) deletedSet.add(String(id));
