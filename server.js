@@ -230,15 +230,15 @@ function initDb() {
 }
 
 // Password helpers (compatible with Werkzeug scrypt)
-function checkPasswordHash(storedHash, password) {
-  if (!storedHash) return false;
-  if (!storedHash.includes('$')) return storedHash === password;
+function verifySinglePasswordHash(storedHash, candidatePassword) {
+  if (!storedHash || typeof storedHash !== 'string' || !storedHash.trim()) return false;
+  if (!storedHash.includes('$')) return storedHash === candidatePassword;
   const parts = storedHash.split('$');
   if (parts.length === 3) {
     const [method, salt, hash] = parts;
     if (method.startsWith('scrypt:')) {
       const [_, N, r, p] = method.split(':');
-      const computed = crypto.scryptSync(password, salt, 64, {
+      const computed = crypto.scryptSync(candidatePassword, salt, 64, {
         N: parseInt(N, 10),
         r: parseInt(r, 10),
         p: parseInt(p, 10),
@@ -251,6 +251,15 @@ function checkPasswordHash(storedHash, password) {
       }
     }
   }
+  return false;
+}
+
+function checkPasswordHash(storedHash, password) {
+  if (!storedHash || !password) return false;
+  if (verifySinglePasswordHash(storedHash, password)) return true;
+  // Support voice recognition auto-capitalizing the first letter of a spoken lowercase password
+  const lower = String(password).toLowerCase();
+  if (lower !== password && verifySinglePasswordHash(storedHash, lower)) return true;
   return false;
 }
 
@@ -298,15 +307,6 @@ function resolveStudentUser(rawUserId, rawUsername) {
   if (!user && numId && !Number.isNaN(numId)) {
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(numId);
   }
-  if (!user && cleanName) {
-    const today = new Date().toISOString().split('T')[0];
-    const regNo = 'STD-' + Math.floor(1000 + Math.random() * 9000);
-    const info = db.prepare(`
-      INSERT INTO users (username, password, school, reg_no, disability, role, quizzes_passed, last_login_date, current_streak)
-      VALUES (?, '', 'Gismo Academy', ?, 'None', 'student', 0, ?, 1)
-    `).run(cleanName, regNo, today);
-    user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(info.lastInsertRowid));
-  }
 
   // If the client had an older local user_id on one device that differs from the canonical user.id,
   // migrate any orphaned textbooks/notes/chats from numId to user.id so devices stay 100% in sync.
@@ -326,7 +326,7 @@ function resolveStudentUser(rawUserId, rawUsername) {
 app.use('/api', async (req, res, next) => {
   if (supabaseBridge.configured) {
     try {
-      const shouldForcePull = req.method !== 'GET' || req.path.startsWith('/textbooks');
+      const shouldForcePull = req.method !== 'GET' || req.path.startsWith('/textbooks') || req.path.startsWith('/auth');
       await supabaseBridge.ensureReady({ forcePull: shouldForcePull });
     } catch (_) {}
 
@@ -637,25 +637,11 @@ app.post('/api/auth/login', (req, res) => {
     user = db.prepare("SELECT * FROM users WHERE reg_no IS NOT NULL AND reg_no != '' AND LOWER(reg_no) = LOWER(?)").get(cleanUsername);
   }
 
-  // If user is not found, auto-provision the student account with non-empty defaults
   if (!user) {
-    const hPw = generatePasswordHash(cleanPassword);
-    const assignedSchool = (school || '').trim() || 'Gismo Academy';
-    const assignedRegNo = (reg_no || '').trim() || ('STD-' + Math.floor(1000 + Math.random() * 9000));
-    const info = db.prepare(`
-      INSERT INTO users (username, password, school, reg_no, disability, role, quizzes_passed, last_login_date, current_streak)
-      VALUES (?, ?, ?, ?, ?, 'student', 0, ?, 1)
-    `).run(cleanUsername, hPw, assignedSchool, assignedRegNo, disability || 'None', today);
-    const createdUser = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(info.lastInsertRowid));
-    return res.json(sanitizeUser(createdUser));
+    return res.status(401).json({ error: 'Account not found. Please check your username or create an account.' });
   }
 
-  let validPassword = checkPasswordHash(user.password, cleanPassword);
-  if (!validPassword && !user.password) {
-    const newHash = generatePasswordHash(cleanPassword);
-    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(newHash, user.id);
-    validPassword = true;
-  }
+  const validPassword = checkPasswordHash(user.password, cleanPassword);
 
   if (validPassword) {
     const lastLogin = user.last_login_date;

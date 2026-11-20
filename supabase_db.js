@@ -342,6 +342,11 @@ class SupabaseDatabaseBridge {
               if (m) row.user_id = Number(m[1]);
             }
             if (table === 'users' && row.username && row.id !== undefined) {
+              const existingUser = this.origPrepare('SELECT id, password FROM users WHERE LOWER(username) = LOWER(?) OR id = ?')
+                .get(String(row.username), row.id);
+              if (existingUser && existingUser.password && (!row.password || !String(row.password).trim())) {
+                row.password = existingUser.password;
+              }
               this.origPrepare('DELETE FROM users WHERE LOWER(username) = LOWER(?) AND id != ?')
                 .run(String(row.username), row.id);
             }

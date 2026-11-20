@@ -213,6 +213,9 @@ window.addEventListener('DOMContentLoaded', () => {
   if (typeof closeTutorPanel === 'function') {
     closeTutorPanel();
   }
+  if (typeof startVoiceNavigator === 'function') {
+    startVoiceNavigator({ autoEnabled: true, skipLoginGreeting: true });
+  }
 });
 
 function setupInteractiveHighlighting() {
@@ -901,16 +904,13 @@ function loginSuccess(options = {}) {
     switchView(targetStudentView);
   }
   
-  if (typeof autoEnableVoiceNavForLowVision === 'function') {
-    autoEnableVoiceNavForLowVision({ force: !options.restoreView });
+  if (typeof autoEnableVoiceNav === 'function') {
+    autoEnableVoiceNav({ force: !options.restoreView });
   }
 
   loadChatHistory();
   if (!options.silent) {
-    const lowVisionMsg = (typeof isLowVisionAccount === 'function' && isLowVisionAccount(appState.user))
-      ? ' Hands-free Voice Navigation is turned on by default for your Low Vision profile.'
-      : '';
-    announceTTS(`Login successful. Welcome, ${appState.user.username}.${lowVisionMsg}`);
+    announceTTS(`Login successful. Welcome, ${appState.user.username}. Hands-free Voice Navigation is active.`);
   }
 }
 
@@ -920,12 +920,6 @@ async function loadChatHistory() {
 
 function handleLogout() {
   playEarcon('click');
-  if (typeof voiceNavState !== 'undefined') {
-    voiceNavState.manuallyStoppedByUser = false;
-    if (voiceNavState.isListening && typeof stopVoiceNavigator === 'function') {
-      stopVoiceNavigator({ silent: true });
-    }
-  }
   appState.user = null;
   sessionStorage.removeItem('gismoSessionUser');
   sessionStorage.removeItem('gismoActiveView');
@@ -994,8 +988,16 @@ function handleLogout() {
   stopAllTTS();
   initChatSessions();
 
+  if (typeof voiceNavState !== 'undefined') {
+    voiceNavState.manuallyStoppedByUser = false;
+    voiceNavState.authFieldTarget = 'username';
+  }
+
   switchView('login');
-  announceTTS("Logged out successfully.");
+  if (typeof autoEnableVoiceNav === 'function') {
+    autoEnableVoiceNav({ force: true });
+  }
+  announceTTS("Logged out successfully. Voice Login is ready. Please say your username or Student ID.");
 }
 window.handleLogout = handleLogout;
 
@@ -1092,6 +1094,27 @@ function switchView(viewName) {
     loadStudentQuizzes();
   } else if (viewName === 'settings') {
     openSettingsModal();
+  }
+
+  // Keep Voice Nav active by default across all views and update HUD hints for the current view
+  if (typeof autoEnableVoiceNav === 'function') {
+    autoEnableVoiceNav();
+  }
+  if (typeof voiceNavState !== 'undefined' && voiceNavState.isListening) {
+    if (viewName === 'login') {
+      if (!voiceNavState.authFieldTarget) voiceNavState.authFieldTarget = 'username';
+      if (typeof updateVoiceHudState === 'function') {
+        updateVoiceHudState('listening', 'Voice Login Active', 'Say "Username [ID]", "Password [pass]", or speak directly');
+      }
+      if (typeof updateVoiceLoginHint === 'function') {
+        updateVoiceLoginHint('Voice Login Active — say your Username or Student ID, then your Password', true);
+      }
+    } else {
+      voiceNavState.authFieldTarget = null;
+      if (typeof updateVoiceHudState === 'function') {
+        updateVoiceHudState('listening', 'Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
+      }
+    }
   }
   
   // Ensure authenticated navbar buttons & active tab indicators stay in sync
@@ -5362,7 +5385,8 @@ window.resetVoiceProfile = resetVoiceProfile;
 // --- Hands-Free Voice Command System (Pillar 3: Gismo Voice Navigator) ---
 // ====================================================================
 const voiceNavState = {
-  isListening: false,
+  isListening: true,
+  engineRunning: false,
   recognition: null,
   speechSupported: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
   lastCommand: '',
@@ -5372,7 +5396,7 @@ const voiceNavState = {
   cooldownTimer: null,
   manuallyStoppedByUser: false,
   gestureRetryAttached: false,
-  authFieldTarget: null // 'username' | 'password' | null
+  authFieldTarget: 'username' // 'username' | 'password' | null
 };
 
 function isLowVisionAccount(userObj = appState.user) {
@@ -5381,17 +5405,17 @@ function isLowVisionAccount(userObj = appState.user) {
 }
 window.isLowVisionAccount = isLowVisionAccount;
 
-function autoEnableVoiceNavForLowVision(options = {}) {
-  if (!appState.user || !isLowVisionAccount(appState.user)) return;
+function autoEnableVoiceNav(options = {}) {
   if (options.force) {
     voiceNavState.manuallyStoppedByUser = false;
   }
   if (voiceNavState.manuallyStoppedByUser) return;
-  if (!voiceNavState.isListening) {
-    startVoiceNavigator({ autoEnabled: true });
+  if (!voiceNavState.isListening || !voiceNavState.engineRunning) {
+    startVoiceNavigator({ autoEnabled: true, skipLoginGreeting: true });
   }
 }
-window.autoEnableVoiceNavForLowVision = autoEnableVoiceNavForLowVision;
+window.autoEnableVoiceNav = autoEnableVoiceNav;
+window.autoEnableVoiceNavForLowVision = autoEnableVoiceNav;
 
 function isLoginViewActive() {
   const loginPanel = document.getElementById('login-panel');
@@ -5775,6 +5799,7 @@ function initVoiceNavigator() {
   
   rec.onstart = () => {
     voiceNavState.isListening = true;
+    voiceNavState.engineRunning = true;
     if (isLoginViewActive()) {
       updateVoiceHudState('listening', 'Voice Login Active', 'Say "Username [ID]", "Password [pass]", or speak when prompted');
     } else {
@@ -5833,6 +5858,7 @@ function initVoiceNavigator() {
     }
     console.warn("Voice Nav error:", event.error);
     if (event.error === 'not-allowed') {
+      voiceNavState.engineRunning = false;
       updateVoiceHudState('error', 'Microphone Access Denied', 'Please allow microphone access in your browser settings.');
       stopVoiceNavigator({ silent: true });
     } else if (event.error !== 'no-speech') {
@@ -5841,6 +5867,7 @@ function initVoiceNavigator() {
   };
   
   rec.onend = () => {
+    voiceNavState.engineRunning = false;
     // Only auto-restart if user still has voice navigation on and TTS is not currently playing
     if (voiceNavState.isListening && !voiceNavState.isSpeaking && (Date.now() - (voiceNavState.lastSpeakingEndTime || 0) >= 800)) {
       try {
@@ -5869,7 +5896,7 @@ function startVoiceNavigator(options = {}) {
     if (!options.autoEnabled) {
       showToast("Speech Recognition not supported in this browser.", "warning");
     } else {
-      // Even when browser SpeechRecognition API is unavailable, reflect default-on Voice Nav state in UI for Low Vision accounts
+      // Even when browser SpeechRecognition API is unavailable, reflect default-on Voice Nav state in UI
       voiceNavState.isListening = true;
       updateVoiceHudUi(true);
     }
@@ -5920,21 +5947,25 @@ function startVoiceNavigator(options = {}) {
     }
   }
 
-  // Ensure recognition starts on first interaction if browser deferred mic activation on a cold page refresh
-  if (options.autoEnabled && !voiceNavState.gestureRetryAttached) {
+  // Ensure recognition starts on first interaction if browser deferred mic activation on a cold page load
+  if (!voiceNavState.gestureRetryAttached) {
     voiceNavState.gestureRetryAttached = true;
     const ensureListeningOnGesture = () => {
-      voiceNavState.gestureRetryAttached = false;
-      window.removeEventListener('click', ensureListeningOnGesture);
-      window.removeEventListener('keydown', ensureListeningOnGesture);
-      if (voiceNavState.isListening && !voiceNavState.manuallyStoppedByUser && voiceNavState.recognition) {
+      if (voiceNavState.isListening && !voiceNavState.manuallyStoppedByUser && !voiceNavState.engineRunning && voiceNavState.recognition) {
         try {
           voiceNavState.recognition.start();
         } catch (_) {}
       }
+      if (voiceNavState.engineRunning || voiceNavState.manuallyStoppedByUser) {
+        voiceNavState.gestureRetryAttached = false;
+        window.removeEventListener('click', ensureListeningOnGesture);
+        window.removeEventListener('keydown', ensureListeningOnGesture);
+        window.removeEventListener('touchstart', ensureListeningOnGesture);
+      }
     };
-    window.addEventListener('click', ensureListeningOnGesture, { once: true });
-    window.addEventListener('keydown', ensureListeningOnGesture, { once: true });
+    window.addEventListener('click', ensureListeningOnGesture);
+    window.addEventListener('keydown', ensureListeningOnGesture);
+    window.addEventListener('touchstart', ensureListeningOnGesture, { passive: true });
   }
 }
 window.startVoiceNavigator = startVoiceNavigator;
@@ -5944,6 +5975,7 @@ function stopVoiceNavigator(options = {}) {
     voiceNavState.manuallyStoppedByUser = true;
   }
   voiceNavState.isListening = false;
+  voiceNavState.engineRunning = false;
   voiceNavState.authFieldTarget = null;
   if (voiceNavState.recognition) {
     try {

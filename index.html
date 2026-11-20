@@ -47,7 +47,7 @@
     </nav>
     
     <div class="header-controls">
-      <button id="btn-voice-nav" class="btn-voice-nav" onclick="toggleVoiceNavigator()" title="Toggle Hands-Free Voice Commands (Alt + V)" aria-label="Toggle Hands-Free Voice Navigator">
+      <button id="btn-voice-nav" class="btn-voice-nav listening" onclick="toggleVoiceNavigator()" title="Toggle Hands-Free Voice Commands (Alt + V)" aria-label="Toggle Hands-Free Voice Navigator">
         <span class="voice-nav-dot"></span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -81,8 +81,8 @@
     </div>
   </header>
 
-  <!-- Floating Hands-Free Voice Command HUD -->
-  <aside id="voice-command-hud" class="voice-command-hud hidden" role="status" aria-live="assertive" aria-label="Hands-free voice assistant">
+  <!-- Floating Hands-Free Voice Command HUD (Active by Default Across the App) -->
+  <aside id="voice-command-hud" class="voice-command-hud" role="status" aria-live="assertive" aria-label="Hands-free voice assistant">
     <div class="voice-hud-container">
       <div class="voice-hud-indicator">
         <span class="voice-pulse-ring"></span>
@@ -2043,7 +2043,7 @@
     </svg>
   </button>
   <div id="toast-feedback" class="toast-feedback"><span id="toast-icon" style="display:inline-flex; align-items:center;" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span id="toast-msg">Settings saved</span></div>
-  <script src="app.js?v=128" defer></script>
+  <script src="app.js?v=129" defer></script>
 </body>
 
 </html>
