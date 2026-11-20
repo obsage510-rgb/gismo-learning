@@ -214,7 +214,7 @@ window.addEventListener('DOMContentLoaded', () => {
     closeTutorPanel();
   }
   if (typeof startVoiceNavigator === 'function') {
-    startVoiceNavigator({ autoEnabled: true, skipLoginGreeting: true });
+    startVoiceNavigator({ autoEnabled: true });
   }
 });
 
@@ -4186,6 +4186,13 @@ function fallbackBrowserTTS(text, onEndCallback = null) {
   utterance.rate = 1.0;
   utterance.pitch = 1.0;
 
+  utterance.onstart = () => {
+    if (typeof voiceNavState !== 'undefined' && voiceNavState.pendingLoginGreeting) {
+      voiceNavState.loginGreetingSpoken = true;
+      voiceNavState.pendingLoginGreeting = false;
+    }
+  };
+
   utterance.onend = () => {
     notifyTTSEnded(onEndCallback);
     setCaption("Ready.");
@@ -5562,21 +5569,21 @@ function startGuidedVoiceLogin() {
   if (userEl && !userEl.value.trim()) {
     voiceNavState.authFieldTarget = 'username';
     userEl.focus();
-    updateVoiceLoginHint('Listening: Please say your Username or Student ID now...', true);
-    updateVoiceHudState('listening', 'Voice Login: Username', 'Say your username (e.g. "alex" or "Username alex")');
-    announceTTS('Voice Login active. Please say your username or Student ID.');
+    updateVoiceLoginHint('Listening: You can login here. Please say your Username now...', true);
+    updateVoiceHudState('listening', 'Voice Login: Username', 'You can login here — please say your username');
+    announceTTS('You can login here. Please say your username.');
   } else if (passEl && !passEl.value.trim()) {
     voiceNavState.authFieldTarget = 'password';
     passEl.focus();
     updateVoiceLoginHint('Listening: Please say your Password now...', true);
     updateVoiceHudState('listening', 'Voice Login: Password', 'Say your password (e.g. "1234" or "Password 1234")');
-    announceTTS('Voice Login active. Please say your password.');
+    announceTTS('Please say your password.');
   } else {
     voiceNavState.authFieldTarget = 'username';
     if (userEl) userEl.focus();
     updateVoiceLoginHint('Listening: Say "Sign In", or speak a new Username or Password.', true);
     updateVoiceHudState('listening', 'Voice Login Ready', 'Say "Sign in", "Username [ID]", or "Password [pass]"');
-    announceTTS('Voice Login active. Say Sign In to log in, or say your username or password.');
+    announceTTS('You can login here. Say Sign In to log in, or say your username or password.');
   }
 }
 window.startGuidedVoiceLogin = startGuidedVoiceLogin;
@@ -5598,7 +5605,7 @@ function promptVoiceAuthField(field) {
     if (userEl) userEl.focus();
     updateVoiceLoginHint('Listening for Username... Speak your username or Student ID now.', true);
     updateVoiceHudState('listening', 'Voice Login: Username', 'Speak your username or Student ID now');
-    announceTTS('Please say your username or Student ID now.');
+    announceTTS('You can login here. Please say your username.');
   }
 }
 window.promptVoiceAuthField = promptVoiceAuthField;
@@ -5637,22 +5644,22 @@ function handleLoginVoiceCommand(rawTranscript) {
     playEarcon('success');
     showStudentRegister();
     if (disabilityEl) disabilityEl.value = 'Low Vision';
-    voiceNavState.authFieldTarget = null;
+    voiceNavState.authFieldTarget = 'username';
     const regUser = document.getElementById('reg-username');
     if (regUser) regUser.focus();
-    updateVoiceHudState('matched', 'Student Registration', 'Say "Username [ID]" and "Password [pass]"');
-    announceTTS('Opened Student Registration with Low Vision mode pre-selected. Say Username followed by your new Student ID.');
+    updateVoiceHudState('matched', 'Student Registration', 'Say your new username or Student ID');
+    announceTTS('Opened Student Registration with Low Vision mode pre-selected. Please say your new username.');
     return true;
   }
 
   if (/\b(student login|student portal|back to login|switch to student)\b/.test(t)) {
     playEarcon('success');
     showStudentLogin();
-    voiceNavState.authFieldTarget = null;
+    voiceNavState.authFieldTarget = 'username';
     const loginUser = document.getElementById('login-username');
     if (loginUser) loginUser.focus();
-    updateVoiceHudState('matched', 'Student Login', 'Say "Username [ID]" and "Password [pass]"');
-    announceTTS('Switched to Student Login.');
+    updateVoiceHudState('matched', 'Student Login', 'You can login here — please say your username');
+    announceTTS('You can login here. Please say your username.');
     return true;
   }
 
@@ -5794,7 +5801,7 @@ function handleLoginVoiceCommand(rawTranscript) {
     }
   }
 
-  // 8. Unprefixed direct speech ONLY when the student explicitly triggered guided voice login or a field mic button
+  // 8. Unprefixed direct speech when waiting for username or password
   if (voiceNavState.authFieldTarget === 'username' && userEl) {
     const cleanU = normalizeSpokenCredential(trimmedRaw);
     if (cleanU.length >= 2) {
@@ -5857,7 +5864,7 @@ function initVoiceNavigator() {
     voiceNavState.isListening = true;
     voiceNavState.engineRunning = true;
     if (isLoginViewActive()) {
-      updateVoiceHudState('listening', 'Voice Login Ready', 'Say "Username [ID]", "Password [pass]", or "Sign in"');
+      updateVoiceHudState('listening', 'Voice Login: Username', 'You can login here — please say your username');
     } else {
       updateVoiceHudState('listening', 'Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
     }
@@ -5947,6 +5954,29 @@ function toggleVoiceNavigator() {
 }
 window.toggleVoiceNavigator = toggleVoiceNavigator;
 
+function speakInitialLoginPrompt(customGreeting) {
+  if (!isLoginViewActive()) return;
+  const { userEl, passEl } = getActiveAuthInputs();
+  const greetingText = customGreeting || 'You can login here. Please say your username.';
+  if (userEl && !userEl.value.trim()) {
+    voiceNavState.authFieldTarget = 'username';
+    userEl.focus();
+    updateVoiceLoginHint('Listening: You can login here. Please say your Username now...', true);
+    updateVoiceHudState('listening', 'Voice Login: Username', 'You can login here — please say your username');
+    voiceNavState.pendingLoginGreeting = true;
+    voiceNavState.loginGreetingSpoken = false;
+    announceTTS(greetingText);
+  } else if (passEl && !passEl.value.trim()) {
+    voiceNavState.authFieldTarget = 'password';
+    passEl.focus();
+    updateVoiceLoginHint('Listening: Please say your Password now...', true);
+    updateVoiceHudState('listening', 'Voice Login: Password', 'Say your password (e.g. "1234" or "Password 1234")');
+    voiceNavState.pendingLoginGreeting = true;
+    voiceNavState.loginGreetingSpoken = false;
+    announceTTS('You can login here. Please say your password.');
+  }
+}
+
 function startVoiceNavigator(options = {}) {
   if (!voiceNavState.speechSupported) {
     if (!options.autoEnabled) {
@@ -5955,6 +5985,9 @@ function startVoiceNavigator(options = {}) {
       // Even when browser SpeechRecognition API is unavailable, reflect default-on Voice Nav state in UI
       voiceNavState.isListening = true;
       updateVoiceHudUi(true);
+    }
+    if (isLoginViewActive() && !options.skipLoginGreeting) {
+      speakInitialLoginPrompt(options.customLoginGreeting);
     }
     return;
   }
@@ -5985,34 +6018,28 @@ function startVoiceNavigator(options = {}) {
     updateQuizVoiceUI('listening');
   }
 
-  // If Voice Nav was manually toggled on while on the Login screen, guide the blind student through Voice Login
+  // Immediately announce "You can login here. Please say your username." when arriving on the login page
   if (isLoginViewActive() && !options.skipLoginGreeting) {
-    const { userEl, passEl } = getActiveAuthInputs();
-    if (userEl && !userEl.value.trim()) {
-      voiceNavState.authFieldTarget = 'username';
-      userEl.focus();
-      updateVoiceLoginHint('Listening: Please say your Username or Student ID now...', true);
-      updateVoiceHudState('listening', 'Voice Login: Username', 'Say your username (e.g. "alex" or "Username alex")');
-      announceTTS('Voice Login active. Please say your username or Student ID.');
-    } else if (passEl && !passEl.value.trim()) {
-      voiceNavState.authFieldTarget = 'password';
-      passEl.focus();
-      updateVoiceLoginHint('Listening: Please say your Password now...', true);
-      updateVoiceHudState('listening', 'Voice Login: Password', 'Say your password (e.g. "1234" or "Password 1234")');
-      announceTTS('Voice Login active. Please say your password.');
-    }
+    speakInitialLoginPrompt(options.customLoginGreeting);
   }
 
-  // Ensure recognition starts on first interaction if browser deferred mic activation on a cold page load
+  // Ensure recognition & login greeting start on first interaction if browser deferred audio/mic on a cold page load
   if (!voiceNavState.gestureRetryAttached) {
     voiceNavState.gestureRetryAttached = true;
-    const ensureListeningOnGesture = () => {
-      if (voiceNavState.isListening && !voiceNavState.manuallyStoppedByUser && !voiceNavState.engineRunning && voiceNavState.recognition) {
+    const ensureListeningOnGesture = (e) => {
+      if (isLoginViewActive() && voiceNavState.pendingLoginGreeting && !voiceNavState.loginGreetingSpoken) {
+        // Do not overwrite authFieldTarget if the user just clicked a specific password input
+        const clickedPass = e && e.target && (e.target.id === 'login-password' || e.target.id === 'reg-password' || e.target.id === 'admin-password');
+        if (!clickedPass) {
+          speakInitialLoginPrompt();
+        }
+      }
+      if (voiceNavState.isListening && !voiceNavState.manuallyStoppedByUser && !voiceNavState.engineRunning && voiceNavState.recognition && !voiceNavState.isSpeaking) {
         try {
           voiceNavState.recognition.start();
         } catch (_) {}
       }
-      if (voiceNavState.engineRunning || voiceNavState.manuallyStoppedByUser) {
+      if ((voiceNavState.engineRunning && (!isLoginViewActive() || voiceNavState.loginGreetingSpoken)) || voiceNavState.manuallyStoppedByUser) {
         voiceNavState.gestureRetryAttached = false;
         window.removeEventListener('click', ensureListeningOnGesture);
         window.removeEventListener('keydown', ensureListeningOnGesture);
