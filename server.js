@@ -641,7 +641,15 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(401).json({ error: 'Account not found. Please check your username or create an account.' });
   }
 
-  const validPassword = checkPasswordHash(user.password, cleanPassword);
+  let validPassword = false;
+  if (!user.password || !String(user.password).trim()) {
+    // Recover existing account whose password was blanked in an older snapshot by hashing & locking the password now
+    const newHash = generatePasswordHash(cleanPassword);
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(newHash, user.id);
+    validPassword = true;
+  } else {
+    validPassword = checkPasswordHash(user.password, cleanPassword);
+  }
 
   if (validPassword) {
     const lastLogin = user.last_login_date;

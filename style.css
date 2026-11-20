@@ -5565,4 +5565,18 @@ body.theme-light #lesson-active-container.novel-reader-mode[data-novel-theme="ni
   }
 }
 
+/* Completely hide AI Tutor Card & FAB on the Login Interface or when minimized */
+body.login-view-active #tutor-panel,
+body.login-view-active .tutor-panel,
+body.login-view-active #fab-tutor,
+#tutor-panel.hidden,
+#tutor-panel.hidden-floating,
+.tutor-panel.hidden,
+.tutor-panel.hidden-floating {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 

@@ -990,14 +990,14 @@ function handleLogout() {
 
   if (typeof voiceNavState !== 'undefined') {
     voiceNavState.manuallyStoppedByUser = false;
-    voiceNavState.authFieldTarget = 'username';
+    voiceNavState.authFieldTarget = null;
   }
 
   switchView('login');
   if (typeof autoEnableVoiceNav === 'function') {
     autoEnableVoiceNav({ force: true });
   }
-  announceTTS("Logged out successfully. Voice Login is ready. Please say your username or Student ID.");
+  announceTTS("Logged out successfully. Say Username followed by your ID and Password followed by your password to sign in.");
 }
 window.handleLogout = handleLogout;
 
@@ -1008,6 +1008,8 @@ function switchView(viewName) {
     viewName = 'admin';
   }
   appState.currentView = viewName;
+  document.body.classList.toggle('login-view-active', viewName === 'login');
+
   if (viewName !== 'login' && appState.user) {
     try {
       localStorage.setItem('gismoActiveView', viewName);
@@ -1016,9 +1018,12 @@ function switchView(viewName) {
   }
   [elements.loginPanel, elements.profilePanel, elements.mainContent, elements.libraryPanel, elements.adminPanel, elements.adminDbPanel, elements.quizzesPanel].forEach(el => el?.classList.add('hidden'));
   
+  const tutorPanel = document.getElementById('tutor-panel');
+  const fab = document.getElementById('fab-tutor');
+
   if (viewName === 'login') {
     elements.loginPanel?.classList.remove('hidden');
-    // Hide navigation items and tutor fab when in landing/login view
+    // Hide navigation items and completely remove tutor card & fab when on login view
     const toHide = [
       'btn-home-toggle',
       'btn-profile-nav',
@@ -1035,65 +1040,73 @@ function switchView(viewName) {
       const el = document.getElementById(id);
       if (el) el.classList.add('hidden');
     });
-    const fab = document.getElementById('fab-tutor');
     if (fab) fab.style.display = 'none';
-    if (typeof closeTutorPanel === 'function') closeTutorPanel();
-  } else if (viewName === 'dashboard') {
-    elements.mainContent.classList.remove('hidden');
-    showDashboard();
-    fetchTextbooks();
-  } else if (viewName === 'profile') {
-    elements.profilePanel.classList.remove('hidden');
-    loadStudentProfile();
-    fetchHomework();
-    loadAnalytics();
-    fetchNotes();
-  } else if (viewName === 'library') {
-    elements.libraryPanel.classList.remove('hidden');
-    renderLibrary();
-    fetchTextbooks();
-    loadLibraryFiles();
-    const resultsDiv = document.getElementById('web-search-results');
-    if (resultsDiv && resultsDiv.children.length === 0) {
-      handleWebSearch(true);
+    if (tutorPanel) {
+      tutorPanel.classList.add('hidden', 'hidden-floating');
+      tutorPanel.classList.remove('tutor-open');
+      tutorPanel.style.display = 'none';
     }
-  } else if (viewName === 'admin') {
-    elements.adminPanel?.classList.remove('hidden');
-    if (elements.btnAdminToggle) elements.btnAdminToggle.classList.add('active');
-    if (elements.btnAdminDbToggle) elements.btnAdminDbToggle.classList.remove('active');
-    document.querySelectorAll('.admin-subnav-btn').forEach(btn => {
-      if (btn.getAttribute('onclick')?.includes("'admin'")) {
-        btn.classList.add('active');
-        btn.style.background = 'var(--accent-color)';
-        btn.style.color = '#fff';
-      } else {
-        btn.classList.remove('active');
-        btn.style.background = 'var(--bg-card)';
-        btn.style.color = 'var(--text-secondary)';
+  } else {
+    if (tutorPanel && appState.user) {
+      tutorPanel.classList.remove('hidden');
+    }
+    if (viewName === 'dashboard') {
+      elements.mainContent.classList.remove('hidden');
+      showDashboard();
+      fetchTextbooks();
+    } else if (viewName === 'profile') {
+      elements.profilePanel.classList.remove('hidden');
+      loadStudentProfile();
+      fetchHomework();
+      loadAnalytics();
+      fetchNotes();
+    } else if (viewName === 'library') {
+      elements.libraryPanel.classList.remove('hidden');
+      renderLibrary();
+      fetchTextbooks();
+      loadLibraryFiles();
+      const resultsDiv = document.getElementById('web-search-results');
+      if (resultsDiv && resultsDiv.children.length === 0) {
+        handleWebSearch(true);
       }
-    });
-    loadAdminDashboard();
-  } else if (viewName === 'admin-db') {
-    elements.adminDbPanel?.classList.remove('hidden');
-    if (elements.btnAdminDbToggle) elements.btnAdminDbToggle.classList.add('active');
-    if (elements.btnAdminToggle) elements.btnAdminToggle.classList.remove('active');
-    document.querySelectorAll('.admin-subnav-btn').forEach(btn => {
-      if (btn.getAttribute('onclick')?.includes("'admin-db'")) {
-        btn.classList.add('active');
-        btn.style.background = 'var(--accent-color)';
-        btn.style.color = '#fff';
-      } else {
-        btn.classList.remove('active');
-        btn.style.background = 'var(--bg-card)';
-        btn.style.color = 'var(--text-secondary)';
-      }
-    });
-    loadAdminDatabase();
-  } else if (viewName === 'quizzes') {
-    elements.quizzesPanel?.classList.remove('hidden');
-    loadStudentQuizzes();
-  } else if (viewName === 'settings') {
-    openSettingsModal();
+    } else if (viewName === 'admin') {
+      elements.adminPanel?.classList.remove('hidden');
+      if (elements.btnAdminToggle) elements.btnAdminToggle.classList.add('active');
+      if (elements.btnAdminDbToggle) elements.btnAdminDbToggle.classList.remove('active');
+      document.querySelectorAll('.admin-subnav-btn').forEach(btn => {
+        if (btn.getAttribute('onclick')?.includes("'admin'")) {
+          btn.classList.add('active');
+          btn.style.background = 'var(--accent-color)';
+          btn.style.color = '#fff';
+        } else {
+          btn.classList.remove('active');
+          btn.style.background = 'var(--bg-card)';
+          btn.style.color = 'var(--text-secondary)';
+        }
+      });
+      loadAdminDashboard();
+    } else if (viewName === 'admin-db') {
+      elements.adminDbPanel?.classList.remove('hidden');
+      if (elements.btnAdminDbToggle) elements.btnAdminDbToggle.classList.add('active');
+      if (elements.btnAdminToggle) elements.btnAdminToggle.classList.remove('active');
+      document.querySelectorAll('.admin-subnav-btn').forEach(btn => {
+        if (btn.getAttribute('onclick')?.includes("'admin-db'")) {
+          btn.classList.add('active');
+          btn.style.background = 'var(--accent-color)';
+          btn.style.color = '#fff';
+        } else {
+          btn.classList.remove('active');
+          btn.style.background = 'var(--bg-card)';
+          btn.style.color = 'var(--text-secondary)';
+        }
+      });
+      loadAdminDatabase();
+    } else if (viewName === 'quizzes') {
+      elements.quizzesPanel?.classList.remove('hidden');
+      loadStudentQuizzes();
+    } else if (viewName === 'settings') {
+      openSettingsModal();
+    }
   }
 
   // Keep Voice Nav active by default across all views and update HUD hints for the current view
@@ -1102,12 +1115,11 @@ function switchView(viewName) {
   }
   if (typeof voiceNavState !== 'undefined' && voiceNavState.isListening) {
     if (viewName === 'login') {
-      if (!voiceNavState.authFieldTarget) voiceNavState.authFieldTarget = 'username';
       if (typeof updateVoiceHudState === 'function') {
-        updateVoiceHudState('listening', 'Voice Login Active', 'Say "Username [ID]", "Password [pass]", or speak directly');
+        updateVoiceHudState('listening', 'Voice Login Ready', 'Say "Username [ID]", "Password [pass]", or "Sign in"');
       }
       if (typeof updateVoiceLoginHint === 'function') {
-        updateVoiceLoginHint('Voice Login Active — say your Username or Student ID, then your Password', true);
+        updateVoiceLoginHint('Access your learning workspace — type or say "Username [ID]" & "Password [pass]"', false);
       }
     } else {
       voiceNavState.authFieldTarget = null;
@@ -5396,8 +5408,18 @@ const voiceNavState = {
   cooldownTimer: null,
   manuallyStoppedByUser: false,
   gestureRetryAttached: false,
-  authFieldTarget: 'username' // 'username' | 'password' | null
+  authFieldTarget: null // Only set to 'username' | 'password' when user explicitly initiates guided voice login or field mic
 };
+
+// Clear guided voice field target whenever the user types manually into any login/register input
+['login-username', 'login-password', 'reg-username', 'reg-password', 'admin-username', 'admin-password'].forEach(inputId => {
+  const el = document.getElementById(inputId);
+  if (el) {
+    el.addEventListener('keydown', () => {
+      voiceNavState.authFieldTarget = null;
+    });
+  }
+});
 
 function isLowVisionAccount(userObj = appState.user) {
   const raw = String((userObj && userObj.disability) || localStorage.getItem('gismoDisability') || '').trim().toLowerCase();
@@ -5461,6 +5483,7 @@ function normalizeSpokenCredential(rawValue) {
   let cleaned = String(rawValue)
     .trim()
     .replace(/^[.,!?;:'"“”\-]+|[.,!?;:'"“”\-]+$/g, '')
+    .replace(/^(?:is|to|equals|as)\s+/i, '')
     .replace(/\bat\s+sign\b/gi, '@')
     .replace(/\s+at\s+/gi, '@')
     .replace(/\b(?:dot|period)\b/gi, '.')
@@ -5576,22 +5599,22 @@ function handleLoginVoiceCommand(rawTranscript) {
     playEarcon('success');
     showStudentRegister();
     if (disabilityEl) disabilityEl.value = 'Low Vision';
-    voiceNavState.authFieldTarget = 'username';
+    voiceNavState.authFieldTarget = null;
     const regUser = document.getElementById('reg-username');
     if (regUser) regUser.focus();
     updateVoiceHudState('matched', 'Student Registration', 'Say "Username [ID]" and "Password [pass]"');
-    announceTTS('Opened Student Registration with Low Vision mode pre-selected. Please say your new Student ID.');
+    announceTTS('Opened Student Registration with Low Vision mode pre-selected. Say Username followed by your new Student ID.');
     return true;
   }
 
   if (/\b(student login|student portal|back to login|switch to student)\b/.test(t)) {
     playEarcon('success');
     showStudentLogin();
-    voiceNavState.authFieldTarget = 'username';
+    voiceNavState.authFieldTarget = null;
     const loginUser = document.getElementById('login-username');
     if (loginUser) loginUser.focus();
-    updateVoiceHudState('matched', 'Student Login', 'Please say your username or Student ID');
-    announceTTS('Switched to Student Login. Please say your username.');
+    updateVoiceHudState('matched', 'Student Login', 'Say "Username [ID]" and "Password [pass]"');
+    announceTTS('Switched to Student Login.');
     return true;
   }
 
@@ -5605,7 +5628,7 @@ function handleLoginVoiceCommand(rawTranscript) {
   if (/\b(admin login|instructor portal|teacher login|instructor login)\b/.test(t)) {
     playEarcon('success');
     selectLoginPortal('instructor');
-    voiceNavState.authFieldTarget = 'username';
+    voiceNavState.authFieldTarget = null;
     updateVoiceHudState('matched', 'Instructor Portal', 'Say "Sign in" or speak admin username');
     announceTTS('Switched to Instructor Portal. Say Sign In to log in.');
     return true;
@@ -5656,8 +5679,8 @@ function handleLoginVoiceCommand(rawTranscript) {
     return true;
   }
 
-  // 5. Combined "Username [X] Password [Y]" in a single utterance
-  const combinedMatch = trimmedRaw.match(/^(?:my\s+)?(?:user\s*name|user\s*id|student\s*id|email)(?:\s+is)?\s+(.+?)\s+(?:and\s+)?(?:my\s+)?(?:pass\s*word|pass\s*code|pin)(?:\s+is)?\s+(.+)$/i);
+  // 5. Combined "Username [X] Password [Y]" anywhere in the utterance
+  const combinedMatch = trimmedRaw.match(/\b(?:user\s*name|user\s*id|student\s*id|email)(?:\s+is|\s+to)?\s+(.+?)\s+(?:and\s+)?(?:my\s+|the\s+)?(?:pass\s*word|pass\s*code|pin)(?:\s+is|\s+to)?\s+(.+)$/i);
   if (combinedMatch) {
     const cleanU = normalizeSpokenCredential(combinedMatch[1]);
     const cleanP = normalizeSpokenCredential(combinedMatch[2]);
@@ -5679,8 +5702,8 @@ function handleLoginVoiceCommand(rawTranscript) {
     }
   }
 
-  // 6. Explicit "Username is [X]" / "Username [X]" / "Student ID [X]"
-  const userPrefixMatch = trimmedRaw.match(/^(?:my\s+|the\s+)?(?:user\s*name|user\s*id|student\s*id|login\s*id|email|id)(?:\s+is)?\s*[:\-]?\s*(.+)$/i);
+  // 6. Explicit "... username is [X]" / "username [X]" / "student ID [X]"
+  const userPrefixMatch = trimmedRaw.match(/\b(?:user\s*name|user\s*id|student\s*id|login\s*id|email)(?:\s+is|\s+to|\s+equals)?\s*[:\-]?\s*(.+)$/i);
   if (userPrefixMatch) {
     const cleanU = normalizeSpokenCredential(userPrefixMatch[1]);
     if (cleanU && userEl) {
@@ -5703,8 +5726,8 @@ function handleLoginVoiceCommand(rawTranscript) {
     }
   }
 
-  // 7. Explicit "Password is [Y]" / "Password [Y]"
-  const passPrefixMatch = trimmedRaw.match(/^(?:my\s+|the\s+)?(?:pass\s*word|pass\s*code|pin|secret)(?:\s+is)?\s*[:\-]?\s*(.+)$/i);
+  // 7. Explicit "... password is [Y]" / "password [Y]"
+  const passPrefixMatch = trimmedRaw.match(/\b(?:pass\s*word|pass\s*code|pin|secret)(?:\s+is|\s+to|\s+equals)?\s*[:\-]?\s*(.+)$/i);
   if (passPrefixMatch) {
     const cleanP = normalizeSpokenCredential(passPrefixMatch[1]);
     if (cleanP && passEl) {
@@ -5733,13 +5756,8 @@ function handleLoginVoiceCommand(rawTranscript) {
     }
   }
 
-  // 8. Unprefixed direct speech when a login field is targeted or empty
-  const activeEl = document.activeElement;
-  const targetField =
-    voiceNavState.authFieldTarget ||
-    (activeEl === passEl ? 'password' : (activeEl === userEl ? 'username' : (!userEl?.value.trim() ? 'username' : (!passEl?.value.trim() ? 'password' : null))));
-
-  if (targetField === 'username' && userEl) {
+  // 8. Unprefixed direct speech ONLY when the student explicitly triggered guided voice login or a field mic button
+  if (voiceNavState.authFieldTarget === 'username' && userEl) {
     const cleanU = normalizeSpokenCredential(trimmedRaw);
     if (cleanU.length >= 2) {
       userEl.value = cleanU;
@@ -5753,7 +5771,7 @@ function handleLoginVoiceCommand(rawTranscript) {
     }
   }
 
-  if (targetField === 'password' && passEl) {
+  if (voiceNavState.authFieldTarget === 'password' && passEl) {
     const cleanP = normalizeSpokenCredential(trimmedRaw);
     if (cleanP.length >= 2) {
       passEl.value = cleanP;
@@ -5801,7 +5819,7 @@ function initVoiceNavigator() {
     voiceNavState.isListening = true;
     voiceNavState.engineRunning = true;
     if (isLoginViewActive()) {
-      updateVoiceHudState('listening', 'Voice Login Active', 'Say "Username [ID]", "Password [pass]", or speak when prompted');
+      updateVoiceHudState('listening', 'Voice Login Ready', 'Say "Username [ID]", "Password [pass]", or "Sign in"');
     } else {
       updateVoiceHudState('listening', 'Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
     }
@@ -5929,7 +5947,7 @@ function startVoiceNavigator(options = {}) {
     updateQuizVoiceUI('listening');
   }
 
-  // If Voice Nav was turned on while on the Login screen, guide the blind student through Voice Login
+  // If Voice Nav was manually toggled on while on the Login screen, guide the blind student through Voice Login
   if (isLoginViewActive() && !options.skipLoginGreeting) {
     const { userEl, passEl } = getActiveAuthInputs();
     if (userEl && !userEl.value.trim()) {
@@ -6042,9 +6060,36 @@ function executeVoiceCommand(rawTranscript) {
   console.log('[Voice Nav Command Heard]:', t);
 
   // 0a. If on the Login / Registration View, handle spoken username, password, and sign-in commands
+  // and NEVER fall through to opening the AI Tutor card or switching to unauthenticated views
   if (isLoginViewActive()) {
     const loginHandled = handleLoginVoiceCommand(rawTranscript);
     if (loginHandled) return;
+    if (t === 'help' || t.includes('voice command') || t.includes('what can i say') || t.includes('show help')) {
+      playEarcon('success');
+      updateVoiceHudState('matched', 'Voice Commands Guide', 'Showing available voice commands');
+      openVoiceHelpModal();
+      return;
+    }
+    if (t.includes('dark mode') || t.includes('theme dark')) {
+      setTheme('dark');
+      announceTTS('Dark theme enabled.');
+      return;
+    }
+    if (t.includes('light mode') || t.includes('theme light')) {
+      setTheme('light');
+      announceTTS('Light theme enabled.');
+      return;
+    }
+    if (t.includes('high contrast') || t.includes('contrast mode')) {
+      setTheme('hc');
+      announceTTS('High contrast theme enabled.');
+      return;
+    }
+    if (t === 'stop' || t === 'silence' || t === 'quiet' || t === 'pause') {
+      stopAllTTS();
+      return;
+    }
+    return;
   }
 
   // 0b. If the Interactive Quiz Modal is open, prioritize Quiz Voice Answer & Quiz Navigation commands
@@ -7191,7 +7236,12 @@ function toggleTutorPanel() {
   const panel = document.getElementById('tutor-panel') || document.querySelector('.tutor-panel');
   const fab = document.getElementById('fab-tutor');
   if (!panel) return;
+  if (!appState.user || (typeof isLoginViewActive === 'function' && isLoginViewActive())) {
+    closeTutorPanel();
+    return;
+  }
 
+  panel.classList.remove('hidden');
   panel.style.display = ''; // Clear inline display
   const isHidden = panel.classList.contains('hidden-floating');
 
@@ -7236,6 +7286,11 @@ function openTutorPanel() {
   const panel = document.getElementById('tutor-panel') || document.querySelector('.tutor-panel');
   const fab = document.getElementById('fab-tutor');
   if (!panel) return;
+  if (!appState.user || (typeof isLoginViewActive === 'function' && isLoginViewActive())) {
+    closeTutorPanel();
+    return;
+  }
+  panel.classList.remove('hidden');
   panel.style.display = '';
   if (window.innerWidth <= 768) {
     panel.style.left = '';
@@ -7262,6 +7317,10 @@ function closeTutorPanel() {
   if (!panel) return;
   panel.classList.add('hidden-floating');
   panel.classList.remove('tutor-open');
+  if (!appState.user || (typeof isLoginViewActive === 'function' && isLoginViewActive())) {
+    panel.classList.add('hidden');
+    panel.style.display = 'none';
+  }
   if (fab) {
     fab.setAttribute('aria-expanded', 'false');
     fab.classList.remove('tutor-open');

@@ -193,9 +193,7 @@ class SupabaseDatabaseBridge {
 
     this.pullInFlight = (async () => {
       try {
-        if (this.storageBucketReady) {
-          await this.restoreFromStorageBackup();
-        }
+        await this.restoreFromStorageBackup();
         if (this.postgresTablesReady) {
           await this.pullFromPostgresToSqlite();
         }
@@ -373,13 +371,15 @@ class SupabaseDatabaseBridge {
       return this.getStatus();
     }
 
-    const [pgReady, storageReady] = await Promise.all([
+    // Always attempt direct snapshot restore immediately without waiting on listBuckets
+    const [pgReady, storageReady, restoredDirectly] = await Promise.all([
       this.checkPostgresTables(),
-      this.ensureStorageBucket()
+      this.ensureStorageBucket(),
+      this.restoreFromStorageBackup()
     ]);
 
-    let restoredFromStorage = false;
-    if (storageReady) {
+    let restoredFromStorage = restoredDirectly;
+    if (!restoredFromStorage && storageReady) {
       restoredFromStorage = await this.restoreFromStorageBackup();
     }
 
@@ -389,7 +389,7 @@ class SupabaseDatabaseBridge {
       this.lastSyncAt = new Date().toISOString();
       this.lastPullTimestamp = Date.now();
       console.log(`Connected to Supabase Postgres tables at ${this.getHostLabel()}`);
-    } else if (storageReady) {
+    } else if (storageReady || restoredFromStorage) {
       if (!restoredFromStorage) {
         await this.saveToStorageBackup();
       }
@@ -443,10 +443,12 @@ class SupabaseDatabaseBridge {
   }
 
   async restoreFromStorageBackup() {
-    if (!this.client || !this.storageBucketReady) return false;
+    if (!this.client) return false;
     try {
       const { data, error } = await this.client.storage.from(BACKUP_BUCKET).download(BACKUP_FILE);
       if (error || !data) return false;
+      this.storageBucketReady = true;
+      this.connected = true;
       const text = await data.text();
       const parsed = JSON.parse(text);
       if (parsed && parsed.tables) {
@@ -463,8 +465,7 @@ class SupabaseDatabaseBridge {
   async saveToStorageBackup() {
     if (!this.client) return false;
     if (!this.storageBucketReady) {
-      const ok = await this.ensureStorageBucket();
-      if (!ok) return false;
+      await this.ensureStorageBucket();
     }
     try {
       const localTables = this.exportLocalTables();
@@ -473,6 +474,8 @@ class SupabaseDatabaseBridge {
       try {
         const { data: remoteData, error: dlErr } = await this.client.storage.from(BACKUP_BUCKET).download(BACKUP_FILE);
         if (!dlErr && remoteData) {
+          this.storageBucketReady = true;
+          this.connected = true;
           const parsedRemote = JSON.parse(await remoteData.text());
           const remoteTables = (parsedRemote && parsedRemote.tables) || {};
           const remoteDeleted = (parsedRemote && parsedRemote.deletedIds) || {};
@@ -512,9 +515,12 @@ class SupabaseDatabaseBridge {
               const k = getKey(r);
               if (k) {
                 const existing = byKey.get(k);
-                // Preserve canonical remote user ID when merging by username
+                // Preserve canonical remote user ID and never overwrite a non-empty password hash with an empty one
                 if (table === 'users' && existing && existing.id !== undefined) {
-                  byKey.set(k, { ...r, id: existing.id });
+                  const mergedPassword = (r.password && String(r.password).trim())
+                    ? r.password
+                    : (existing.password || '');
+                  byKey.set(k, { ...existing, ...r, id: existing.id, password: mergedPassword });
                 } else {
                   byKey.set(k, r);
                 }
