@@ -628,7 +628,7 @@ async function handleRegister() {
   const password = passwordEl ? passwordEl.value.trim() : '';
   const reg_no = regNoEl ? regNoEl.value.trim() : '';
   const school = schoolEl ? schoolEl.value.trim() : '';
-  const disability = disabilityEl ? disabilityEl.value : 'None';
+  const disability = disabilityEl ? disabilityEl.value : 'Normal';
   
   if (!name || !password) {
     showAuthError("Please choose a Student ID and Password.");
@@ -849,12 +849,333 @@ function askTutorForPractice() {
 }
 window.askTutorForPractice = askTutorForPractice;
 
+// ====================================================================
+// --- 5-Mode Adaptive Disability Workspace Engine ---
+// Supports: Normal, Blind, Visually Impaired, Dumb, Deaf
+// ====================================================================
+function normalizeDisabilityProfile(raw) {
+  const s = String(raw || '').trim().toLowerCase();
+  if (!s || s === 'none' || s === 'normal' || s === 'standard') return 'Normal';
+  if (s.includes('blind')) return 'Blind';
+  if (s.includes('visual') || s.includes('low vision')) return 'Visually Impaired';
+  if (s.includes('dumb') || s.includes('mute') || s.includes('non-verbal') || s.includes('nonverbal') || s.includes('speech')) return 'Dumb';
+  if (s.includes('deaf') || s.includes('auditory') || s.includes('hearing')) return 'Deaf';
+  return 'Normal';
+}
+window.normalizeDisabilityProfile = normalizeDisabilityProfile;
+
+function selectRegisterDisability(value, options = {}) {
+  const normalized = normalizeDisabilityProfile(value);
+  const selectEl = document.getElementById('reg-disability');
+  if (selectEl) selectEl.value = normalized;
+  document.querySelectorAll('#reg-disability-cards .reg-dis-card').forEach(btn => {
+    const isMatch = btn.dataset.dis === normalized;
+    btn.classList.toggle('active', isMatch);
+    btn.setAttribute('aria-checked', isMatch ? 'true' : 'false');
+  });
+  if (!options.silent && typeof playEarcon === 'function') {
+    playEarcon('click');
+  }
+}
+window.selectRegisterDisability = selectRegisterDisability;
+
+let deafFlashTimeout = null;
+function updateDeafCaptionBar(text, badgeText = 'LIVE CAPTIONS', shouldFlash = true) {
+  const bar = document.getElementById('deaf-live-caption-bar');
+  const textEl = document.getElementById('deaf-live-caption-text');
+  const pillEl = document.getElementById('deaf-visual-alert-pill');
+  if (!bar || !textEl) return;
+  const cleanText = String(text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (cleanText) {
+    textEl.textContent = cleanText;
+  }
+  if (pillEl && badgeText) {
+    pillEl.textContent = badgeText;
+  }
+  if (shouldFlash && !bar.classList.contains('hidden')) {
+    bar.classList.remove('visual-alert-flash');
+    void bar.offsetWidth;
+    bar.classList.add('visual-alert-flash');
+    if (deafFlashTimeout) clearTimeout(deafFlashTimeout);
+    deafFlashTimeout = setTimeout(() => bar.classList.remove('visual-alert-flash'), 1900);
+  }
+}
+window.updateDeafCaptionBar = updateDeafCaptionBar;
+
+function readBlindWorkspaceOverview() {
+  const username = (appState.user && appState.user.username) || 'Student';
+  const courseTitles = Object.values(lessonsDb || {})
+    .filter(l => l && !String(l.id || '').startsWith('gutenberg_'))
+    .map(l => l.title)
+    .slice(0, 6);
+  const courseListStr = courseTitles.length > 0
+    ? `Available courses include: ${courseTitles.join(', ')}.`
+    : 'Your courses are loading.';
+  const streak = (appState.user && appState.user.current_streak) || 1;
+  const summary = `Welcome ${username}. You are on your Audio-First Workspace with a ${streak} day study streak. ${courseListStr} Say Open AI to ask the tutor a question, Open Library to listen to books, Open Quizzes for voice-answered tests, or press keys 1 through 5.`;
+  announceTTS(summary);
+}
+window.readBlindWorkspaceOverview = readBlindWorkspaceOverview;
+
+function adjustVisuallyImpairedScale(deltaOrReset) {
+  let nextScale = appState.fontScale || 1.35;
+  if (deltaOrReset === 'reset') {
+    nextScale = 1.35;
+  } else {
+    nextScale = Math.min(2.0, Math.max(1.0, Math.round((nextScale + Number(deltaOrReset)) * 100) / 100));
+  }
+  appState.fontScale = nextScale;
+  document.documentElement.style.setProperty('--font-scale', nextScale);
+  localStorage.setItem('fontScale', nextScale);
+  if (elements.slider) elements.slider.value = nextScale;
+  const readout = document.getElementById('vi-scale-readout');
+  if (readout) readout.textContent = `${Math.round(nextScale * 100)}%`;
+  playEarcon('click');
+  announceTTS(`Text magnification set to ${Math.round(nextScale * 100)} percent.`);
+}
+window.adjustVisuallyImpairedScale = adjustVisuallyImpairedScale;
+
+function speakDumbCommunicator(customPhrase) {
+  const input = document.getElementById('dumb-tts-input');
+  const banner = document.getElementById('dumb-spoken-banner');
+  const phrase = String(customPhrase !== undefined ? customPhrase : (input ? input.value : '')).trim();
+  if (!phrase) {
+    showToast('Type a message or tap a quick phrase to speak aloud.', 'info');
+    if (input) input.focus();
+    return;
+  }
+  if (banner) {
+    banner.textContent = `Speaking aloud: "${phrase}"`;
+    banner.classList.remove('hidden');
+  }
+  if (appState.tutorMuted) {
+    appState.tutorMuted = false;
+    if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
+  }
+  announceTTS(phrase);
+  if (customPhrase === undefined && input) {
+    input.value = '';
+    input.focus();
+  }
+}
+window.speakDumbCommunicator = speakDumbCommunicator;
+
+function sendDumbCommunicatorToAI(customPrompt) {
+  const input = document.getElementById('dumb-tts-input');
+  const prompt = String(customPrompt !== undefined ? customPrompt : (input ? input.value : '')).trim();
+  openTutorPanel();
+  const chatInput = document.getElementById('chat-user-input');
+  if (prompt) {
+    if (chatInput) chatInput.value = prompt;
+    handleVoiceInput(prompt);
+    if (customPrompt === undefined && input) input.value = '';
+  } else if (chatInput) {
+    chatInput.focus();
+  }
+}
+window.sendDumbCommunicatorToAI = sendDumbCommunicatorToAI;
+
+function askAiForVisualSummary() {
+  openTutorPanel();
+  const activeTitle = (appState.activeLesson && lessonsDb[appState.activeLesson])
+    ? lessonsDb[appState.activeLesson].title
+    : 'my current study courses';
+  const prompt = `Provide a clear, visual-first summary of ${activeTitle} using concise bullet points, bold key terms, and structured visual examples (no audio references).`;
+  const chatInput = document.getElementById('chat-user-input');
+  if (chatInput) chatInput.value = prompt;
+  handleVoiceInput(prompt);
+  updateDeafCaptionBar(`Requested visual summary for ${activeTitle} from Gismo AI.`, 'AI TUTOR', true);
+}
+window.askAiForVisualSummary = askAiForVisualSummary;
+
+function clearDisabilityWorkspace() {
+  document.body.classList.remove(
+    'mode-normal',
+    'mode-blind',
+    'mode-visually-impaired',
+    'mode-dumb',
+    'mode-deaf'
+  );
+  const deafBar = document.getElementById('deaf-live-caption-bar');
+  if (deafBar) deafBar.classList.add('hidden');
+  ['normal', 'blind', 'visually-impaired', 'dumb', 'deaf'].forEach(slug => {
+    const el = document.getElementById(`workspace-page-${slug}`);
+    if (el) el.classList.add('hidden');
+  });
+}
+
+function applyDisabilityWorkspace(rawDisability, options = {}) {
+  const profile = normalizeDisabilityProfile(rawDisability);
+  appState.activeDisabilityMode = profile;
+
+  clearDisabilityWorkspace();
+
+  const isStudent = !appState.user || appState.user.role !== 'admin';
+  if (!isStudent) return profile;
+
+  const modeConfig = {
+    'Normal': {
+      bodyClass: 'mode-normal',
+      pageId: 'workspace-page-normal',
+      pill: 'Normal Workspace',
+      title: `Welcome, ${(appState.user && appState.user.username) || 'Student'}`,
+      subtitle: 'Select a subject card below or press Alt + V to toggle Voice Navigation.'
+    },
+    'Blind': {
+      bodyClass: 'mode-blind',
+      pageId: 'workspace-page-blind',
+      pill: 'Blind • Audio-First Page',
+      title: 'Audio-First Workspace',
+      subtitle: 'Hands-free voice navigation is active. Say "Open AI", "Open library", "Open quizzes", or press 1–5.'
+    },
+    'Visually Impaired': {
+      bodyClass: 'mode-visually-impaired',
+      pageId: 'workspace-page-visually-impaired',
+      pill: 'Visually Impaired • Magnified Page',
+      title: 'High-Visibility Workspace',
+      subtitle: 'High contrast and enlarged text are enabled. Use A+ / A− below to adjust magnification anytime.'
+    },
+    'Dumb': {
+      bodyClass: 'mode-dumb',
+      pageId: 'workspace-page-dumb',
+      pill: 'Non-Verbal • Type-to-Speak Page',
+      title: 'Type-to-Speak & Tap Workspace',
+      subtitle: 'Microphone input is off. Type or tap any phrase below to speak aloud or message Gismo AI.'
+    },
+    'Deaf': {
+      bodyClass: 'mode-deaf',
+      pageId: 'workspace-page-deaf',
+      pill: 'Deaf • Visual & Captioned Page',
+      title: 'Visual & Captioned Workspace',
+      subtitle: 'Audio is muted automatically. Live captions and silent visual alerts are active across the entire app.'
+    }
+  };
+
+  const cfg = modeConfig[profile] || modeConfig['Normal'];
+  document.body.classList.add(cfg.bodyClass);
+
+  const activePage = document.getElementById(cfg.pageId);
+  if (activePage) activePage.classList.remove('hidden');
+
+  const pillText = document.getElementById('active-mode-pill-text');
+  if (pillText) pillText.textContent = cfg.pill;
+
+  const titleEl = document.getElementById('lesson-panel-title');
+  if (titleEl) titleEl.textContent = cfg.title;
+
+  const subtitleEl = document.getElementById('lesson-panel-subtitle');
+  if (subtitleEl) subtitleEl.textContent = cfg.subtitle;
+
+  const deafBar = document.getElementById('deaf-live-caption-bar');
+  const visualCue = document.getElementById('visual-cue-module');
+
+  if (profile === 'Blind') {
+    appState.tutorMuted = false;
+    localStorage.setItem('gismo_tutor_muted', 'false');
+    if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
+    setTheme('hc');
+    appState.fontScale = Math.max(appState.fontScale || 1.15, 1.15);
+    document.documentElement.style.setProperty('--font-scale', appState.fontScale);
+    if (elements.slider) elements.slider.value = appState.fontScale;
+    if (typeof autoEnableVoiceNav === 'function') autoEnableVoiceNav({ force: true });
+    if (visualCue) visualCue.classList.add('hidden');
+  } else if (profile === 'Visually Impaired') {
+    appState.tutorMuted = false;
+    localStorage.setItem('gismo_tutor_muted', 'false');
+    if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
+    if (options.fromLogin || options.fromSettings) {
+      setTheme('hc');
+      appState.fontScale = Math.max(appState.fontScale || 1.35, 1.35);
+      document.documentElement.style.setProperty('--font-scale', appState.fontScale);
+      localStorage.setItem('fontScale', appState.fontScale);
+      if (elements.slider) elements.slider.value = appState.fontScale;
+    }
+    const readout = document.getElementById('vi-scale-readout');
+    if (readout) readout.textContent = `${Math.round((appState.fontScale || 1.35) * 100)}%`;
+    if (typeof autoEnableVoiceNav === 'function') autoEnableVoiceNav({ force: true });
+    if (visualCue) visualCue.classList.add('hidden');
+  } else if (profile === 'Dumb') {
+    // Non-verbal user: turn OFF microphone voice navigation, keep TTS audio ON so Type-to-Speak works
+    appState.tutorMuted = false;
+    localStorage.setItem('gismo_tutor_muted', 'false');
+    if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
+    if (typeof stopVoiceNavigator === 'function') {
+      stopVoiceNavigator({ silent: true });
+      voiceNavState.manuallyStoppedByUser = true;
+    }
+    if (options.fromSettings || options.fromLogin) {
+      if (document.body.classList.contains('theme-hc')) setTheme('light');
+      if (appState.fontScale > 1.2) {
+        appState.fontScale = 1.0;
+        document.documentElement.style.setProperty('--font-scale', 1.0);
+        if (elements.slider) elements.slider.value = 1.0;
+      }
+    }
+    if (visualCue) visualCue.classList.add('hidden');
+  } else if (profile === 'Deaf') {
+    // Hearing-impaired user: mute ALL audio/earcons, turn OFF voice nav mic, activate persistent Live Caption Bar & visual cues
+    appState.tutorMuted = true;
+    localStorage.setItem('gismo_tutor_muted', 'true');
+    stopAllTTS();
+    if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
+    if (typeof stopVoiceNavigator === 'function') {
+      stopVoiceNavigator({ silent: true });
+      voiceNavState.manuallyStoppedByUser = true;
+    }
+    if (deafBar) deafBar.classList.remove('hidden');
+    if (visualCue) visualCue.classList.remove('hidden');
+    if (options.fromSettings || options.fromLogin) {
+      if (document.body.classList.contains('theme-hc')) setTheme('light');
+    }
+    updateDeafCaptionBar(
+      `Welcome ${(appState.user && appState.user.username) || ''}! Visual & Captioned Mode is active — all audio is muted and every notification appears here.`,
+      'AUDIO MUTED • VISUAL MODE',
+      true
+    );
+  } else {
+    // Normal / Standard mode
+    appState.tutorMuted = false;
+    localStorage.setItem('gismo_tutor_muted', 'false');
+    if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
+    if (options.fromSettings && document.body.classList.contains('theme-hc')) {
+      setTheme('light');
+    }
+    if (options.fromSettings && appState.fontScale > 1.25) {
+      appState.fontScale = 1.0;
+      document.documentElement.style.setProperty('--font-scale', 1.0);
+      localStorage.setItem('fontScale', 1.0);
+      if (elements.slider) elements.slider.value = 1.0;
+    }
+    if (visualCue) visualCue.classList.add('hidden');
+    if (typeof autoEnableVoiceNav === 'function') autoEnableVoiceNav({ force: !options.restoreView });
+  }
+
+  return profile;
+}
+window.applyDisabilityWorkspace = applyDisabilityWorkspace;
+
+// Keyboard shortcuts 1–5 for Blind Audio-First Dashboard
+document.addEventListener('keydown', (e) => {
+  if (!document.body.classList.contains('mode-blind')) return;
+  if (appState.currentView !== 'dashboard' || appState.activeLesson) return;
+  const tag = (e.target && e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable)) return;
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === '1') { e.preventDefault(); readBlindWorkspaceOverview(); }
+  else if (e.key === '2') { e.preventDefault(); openTutorPanel(); announceTTS('AI Tutor opened. Ask your question now.'); }
+  else if (e.key === '3') { e.preventDefault(); switchView('library'); announceTTS('Opened Audio Book Library.'); }
+  else if (e.key === '4') { e.preventDefault(); switchView('quizzes'); announceTTS('Opened Voice Quizzes.'); }
+  else if (e.key === '5') { e.preventDefault(); switchView('profile'); readStudentProfileSummary(); }
+});
+
 function loginSuccess(options = {}) {
   if (elements.profileNameDisplay) elements.profileNameDisplay.textContent = appState.user.username;
   
-  if (appState.user && appState.user.disability) {
+  const normalizedDisability = normalizeDisabilityProfile(appState.user && appState.user.disability);
+  if (appState.user && appState.user.role !== 'admin') {
+    appState.user.disability = normalizedDisability;
     try {
-      localStorage.setItem('gismoDisability', appState.user.disability);
+      localStorage.setItem('gismoDisability', normalizedDisability);
     } catch (_) {}
   }
 
@@ -873,6 +1194,7 @@ function loginSuccess(options = {}) {
   const quizzesNav = document.getElementById('btn-quizzes-toggle');
 
   if (appState.user.role === 'admin') {
+    clearDisabilityWorkspace();
     if (elements.btnAdminToggle) {
       elements.btnAdminToggle.classList.remove('hidden');
       elements.btnAdminToggle.classList.add('active');
@@ -894,8 +1216,11 @@ function loginSuccess(options = {}) {
     loadAdminDashboard();
     const targetAdminView = (options.restoreView === 'admin-db') ? 'admin-db' : 'admin';
     switchView(targetAdminView);
+    if (typeof autoEnableVoiceNav === 'function') {
+      autoEnableVoiceNav({ force: !options.restoreView });
+    }
   } else {
-    // Student section
+    // Student section — open tailored disability page automatically
     if (elements.btnAdminToggle) elements.btnAdminToggle.classList.add('hidden');
     if (elements.btnAdminDbToggle) elements.btnAdminDbToggle.classList.add('hidden');
     if (elements.btnHomeToggle) elements.btnHomeToggle.classList.remove('hidden');
@@ -914,15 +1239,24 @@ function loginSuccess(options = {}) {
     const validStudentViews = ['dashboard', 'profile', 'library', 'quizzes'];
     const targetStudentView = validStudentViews.includes(options.restoreView) ? options.restoreView : 'dashboard';
     switchView(targetStudentView);
-  }
-  
-  if (typeof autoEnableVoiceNav === 'function') {
-    autoEnableVoiceNav({ force: !options.restoreView });
+    applyDisabilityWorkspace(normalizedDisability, { fromLogin: true, restoreView: options.restoreView });
   }
 
   loadChatHistory();
   if (!options.silent) {
-    announceTTS(`Login successful. Welcome, ${appState.user.username}. Hands-free Voice Navigation is active.`);
+    if (appState.user.role === 'admin') {
+      announceTTS(`Login successful. Welcome, ${appState.user.username}.`);
+    } else if (normalizedDisability === 'Blind') {
+      announceTTS(`Welcome, ${appState.user.username}. Your Blind Audio-First workspace is open. Say Open AI, Open Library, Open Quizzes, or press 1 to hear your full overview.`);
+    } else if (normalizedDisability === 'Visually Impaired') {
+      announceTTS(`Welcome, ${appState.user.username}. Your Visually Impaired High-Contrast Magnified workspace is open. Voice navigation is active.`);
+    } else if (normalizedDisability === 'Dumb') {
+      showToast(`Welcome, ${appState.user.username}! Type-to-Speak & Tap Workspace ready.`, 'check');
+    } else if (normalizedDisability === 'Deaf') {
+      showToast(`Welcome, ${appState.user.username}! Visual & Live Captioned Workspace ready.`, 'check');
+    } else {
+      announceTTS(`Login successful. Welcome, ${appState.user.username}.`);
+    }
   }
 }
 
@@ -933,6 +1267,10 @@ async function loadChatHistory() {
 function handleLogout() {
   playEarcon('click');
   appState.user = null;
+  appState.tutorMuted = false;
+  localStorage.setItem('gismo_tutor_muted', 'false');
+  if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
+  clearDisabilityWorkspace();
   sessionStorage.removeItem('gismoSessionUser');
   sessionStorage.removeItem('gismoActiveView');
   sessionStorage.removeItem('gismoUserId');
@@ -1006,10 +1344,9 @@ function handleLogout() {
   }
 
   switchView('login');
-  if (typeof autoEnableVoiceNav === 'function') {
-    autoEnableVoiceNav({ force: true });
+  if (typeof startVoiceNavigator === 'function') {
+    startVoiceNavigator({ autoEnabled: true, customLoginGreeting: 'Logged out successfully. You can login here. Please say your username.' });
   }
-  announceTTS("Logged out successfully. Say Username followed by your ID and Password followed by your password to sign in.");
 }
 window.handleLogout = handleLogout;
 
@@ -1593,10 +1930,11 @@ async function loadAdminUsers() {
       tr.style.borderBottom = '1px solid var(--border-color)';
       
       let badgeClass = 'acc-standard';
-      const dis = s.disability || 'Standard';
-      if (dis.toLowerCase().includes('vision')) badgeClass = 'acc-low-vision';
-      else if (dis.toLowerCase().includes('auditory') || dis.toLowerCase().includes('hearing')) badgeClass = 'acc-auditory';
-      else if (dis.toLowerCase().includes('dyslexia')) badgeClass = 'acc-dyslexia';
+      const dis = normalizeDisabilityProfile(s.disability || 'Normal');
+      if (dis === 'Blind') badgeClass = 'acc-blind';
+      else if (dis === 'Visually Impaired') badgeClass = 'acc-low-vision';
+      else if (dis === 'Dumb') badgeClass = 'acc-dumb';
+      else if (dis === 'Deaf') badgeClass = 'acc-deaf';
 
       tr.innerHTML = `
         <td style="padding: 0.75rem 0.5rem; font-weight: 600; color: var(--text-primary);">
@@ -4312,11 +4650,13 @@ function loadLesson(lessonId) {
   if (!lesson) return;
   appState.activeLesson = lessonId;
 
-  // Ensure main-content is visible and hide the top welcome-banner so the book reader card has full height
+  // Ensure main-content is visible and hide the top welcome-banner & disability hub so the reader card has full height
   if (elements.mainContent) {
     elements.mainContent.classList.remove('hidden');
     const welcomeBanner = elements.mainContent.querySelector('.welcome-banner');
     if (welcomeBanner) welcomeBanner.style.display = 'none';
+    const disabilityHub = document.getElementById('disability-workspace-hub');
+    if (disabilityHub) disabilityHub.style.display = 'none';
   }
   if (elements.libraryPanel) elements.libraryPanel.classList.add('hidden');
 
@@ -4407,6 +4747,8 @@ function showDashboard() {
   if (elements.mainContent) {
     const welcomeBanner = elements.mainContent.querySelector('.welcome-banner');
     if (welcomeBanner) welcomeBanner.style.display = '';
+    const disabilityHub = document.getElementById('disability-workspace-hub');
+    if (disabilityHub) disabilityHub.style.display = '';
   }
   
   if (appState.user && appState.user.role === 'admin') {
@@ -5486,6 +5828,10 @@ function isLowVisionAccount(userObj = appState.user) {
 window.isLowVisionAccount = isLowVisionAccount;
 
 function autoEnableVoiceNav(options = {}) {
+  const activeMode = appState.activeDisabilityMode || (appState.user && normalizeDisabilityProfile(appState.user.disability));
+  if (!isLoginViewActive() && (activeMode === 'Dumb' || activeMode === 'Deaf') && !options.overrideDisability) {
+    return;
+  }
   if (options.force) {
     voiceNavState.manuallyStoppedByUser = false;
   }
@@ -5656,13 +6002,36 @@ function handleLoginVoiceCommand(rawTranscript) {
   if (/\b(create account|new student|sign up|register account|open registration)\b/.test(t)) {
     playEarcon('success');
     showStudentRegister();
-    if (disabilityEl) disabilityEl.value = 'Low Vision';
+    if (typeof selectRegisterDisability === 'function') {
+      selectRegisterDisability('Blind', { silent: true });
+    } else if (disabilityEl) {
+      disabilityEl.value = 'Blind';
+    }
     voiceNavState.authFieldTarget = 'username';
     const regUser = document.getElementById('reg-username');
     if (regUser) regUser.focus();
-    updateVoiceHudState('matched', 'Student Registration', 'Say your new username or Student ID');
-    announceTTS('Opened Student Registration with Low Vision mode pre-selected. Please say your new username.');
+    updateVoiceHudState('matched', 'Student Registration', 'Say your username, or say "Blind", "Visually impaired", "Deaf", "Dumb", or "Normal"');
+    announceTTS('Opened Student Registration. You can say Normal, Blind, Visually Impaired, Dumb, or Deaf to choose your page. Please say your new username.');
     return true;
+  }
+
+  // 2b. Voice selection of Disability Profile while on the Registration form
+  if (mode === 'register') {
+    const disKeywords = [
+      { re: /\b(visually impaired|low vision|partial sight)\b/, val: 'Visually Impaired' },
+      { re: /\b(blind|cannot see|can't see)\b/, val: 'Blind' },
+      { re: /\b(deaf|hearing impaired|cannot hear|can't hear)\b/, val: 'Deaf' },
+      { re: /\b(dumb|non verbal|non-verbal|mute|speech impaired)\b/, val: 'Dumb' },
+      { re: /\b(normal|standard)\b/, val: 'Normal' }
+    ];
+    for (const item of disKeywords) {
+      if (item.re.test(t)) {
+        if (typeof selectRegisterDisability === 'function') selectRegisterDisability(item.val);
+        updateVoiceHudState('matched', `Profile: ${item.val}`, `Selected ${item.val} learning page`);
+        announceTTS(`Selected ${item.val} workspace.`);
+        return true;
+      }
+    }
   }
 
   if (/\b(student login|student portal|back to login|switch to student)\b/.test(t)) {
@@ -7106,9 +7475,8 @@ function openSettingsModal() {
   const personaSelect = document.getElementById('persona-select');
 
   if (disabilitySelect) {
-    const rawDis = (appState.user && appState.user.disability) || localStorage.getItem('gismoDisability') || 'None';
-    const disMap = { 'Visual': 'Low Vision', 'Auditory': 'Auditory Impairment', 'Cognitive': 'Dyslexia' };
-    disabilitySelect.value = disMap[rawDis] || rawDis || 'None';
+    const rawDis = (appState.user && appState.user.disability) || localStorage.getItem('gismoDisability') || 'Normal';
+    disabilitySelect.value = normalizeDisabilityProfile(rawDis);
   }
   if (modeSelect) {
     modeSelect.value = (appState.user && appState.user.preferred_learning_mode) || localStorage.getItem('gismoMode') || 'visual';
@@ -7131,9 +7499,8 @@ function openSettingsModal() {
   if (voiceSelect) {
     if (appState.useElevenLabs && appState.elevenLabsVoiceId) {
       voiceSelect.value = appState.elevenLabsVoiceId;
-    } else if (appState.selectedVoice && appState.voicesList) {
-      const bIdx = appState.voicesList.indexOf(appState.selectedVoice);
-      if (bIdx !== -1) voiceSelect.value = `browser:${bIdx}`;
+    } else if (appState.selectedVoice && appState.selectedVoice.name) {
+      voiceSelect.value = `browser:${appState.selectedVoice.name}`;
     }
   }
 
@@ -7150,7 +7517,7 @@ function closeSettingsModal() {
 }
 
 async function saveSettings() {
-  const disability = document.getElementById('setting-disability')?.value || 'None';
+  const disability = normalizeDisabilityProfile(document.getElementById('setting-disability')?.value || 'Normal');
   const mode = document.getElementById('setting-learning-mode')?.value || 'visual';
   const school = document.getElementById('setting-school')?.value || '';
   const regNo = document.getElementById('setting-reg-no')?.value || '';
@@ -7172,10 +7539,13 @@ async function saveSettings() {
   if (voice) {
     if (voice.startsWith('browser:')) {
       appState.useElevenLabs = false;
-      const idx = parseInt(voice.split(':')[1], 10);
-      if (appState.voicesList && appState.voicesList[idx]) {
-        appState.selectedVoice = appState.voicesList[idx];
+      const vName = voice.replace('browser:', '');
+      const matchedVoice = (synth ? synth.getVoices() : []).find(v => v.name === vName) ||
+        (appState.voicesList || []).find(v => v.name === vName);
+      if (matchedVoice) {
+        appState.selectedVoice = matchedVoice;
       }
+      localStorage.setItem('gismo_browser_voice', vName);
       localStorage.removeItem('elevenLabsVoiceId');
     } else {
       appState.useElevenLabs = true;
@@ -7203,7 +7573,7 @@ async function saveSettings() {
       reg_no: regNo
     };
     if (typeof persistUserSession === 'function') {
-      persistUserSession(appState.user);
+      persistUserSession();
     }
     try {
       const res = await fetch(`/api/users/${appState.user.id}`, {
@@ -7221,7 +7591,7 @@ async function saveSettings() {
         const updated = await res.json();
         appState.user = { ...appState.user, ...updated };
         if (typeof persistUserSession === 'function') {
-          persistUserSession(appState.user);
+          persistUserSession();
         }
       }
     } catch (e) {
@@ -7230,15 +7600,15 @@ async function saveSettings() {
   }
 
   closeSettingsModal();
-  if (typeof isLowVisionAccount === 'function' && isLowVisionAccount({ disability })) {
-    if (typeof autoEnableVoiceNavForLowVision === 'function') {
-      autoEnableVoiceNavForLowVision({ force: true });
-    }
+  if (appState.user && appState.user.role !== 'admin') {
+    applyDisabilityWorkspace(disability, { fromSettings: true });
   }
   loadStudentProfile();
-  showToast("Preferences saved successfully!");
+  showToast(`Switched to ${disability} Workspace! Preferences saved.`);
   playEarcon('success');
-  announceTTS("Preferences saved.");
+  if (disability !== 'Deaf' && disability !== 'Dumb') {
+    announceTTS(`Preferences saved. Opened ${disability} workspace.`);
+  }
 }
 
 function getAppSvgIcon(name = 'check', size = 16) {
@@ -7271,6 +7641,9 @@ function getAppSvgIcon(name = 'check', size = 16) {
 }
 
 function showToast(message, icon = 'check') {
+  if (document.body.classList.contains('mode-deaf') && typeof updateDeafCaptionBar === 'function') {
+    updateDeafCaptionBar(message, icon === 'warning' ? 'VISUAL ALERT' : 'NOTIFICATION', true);
+  }
   const toast = document.getElementById('toast-feedback');
   if (!toast) return;
   const iconEl = document.getElementById('toast-icon');

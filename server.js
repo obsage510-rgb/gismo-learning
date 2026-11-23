@@ -569,7 +569,7 @@ function sanitizeUser(u) {
 
 // --- AUTH API ---
 app.post('/api/auth/register', (req, res) => {
-  const { username, password, school = 'Gismo Academy', reg_no = '', disability = 'None' } = req.body || {};
+  const { username, password, school = 'Gismo Academy', reg_no = '', disability = 'Normal' } = req.body || {};
   const cleanUsername = (username || '').trim();
   const cleanPassword = (password || '').trim();
 
@@ -585,11 +585,16 @@ app.post('/api/auth/register', (req, res) => {
   const hPw = generatePasswordHash(cleanPassword);
   const cleanSchool = (school || 'Gismo Academy').trim();
   const cleanRegNo = (reg_no || '').trim() || ('STD-' + Math.floor(1000 + Math.random() * 9000));
+  const cleanDisability = (disability || 'Normal').trim() || 'Normal';
+  const disLower = cleanDisability.toLowerCase();
+  const defaultLearningMode = (disLower.includes('blind') || disLower.includes('visual') || disLower.includes('low vision'))
+    ? 'auditory'
+    : 'visual';
   try {
     const result = db.prepare(`
-      INSERT INTO users (username, password, school, reg_no, disability, role, quizzes_passed, current_streak)
-      VALUES (?, ?, ?, ?, ?, 'student', 0, 1)
-    `).run(cleanUsername, hPw, cleanSchool, cleanRegNo, disability);
+      INSERT INTO users (username, password, school, reg_no, disability, preferred_learning_mode, role, quizzes_passed, current_streak)
+      VALUES (?, ?, ?, ?, ?, ?, 'student', 0, 1)
+    `).run(cleanUsername, hPw, cleanSchool, cleanRegNo, cleanDisability, defaultLearningMode);
     
     const insertedId = Number(result.lastInsertRowid);
     const newUser = db.prepare('SELECT id, username, role, quizzes_passed, current_streak, school, reg_no, disability, preferred_learning_mode FROM users WHERE id = ?').get(insertedId);

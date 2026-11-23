@@ -5579,4 +5579,537 @@ body.login-view-active #fab-tutor,
   pointer-events: none !important;
 }
 
+/* ============================================================================
+   DISABILITY SIGN-UP SELECTOR & 5 ADAPTIVE DISABILITY WORKSPACE PAGES
+   ============================================================================ */
+.reg-disability-label {
+  display: block;
+  text-align: left;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.02em;
+}
+
+.reg-disability-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.reg-dis-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 0.12rem;
+  padding: 0.62rem 0.78rem;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
+}
+
+.reg-dis-card:last-child {
+  grid-column: 1 / -1;
+}
+
+.reg-dis-card:hover {
+  border-color: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+.reg-dis-card.active {
+  border-color: var(--accent-color);
+  background: rgba(15, 92, 77, 0.14);
+  box-shadow: 0 0 0 2px rgba(15, 92, 77, 0.22);
+}
+
+.reg-dis-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.reg-dis-desc {
+  font-size: 0.73rem;
+  color: var(--text-secondary);
+  line-height: 1.25;
+}
+
+/* Active Workspace Mode Pill */
+.active-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--accent-color);
+  background: rgba(15, 92, 77, 0.12);
+  color: var(--accent-color);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.active-mode-pill:hover {
+  transform: translateY(-1px);
+  background: rgba(15, 92, 77, 0.2);
+}
+
+/* Disability Workspace Hub Container */
+.disability-workspace-hub {
+  margin-bottom: 1.75rem;
+}
+
+.disability-page-card {
+  border-radius: 20px;
+  padding: 1.65rem 1.85rem;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-card);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.dpage-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.dpage-kicker {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-color);
+  background: rgba(15, 92, 77, 0.12);
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  margin-bottom: 0.5rem;
+}
+
+.dpage-title {
+  margin: 0 0 0.35rem 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.dpage-desc {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  max-width: 68ch;
+  line-height: 1.55;
+}
+
+.dpage-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+/* 1. Normal Page */
+.dpage-normal {
+  border-left: 5px solid var(--accent-color);
+}
+
+/* 2. Blind (Audio-First Hands-Free Page) */
+.dpage-blind {
+  background: #090d0c !important;
+  color: #ffffff !important;
+  border: 3px solid #ffe600 !important;
+  box-shadow: 0 0 0 3px rgba(255, 230, 0, 0.22);
+}
+
+.dpage-blind .dpage-kicker {
+  background: #ffe600;
+  color: #000000;
+}
+
+.dpage-blind .dpage-title,
+.dpage-blind .dpage-desc {
+  color: #ffffff !important;
+}
+
+.dpage-mega-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.95rem 1.45rem;
+  border-radius: 14px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  cursor: pointer;
+  border: 2px solid #ffe600;
+  background: #ffe600;
+  color: #000000;
+  transition: transform 0.15s ease;
+}
+
+.dpage-mega-btn:hover,
+.dpage-mega-btn:focus-visible {
+  transform: translateY(-2px);
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.blind-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.blind-tile-btn {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-align: left;
+  padding: 1.15rem 1.25rem;
+  border-radius: 16px;
+  border: 2px solid #ffe600;
+  background: #141a19;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.blind-tile-btn:hover,
+.blind-tile-btn:focus-visible {
+  background: #1f2b28;
+  transform: translateY(-2px);
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.blind-tile-num {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #ffe600;
+  color: #000000;
+  font-size: 1.25rem;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.blind-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.blind-tile-body strong {
+  font-size: 1.08rem;
+  color: #ffffff;
+}
+
+.blind-tile-body small {
+  font-size: 0.85rem;
+  color: #e2e8f0;
+}
+
+.blind-command-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 230, 0, 0.35);
+  font-size: 0.88rem;
+  color: #ffe600;
+}
+
+.blind-command-strip span:not(:first-child) {
+  background: rgba(255, 230, 0, 0.14);
+  border: 1px solid rgba(255, 230, 0, 0.45);
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* 3. Visually Impaired (High-Contrast Magnified Page) */
+.dpage-vi {
+  border: 3px solid var(--accent-color) !important;
+  box-shadow: 0 0 0 3px rgba(255, 230, 0, 0.18);
+}
+
+.vi-controls-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1.5px solid var(--border-color);
+}
+
+.vi-control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.vi-control-label {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.vi-scale-readout {
+  font-size: 1rem;
+  font-weight: 800;
+  min-width: 54px;
+  text-align: center;
+  color: var(--accent-color);
+}
+
+.vi-big-btn {
+  padding: 0.6rem 1.05rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  border-radius: 12px;
+  border: 2px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.vi-big-btn:hover,
+.vi-big-btn:focus-visible {
+  border-color: var(--accent-color);
+  outline: 3px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.vi-big-btn-primary {
+  background: var(--accent-color);
+  color: #000000 !important;
+  border-color: var(--accent-color);
+}
+
+/* 4. Dumb (Non-Verbal / Speech-Impaired Type-to-Speak Page) */
+.dpage-dumb {
+  border: 2px solid #0f5c4d;
+  background: linear-gradient(135deg, rgba(15, 92, 77, 0.08), var(--bg-card));
+}
+
+.dumb-aac-composer {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.dumb-aac-composer input {
+  flex: 1 1 280px;
+  padding-left: 1.1rem !important;
+}
+
+.dumb-spoken-banner {
+  padding: 0.85rem 1.15rem;
+  border-radius: 12px;
+  background: rgba(15, 92, 77, 0.14);
+  border: 1.5px solid var(--accent-color);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.98rem;
+}
+
+.dumb-phrase-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.dumb-phrase-chip {
+  padding: 0.55rem 0.95rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dumb-phrase-chip:hover {
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+  color: #ffffff;
+}
+
+/* 5. Deaf (Visual-First & Persistent Silent Live Caption Bar) */
+.deaf-live-caption-bar {
+  position: sticky;
+  top: 0;
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.72rem 1.4rem;
+  background: #0f172a;
+  color: #f8fafc;
+  border-bottom: 3px solid #38bdf8;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.25);
+}
+
+.deaf-live-caption-bar.visual-alert-flash {
+  animation: deafFlashPulse 0.9s ease 2;
+}
+
+@keyframes deafFlashPulse {
+  0%, 100% { background: #0f172a; border-bottom-color: #38bdf8; }
+  50% { background: #0c4a6e; border-bottom-color: #fde047; }
+}
+
+.deaf-caption-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+.deaf-caption-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+}
+
+.deaf-live-caption-text {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #ffffff;
+}
+
+.deaf-visual-alert-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.22rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #bae6fd;
+  flex-shrink: 0;
+}
+
+.dpage-deaf {
+  border: 2px solid #0284c7;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), var(--bg-card));
+}
+
+.dpage-deaf .dpage-kicker {
+  background: rgba(14, 165, 233, 0.16);
+  color: #0284c7;
+}
+
+.deaf-feature-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.deaf-feature-pill {
+  padding: 0.75rem 0.95rem;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+/* Body-level Disability Mode Adaptations */
+body.mode-blind #modules-list > div {
+  width: 100% !important;
+  flex: 0 0 100% !important;
+  max-width: 100% !important;
+}
+
+body.mode-blind *:focus-visible,
+body.mode-visually-impaired *:focus-visible {
+  outline: 3px solid #ffe600 !important;
+  outline-offset: 3px !important;
+}
+
+body.mode-visually-impaired .learner-card,
+body.mode-visually-impaired .auth-card {
+  border-width: 2.5px !important;
+}
+
+body.mode-dumb #btn-mic-input,
+body.mode-dumb #btn-voice-nav,
+body.mode-dumb #voice-command-hud {
+  display: none !important;
+}
+
+body.mode-deaf #btn-voice-nav,
+body.mode-deaf #voice-command-hud,
+body.mode-deaf #btn-read-lesson,
+body.mode-deaf #btn-pause-lesson,
+body.mode-deaf #btn-stop-lesson {
+  opacity: 0.55;
+}
+
+body.mode-deaf #visual-cue-module {
+  display: flex !important;
+}
+
+/* Admin Accommodation Badges for New Disability Profiles */
+.acc-blind {
+  background: rgba(250, 204, 21, 0.18);
+  color: #eab308;
+  border: 1px solid rgba(250, 204, 21, 0.45);
+}
+
+.acc-dumb {
+  background: rgba(16, 185, 129, 0.16);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.acc-deaf {
+  background: rgba(14, 165, 233, 0.16);
+  color: #0284c7;
+  border: 1px solid rgba(14, 165, 233, 0.4);
+}
+
+@media (max-width: 768px) {
+  .reg-disability-grid,
+  .blind-action-grid,
+  .deaf-feature-strip {
+    grid-template-columns: 1fr;
+  }
+  .deaf-live-caption-bar {
+    flex-wrap: wrap;
+    padding: 0.65rem 1rem;
+  }
+}
+
+
 
