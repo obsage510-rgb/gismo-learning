@@ -1540,6 +1540,16 @@
 
       
 
+  <!-- Persistent Silent Live Caption Bar (Automatically shown in Deaf / Hearing-Impaired Mode) -->
+  <div id="deaf-live-caption-bar" class="deaf-live-caption-bar hidden" role="status" aria-live="polite" aria-label="Live Visual Captions">
+    <div class="deaf-caption-badge">
+      <span class="deaf-caption-dot" aria-hidden="true"></span>
+      <span>LIVE CAPTIONS</span>
+    </div>
+    <div id="deaf-live-caption-text" class="deaf-live-caption-text">Visual &amp; Captioned Mode is active. All audio cues and AI responses appear here silently.</div>
+    <span id="deaf-visual-alert-pill" class="deaf-visual-alert-pill">Audio Muted</span>
+  </div>
+
   <!-- Main Content Layout Grid -->
   <main id="main-content" role="main" class="hidden">
     
@@ -1547,9 +1557,193 @@
     <section class="dashboard-panel" aria-labelledby="lesson-panel-title">
       
       <!-- Welcome Intro Section -->
-      <div class="welcome-banner">
-        <h1 class="welcome-title" id="lesson-panel-title">Welcome to Gismo Workspace</h1>
-        <p class="welcome-subtitle">Select a subject card below or press <kbd class="kbd-badge">Alt + V</kbd> to toggle Voice Navigation.</p>
+      <div class="welcome-banner" id="standard-welcome-banner">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+          <div>
+            <h1 class="welcome-title" id="lesson-panel-title">Welcome to Gismo Workspace</h1>
+            <p class="welcome-subtitle" id="lesson-panel-subtitle">Select a subject card below or press <kbd class="kbd-badge">Alt + V</kbd> to toggle Voice Navigation.</p>
+          </div>
+          <button type="button" id="active-mode-pill" class="active-mode-pill" onclick="openSettingsModal()" title="Change your accessibility workspace in Settings">
+            <span id="active-mode-pill-text">Normal Workspace</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dedicated Disability-Adaptive Workspace Hub (Opens according to user's sign-up choice) -->
+      <div id="disability-workspace-hub" class="disability-workspace-hub">
+
+        <!-- 1. NORMAL / STANDARD WORKSPACE BANNER -->
+        <section id="workspace-page-normal" class="disability-page-card dpage-normal hidden" aria-label="Standard Student Workspace">
+          <div class="dpage-header-row">
+            <div>
+              <span class="dpage-kicker">Standard Learning Page</span>
+              <h2 class="dpage-title">Your Balanced Study Hub</h2>
+              <p class="dpage-desc">Explore your courses below, read interactive books in the Library, test yourself with AI Quizzes, or open the Gismo AI Tutor anytime.</p>
+            </div>
+            <div class="dpage-quick-actions">
+              <button type="button" class="btn-primary" onclick="switchView('library')">Open Library</button>
+              <button type="button" class="theme-btn" onclick="switchView('quizzes')">Take a Quiz</button>
+              <button type="button" class="theme-btn" onclick="openTutorPanel()">Open AI Tutor</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. BLIND / STEADY VOICE CONVERSATION & COMMAND STUDIO -->
+        <section id="workspace-page-blind" class="disability-page-card dpage-blind hidden" aria-label="Blind Live Voice Conversation and Command Studio">
+          <div class="blind-studio-topbar">
+            <div class="blind-presence">
+              <div id="blind-voice-orb" class="blind-voice-orb is-listening" aria-hidden="true">
+                <span class="blind-orb-ring blind-orb-ring-1"></span>
+                <span class="blind-orb-ring blind-orb-ring-2"></span>
+                <div class="blind-orb-core">
+                  <div class="blind-wave-bars">
+                    <span></span><span></span><span></span><span></span><span></span>
+                  </div>
+                </div>
+              </div>
+              <div class="blind-presence-meta">
+                <span class="dpage-kicker">Blind &bull; Live Voice Conversation &amp; Commands</span>
+                <h2 class="dpage-title" style="margin-bottom:0.15rem;">Gismo Live Voice Companion</h2>
+                <div id="blind-convo-status" class="blind-convo-status" role="status" aria-live="polite">Listening to you — speak naturally or give a command...</div>
+              </div>
+            </div>
+
+            <div class="blind-studio-controls">
+              <button type="button" id="btn-blind-mic-toggle" class="blind-ctrl-btn blind-ctrl-primary" onclick="toggleVoiceNavigator()" aria-label="Toggle microphone listening">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                <span id="btn-blind-mic-label">Listening</span>
+              </button>
+              <button type="button" class="blind-ctrl-btn" onclick="repeatLastBlindReply()" aria-label="Repeat Gismo's last message">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                <span>Repeat</span>
+              </button>
+              <button type="button" class="blind-ctrl-btn" onclick="stopAllTTS(); setBlindCompanionState('listening', 'Stopped speaking — listening for your next command...');" aria-label="Stop Gismo from speaking">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+                <span>Stop</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Steady Back-and-Forth Live Conversation Transcript -->
+          <div id="blind-convo-feed" class="blind-convo-feed" role="log" aria-live="polite" aria-label="Live conversation between you and Gismo AI">
+            <!-- Populated dynamically with live User <-> Gismo AI conversation bubbles -->
+          </div>
+
+          <!-- Real-Time Interim Speech Preview -->
+          <div id="blind-interim-bar" class="blind-interim-bar" aria-live="polite">
+            <span class="blind-interim-dot" aria-hidden="true"></span>
+            <span id="blind-interim-text">Ready — say anything like "What courses do I have?", "Explain gravity", or "Open library"</span>
+          </div>
+
+          <!-- Quick Speakable / Tappable Conversation & Command Starters -->
+          <div class="blind-quick-prompts" role="group" aria-label="Conversation and command starters">
+            <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('What courses do I have?')">"What courses do I have?"</button>
+            <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('Teach me something interesting today')">"Teach me something new"</button>
+            <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('Open library')">"Open library"</button>
+            <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('Quiz me on Science')">"Quiz me on Science"</button>
+            <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('Read my profile')">"Read my profile"</button>
+          </div>
+
+          <!-- Optional Keyboard / Companion Input Bar -->
+          <div class="blind-convo-composer">
+            <input type="text" id="blind-convo-input" class="blind-convo-input" placeholder="Speak hands-free anytime, or type a message / command here..." aria-label="Speak or type a message to Gismo AI" onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitBlindInputBar(); }">
+            <button type="button" class="dpage-mega-btn" onclick="submitBlindInputBar()" style="padding:0.72rem 1.25rem; font-size:0.92rem;">
+              <span>Send</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+          </div>
+        </section>
+
+        <!-- 3. VISUALLY IMPAIRED / HIGH-CONTRAST MAGNIFIED PAGE -->
+        <section id="workspace-page-visually-impaired" class="disability-page-card dpage-vi hidden" aria-label="Visually Impaired Large-Print High-Contrast Workspace">
+          <div class="dpage-header-row">
+            <div>
+              <span class="dpage-kicker">Visually Impaired &bull; High-Contrast &amp; Large-Print Page</span>
+              <h2 class="dpage-title">Magnified High-Visibility Workspace</h2>
+              <p class="dpage-desc">Enlarged typography, bold focus outlines, high-contrast colors, and voice reading are active for comfortable reading.</p>
+            </div>
+          </div>
+          <div class="vi-controls-toolbar" role="toolbar" aria-label="Low Vision Display & Audio Controls">
+            <div class="vi-control-group">
+              <span class="vi-control-label">Text Magnifier:</span>
+              <button type="button" class="vi-big-btn" onclick="adjustVisuallyImpairedScale(-0.15)" aria-label="Decrease text magnification">A&minus;</button>
+              <span id="vi-scale-readout" class="vi-scale-readout">135%</span>
+              <button type="button" class="vi-big-btn" onclick="adjustVisuallyImpairedScale(0.15)" aria-label="Increase text magnification">A+</button>
+              <button type="button" class="vi-big-btn" onclick="adjustVisuallyImpairedScale('reset')">Reset</button>
+            </div>
+            <div class="vi-control-group">
+              <span class="vi-control-label">Contrast:</span>
+              <button type="button" class="vi-big-btn" onclick="setTheme('hc'); announceTTS('High contrast yellow on black active.');">Black / Yellow</button>
+              <button type="button" class="vi-big-btn" onclick="setTheme('light'); announceTTS('Light high visibility mode active.');">Bright Light</button>
+              <button type="button" class="vi-big-btn" onclick="setTheme('dark'); announceTTS('Dark mode active.');">Dark</button>
+            </div>
+            <div class="vi-control-group">
+              <button type="button" class="vi-big-btn vi-big-btn-primary" onclick="readBlindWorkspaceOverview()">Read Page Aloud</button>
+              <button type="button" class="vi-big-btn vi-big-btn-primary" onclick="openTutorPanel()">Open AI Tutor</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. DUMB (NON-VERBAL / SPEECH-IMPAIRED) TYPE-TO-SPEAK & TAP PAGE -->
+        <section id="workspace-page-dumb" class="disability-page-card dpage-dumb hidden" aria-label="Non-Verbal Speech-Impaired Type-to-Speak Workspace">
+          <div class="dpage-header-row">
+            <div>
+              <span class="dpage-kicker">Non-Verbal / Speech Support Page</span>
+              <h2 class="dpage-title">Type-to-Speak &amp; Tap Workspace</h2>
+              <p class="dpage-desc">Microphone voice input is turned off so you never have to speak. Type anything below to have Gismo speak aloud for you, or tap a quick phrase.</p>
+            </div>
+            <div class="dpage-quick-actions">
+              <button type="button" class="btn-primary" onclick="openTutorPanel(); document.getElementById('chat-user-input')?.focus();">Type to AI Tutor</button>
+              <button type="button" class="theme-btn" onclick="switchView('quizzes')">Tap-Only Quizzes</button>
+              <button type="button" class="theme-btn" onclick="switchView('library')">Library</button>
+            </div>
+          </div>
+          <div class="dumb-aac-composer">
+            <input type="text" id="dumb-tts-input" class="auth-input-modern" placeholder="Type what you want to say aloud or ask Gismo AI..." aria-label="Type a message to speak aloud or ask AI" onkeydown="if(event.key==='Enter'){ event.preventDefault(); speakDumbCommunicator(); }">
+            <button type="button" class="btn-primary" onclick="speakDumbCommunicator()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+              <span>Speak Aloud</span>
+            </button>
+            <button type="button" class="theme-btn" onclick="sendDumbCommunicatorToAI()">Ask AI Tutor</button>
+          </div>
+          <div id="dumb-spoken-banner" class="dumb-spoken-banner hidden" role="status" aria-live="polite"></div>
+          <div class="dumb-phrase-grid" role="group" aria-label="One-Tap Quick Communication Phrases">
+            <button type="button" class="dumb-phrase-chip" onclick="speakDumbCommunicator('Excuse me, I have a question.')">I have a question</button>
+            <button type="button" class="dumb-phrase-chip" onclick="speakDumbCommunicator('Please explain that again slowly.')">Please explain again</button>
+            <button type="button" class="dumb-phrase-chip" onclick="speakDumbCommunicator('Yes, I understand clearly. Thank you.')">I understand</button>
+            <button type="button" class="dumb-phrase-chip" onclick="speakDumbCommunicator('I need a little more time to read this.')">Need more time</button>
+            <button type="button" class="dumb-phrase-chip" onclick="sendDumbCommunicatorToAI('Please explain my current course topic step by step in simple text.')">Explain lesson in text</button>
+            <button type="button" class="dumb-phrase-chip" onclick="switchView('quizzes')">Start a practice quiz</button>
+          </div>
+        </section>
+
+        <!-- 5. DEAF (HEARING-IMPAIRED) VISUAL-FIRST & LIVE CAPTIONS PAGE -->
+        <section id="workspace-page-deaf" class="disability-page-card dpage-deaf hidden" aria-label="Deaf Visual-First Captioned Workspace">
+          <div class="dpage-header-row">
+            <div>
+              <span class="dpage-kicker">Deaf &bull; Visual-First &amp; Live Captions Page</span>
+              <h2 class="dpage-title">Silent Visual &amp; Captioned Learning Hub</h2>
+              <p class="dpage-desc">All audio output is automatically muted. Every alert, lesson description, and AI explanation is delivered visually with live captions and structured text.</p>
+            </div>
+            <div class="dpage-quick-actions">
+              <button type="button" class="btn-primary" onclick="askAiForVisualSummary()">Visual AI Breakdown</button>
+              <button type="button" class="theme-btn" onclick="switchView('library')">Reading Library</button>
+              <button type="button" class="theme-btn" onclick="switchView('quizzes')">Text Quizzes</button>
+            </div>
+          </div>
+          <div class="deaf-feature-strip">
+            <div class="deaf-feature-pill">
+              <strong>Live Caption Bar:</strong> Active at top of screen for every view
+            </div>
+            <div class="deaf-feature-pill">
+              <strong>Silent Visual Alerts:</strong> Screen banner flashes instead of sound beeps
+            </div>
+            <div class="deaf-feature-pill">
+              <strong>Structured AI Notes:</strong> Bullet points, tables &amp; clear visual cues
+            </div>
+          </div>
+        </section>
+
       </div>
 
       
@@ -2107,7 +2301,7 @@
     </svg>
   </button>
   <div id="toast-feedback" class="toast-feedback"><span id="toast-icon" style="display:inline-flex; align-items:center;" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span id="toast-msg">Settings saved</span></div>
-  <script src="app.js?v=137" defer></script>
+  <script src="app.js?v=135" defer></script>
 </body>
 
 </html>

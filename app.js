@@ -904,6 +904,370 @@ function updateDeafCaptionBar(text, badgeText = 'LIVE CAPTIONS', shouldFlash = t
 }
 window.updateDeafCaptionBar = updateDeafCaptionBar;
 
+// --- Blind Steady Voice Conversation & Command Companion ---
+const blindConvoState = {
+  initializedForUser: null,
+  lastAiReply: '',
+  history: [],
+  isRequestInFlight: false
+};
+
+function isBlindModeActive() {
+  return !!(appState.user && appState.user.role !== 'admin' && document.body.classList.contains('mode-blind'));
+}
+window.isBlindModeActive = isBlindModeActive;
+
+function setBlindCompanionState(state, statusMsg) {
+  const orb = document.getElementById('blind-voice-orb');
+  const statusEl = document.getElementById('blind-convo-status');
+  const micLabel = document.getElementById('btn-blind-mic-label');
+  if (orb) {
+    orb.classList.remove('is-listening', 'is-speaking', 'is-thinking', 'is-paused');
+    orb.classList.add(`is-${state || 'listening'}`);
+  }
+  if (statusEl && statusMsg) {
+    statusEl.textContent = statusMsg;
+  }
+  if (micLabel) {
+    micLabel.textContent = state === 'paused' ? 'Mic Paused' : (state === 'speaking' ? 'Speaking' : (state === 'thinking' ? 'Thinking...' : 'Listening'));
+  }
+}
+window.setBlindCompanionState = setBlindCompanionState;
+
+function updateBlindInterimTranscript(text) {
+  const el = document.getElementById('blind-interim-text');
+  if (!el) return;
+  if (text && String(text).trim()) {
+    el.textContent = `Hearing you: "${String(text).trim()}"`;
+  } else {
+    el.textContent = 'Ready — say anything like "What courses do I have?", "Explain gravity", or "Open library"';
+  }
+}
+window.updateBlindInterimTranscript = updateBlindInterimTranscript;
+
+function appendBlindConvoTurn(sender, text, options = {}) {
+  const feed = document.getElementById('blind-convo-feed');
+  if (!feed) return null;
+
+  const turn = document.createElement('div');
+  turn.className = `blind-turn ${sender === 'user' ? 'blind-turn-user' : 'blind-turn-ai'}`;
+  if (options.id) turn.id = options.id;
+
+  const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const label = sender === 'user' ? 'You (Voice)' : 'Gismo AI';
+  const bodyHtml = options.isHtml
+    ? text
+    : (sender === 'ai' && typeof marked !== 'undefined' ? marked.parse(String(text || '')) : escapeHtml(String(text || '')));
+  const badgeHtml = options.actionBadge
+    ? `<span class="blind-turn-action-badge">${escapeHtml(options.actionBadge)}</span>`
+    : '';
+
+  turn.innerHTML = `
+    <div class="blind-turn-meta">
+      <span>${label}</span>
+      <span>${nowStr}</span>
+    </div>
+    <div class="blind-turn-body">${bodyHtml}</div>
+    ${badgeHtml}
+  `;
+
+  feed.appendChild(turn);
+  feed.scrollTop = feed.scrollHeight;
+
+  if (sender === 'ai' && !options.isPlaceholder && text) {
+    const plain = String(text).replace(/[*_#`~]/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    blindConvoState.lastAiReply = plain;
+    blindConvoState.history.push({ role: 'ai', text: plain });
+    if (blindConvoState.history.length > 12) blindConvoState.history.shift();
+  } else if (sender === 'user' && text) {
+    blindConvoState.history.push({ role: 'user', text: String(text).trim() });
+    if (blindConvoState.history.length > 12) blindConvoState.history.shift();
+  }
+
+  return turn;
+}
+window.appendBlindConvoTurn = appendBlindConvoTurn;
+
+function initBlindConversationFeed(forceReset = false) {
+  const feed = document.getElementById('blind-convo-feed');
+  if (!feed) return;
+  const userKey = (appState.user && appState.user.username) || 'student';
+  if (!forceReset && blindConvoState.initializedForUser === userKey && feed.children.length > 0) {
+    return;
+  }
+  blindConvoState.initializedForUser = userKey;
+  blindConvoState.history = [];
+  feed.innerHTML = '';
+
+  const welcomeMsg = `Hi ${userKey}! I'm right here with you. Speak naturally anytime — ask me to teach any topic, say "What courses do I have?", "Open library", or "Quiz me on Science", and I'll reply aloud and keep listening.`;
+  appendBlindConvoTurn('ai', welcomeMsg, { actionBadge: 'Voice Companion Active' });
+  setBlindCompanionState('listening', 'Listening to you — speak naturally or give a command...');
+  updateBlindInterimTranscript('');
+}
+window.initBlindConversationFeed = initBlindConversationFeed;
+
+function repeatLastBlindReply() {
+  const text = blindConvoState.lastAiReply || 'I am right here with you. Ask me a question or say Open Library, Open Quizzes, or What courses do I have.';
+  setBlindCompanionState('speaking', 'Repeating my last response...');
+  announceTTS(text);
+}
+window.repeatLastBlindReply = repeatLastBlindReply;
+
+function submitBlindInputBar() {
+  const input = document.getElementById('blind-convo-input');
+  const val = input ? input.value.trim() : '';
+  if (!val) return;
+  input.value = '';
+  submitBlindConversationTurn(val);
+}
+window.submitBlindInputBar = submitBlindInputBar;
+
+function submitBlindConversationTurn(rawText) {
+  const clean = String(rawText || '').trim();
+  if (!clean) return;
+  handleBlindConversationTurn(clean);
+}
+window.submitBlindConversationTurn = submitBlindConversationTurn;
+
+async function handleBlindConversationTurn(rawTranscript) {
+  const cleanRaw = String(rawTranscript || '').trim();
+  if (!cleanRaw) return true;
+  const t = cleanRaw.toLowerCase().replace(/[.,!?;:]/g, '').trim();
+  if (!t || t.length < 2) return true;
+
+  updateBlindInterimTranscript('');
+
+  // Stop / silence immediately without adding clutter
+  if (t === 'stop' || t === 'stop reading' || t === 'stop speaking' || t === 'silence' || t === 'quiet' || t === 'pause') {
+    stopAllTTS();
+    setBlindCompanionState('listening', 'Paused speaking — listening for your next command...');
+    return true;
+  }
+
+  // Ensure feed exists and log the student's spoken turn
+  initBlindConversationFeed(false);
+  appendBlindConvoTurn('user', cleanRaw);
+
+  // Repeat last response
+  if (t === 'repeat' || t.includes('say that again') || t.includes('repeat that') || t.includes('what did you say')) {
+    playEarcon('click');
+    repeatLastBlindReply();
+    return true;
+  }
+
+  // Logout
+  if (t.includes('log out') || t.includes('logout') || t.includes('sign out')) {
+    appendBlindConvoTurn('ai', 'Signing you out now. See you soon!', { actionBadge: 'Command • Log Out' });
+    handleLogout();
+    return true;
+  }
+
+  // Open / Close floating AI Tutor card
+  if (/\b(open|show|expand)\s+(?:the\s+)?(?:ai|a\s*i|tutor|ai\s+tutor|gismo)\b/.test(t) || t === 'openai') {
+    playEarcon('success');
+    openTutorPanel();
+    const reply = 'Opened the AI Tutor panel. You can keep talking right here or inside the tutor.';
+    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Opened AI Tutor' });
+    announceTTS(reply);
+    return true;
+  }
+  if (/\b(close|hide|minimize|dismiss)\s+(?:the\s+)?(?:ai|a\s*i|tutor|ai\s+tutor|gismo)\b/.test(t) || t === 'closeai') {
+    playEarcon('success');
+    closeTutorPanel();
+    const reply = 'Closed the AI Tutor panel. I am still listening right here.';
+    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Closed AI Tutor' });
+    announceTTS(reply);
+    return true;
+  }
+
+  // List courses / Read workspace overview
+  if (
+    t.includes('what courses') || t.includes('my courses') || t.includes('list courses') ||
+    t.includes('read overview') || t.includes('workspace overview') || t === 'overview'
+  ) {
+    playEarcon('success');
+    const courses = Object.values(lessonsDb || []).filter(l => l && !String(l.id || '').startsWith('gutenberg_'));
+    const names = courses.map(c => c.title).slice(0, 6);
+    const reply = names.length > 0
+      ? `You have ${courses.length} courses ready: ${names.join(', ')}. Say "Open" followed by a course name, or ask me to explain any topic.`
+      : 'You have not imported any books yet, or your courses are still loading. Say "Open library" to browse free audio books.';
+    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Course Overview' });
+    announceTTS(reply);
+    return true;
+  }
+
+  // Open a specific course by title or ordinal ("open first course", "open biology")
+  if (/\b(open|start|read)\b/.test(t) && !t.includes('library') && !t.includes('quiz') && !t.includes('profile') && !t.includes('setting')) {
+    const courses = Object.values(lessonsDb || []).filter(l => l && l.title);
+    let matched = null;
+    if (/\b(first|1st|one)\s+(course|lesson|book)\b/.test(t) && courses[0]) matched = courses[0];
+    else if (/\b(second|2nd|two)\s+(course|lesson|book)\b/.test(t) && courses[1]) matched = courses[1];
+    else if (/\b(third|3rd|three)\s+(course|lesson|book)\b/.test(t) && courses[2]) matched = courses[2];
+    else {
+      const targetPhrase = t.replace(/^.*?\b(open|start|read)\s+(?:the\s+)?(?:course|lesson|book)?\s*/i, '').trim();
+      if (targetPhrase.length >= 3) {
+        matched = courses.find(c => String(c.title).toLowerCase().includes(targetPhrase) || targetPhrase.includes(String(c.title).toLowerCase()));
+      }
+    }
+    if (matched) {
+      playEarcon('success');
+      const reply = `Opening "${matched.title}" for you now. Say "Read lesson" to hear it aloud, or ask me any question about it.`;
+      appendBlindConvoTurn('ai', reply, { actionBadge: `Command • Opened ${matched.title}` });
+      loadLesson(matched.id);
+      return true;
+    }
+  }
+
+  // Navigation commands
+  if (t.includes('quiz me on') || t.includes('give me a quiz on')) {
+    const topic = cleanRaw.replace(/.*(quiz me on|give me a quiz on)/i, '').trim() || 'General Science';
+    playEarcon('success');
+    const reply = `Creating a voice-answered quiz on ${topic} right now. Once it opens, just say Option A, B, C, or D.`;
+    appendBlindConvoTurn('ai', reply, { actionBadge: `Command • Quiz on ${topic}` });
+    switchView('quizzes');
+    handleTriggerAiQuiz(topic);
+    return true;
+  }
+
+  if (/\b(quizzes|quiz|open quiz|take quiz|take a quiz)\b/.test(t)) {
+    playEarcon('success');
+    const reply = 'Opened your Quizzes page. You can say "Quiz me on" followed by any topic to generate one instantly.';
+    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Opened Quizzes' });
+    switchView('quizzes');
+    announceTTS(reply);
+    return true;
+  }
+
+  if (/\b(library|books|textbook|read book|audio book)\b/.test(t)) {
+    playEarcon('success');
+    const reply = 'Opened your Audio Library. Say "Go home" anytime to come right back to our conversation.';
+    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Opened Library' });
+    switchView('library');
+    announceTTS(reply);
+    return true;
+  }
+
+  if (/\b(profile|my account|student profile|my streak|my homework)\b/.test(t)) {
+    playEarcon('success');
+    const u = appState.user || {};
+    const reply = `Opening your profile. You are signed in as ${u.username || 'Student'} at ${u.school || 'Gismo Academy'}, with a ${u.current_streak || 1} day study streak and ${u.quizzes_passed || 0} quizzes passed.`;
+    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Student Profile' });
+    switchView('profile');
+    announceTTS(reply);
+    return true;
+  }
+
+  if (t === 'home' || t === 'dashboard' || /\b(go home|open dashboard|open home|back to home)\b/.test(t)) {
+    playEarcon('success');
+    const reply = 'Welcome back to your Live Voice Companion home. What would you like to learn or do next?';
+    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Home' });
+    switchView('dashboard');
+    announceTTS(reply);
+    return true;
+  }
+
+  if (t.includes('open setting') || t === 'settings' || t.includes('preferences')) {
+    playEarcon('success');
+    const reply = 'Opened Settings. Say "Close settings" whenever you are finished.';
+    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Settings' });
+    openSettingsModal();
+    announceTTS(reply);
+    return true;
+  }
+
+  if (t.includes('close setting') || t.includes('dismiss setting')) {
+    playEarcon('success');
+    closeSettingsModal();
+    const reply = 'Closed Settings. I am listening whenever you are ready.';
+    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Closed Settings' });
+    announceTTS(reply);
+    return true;
+  }
+
+  if (t === 'read page' || t === 'read lesson' || t === 'read text' || t === 'narrate') {
+    if (elements.btnReadLesson && !elements.btnReadLesson.disabled && appState.activeLesson) {
+      playEarcon('success');
+      appendBlindConvoTurn('ai', 'Reading the active lesson aloud now. Say "Stop" anytime to pause.', { actionBadge: 'Command • Reading Lesson' });
+      elements.btnReadLesson.click();
+    } else {
+      readBlindWorkspaceOverview();
+    }
+    return true;
+  }
+
+  if (t === 'next' || t.includes('next chapter') || t.includes('next page')) {
+    playEarcon('success');
+    nextPage();
+    appendBlindConvoTurn('ai', 'Moved to the next page.', { actionBadge: 'Command • Next Page' });
+    return true;
+  }
+
+  if (t === 'previous' || t === 'prev' || t.includes('previous chapter') || t.includes('previous page')) {
+    playEarcon('success');
+    prevPage();
+    appendBlindConvoTurn('ai', 'Moved back to the previous page.', { actionBadge: 'Command • Previous Page' });
+    return true;
+  }
+
+  // Steady natural AI conversation for ANY spoken sentence or question!
+  if (blindConvoState.isRequestInFlight) return true;
+  blindConvoState.isRequestInFlight = true;
+  setBlindCompanionState('thinking', 'Gismo is thinking about your message...');
+
+  const loadingId = `blind-thinking-${Date.now()}`;
+  appendBlindConvoTurn(
+    'ai',
+    '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>',
+    { id: loadingId, isHtml: true, isPlaceholder: true }
+  );
+
+  // Build conversational context so Gismo remembers recent back-and-forth turns
+  const recentHistory = blindConvoState.history
+    .slice(-8)
+    .map(h => `${h.role === 'user' ? 'Student' : 'Gismo AI'}: ${h.text}`)
+    .join('\n');
+  let lessonContext = '';
+  if (appState.activeLesson && lessonsDb[appState.activeLesson]) {
+    const lesson = lessonsDb[appState.activeLesson];
+    lessonContext = `\nActive Lesson: ${lesson.title}\n${String(lesson.content || '').slice(0, 2000)}`;
+  }
+  const fullContext = `You are having a steady, warm, hands-free spoken voice conversation with a blind student. Keep your reply clear, engaging, concise (2-4 spoken sentences unless asked for more detail), and end naturally so the student can reply or ask a follow-up.\n\nRecent conversation:\n${recentHistory}${lessonContext}`;
+
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: cleanRaw,
+        persona: appState.persona || 'default',
+        context: fullContext,
+        user_id: appState.user ? appState.user.id : null,
+        session_id: appState.activeSessionId || 'blind_voice_convo'
+      })
+    });
+    const data = await response.json();
+    const reply = (data && data.reply) || "I heard you! Let's explore that together—would you like a quick explanation or a practice question?";
+
+    const loadingEl = document.getElementById(loadingId);
+    if (loadingEl) loadingEl.remove();
+
+    appendBlindConvoTurn('ai', reply);
+    setBlindCompanionState('speaking', 'Gismo is speaking — I will listen again right after...');
+    announceTTS(reply);
+  } catch (err) {
+    const loadingEl = document.getElementById(loadingId);
+    if (loadingEl) loadingEl.remove();
+    const fallbackReply = "I had a quick connection hiccup, but I'm still here with you. Please say that again or give a command like Open Library.";
+    appendBlindConvoTurn('ai', fallbackReply);
+    announceTTS(fallbackReply);
+  } finally {
+    blindConvoState.isRequestInFlight = false;
+  }
+
+  return true;
+}
+window.handleBlindConversationTurn = handleBlindConversationTurn;
+
 function readBlindWorkspaceOverview() {
   const username = (appState.user && appState.user.username) || 'Student';
   const courseTitles = Object.values(lessonsDb || {})
@@ -912,9 +1276,12 @@ function readBlindWorkspaceOverview() {
     .slice(0, 6);
   const courseListStr = courseTitles.length > 0
     ? `Available courses include: ${courseTitles.join(', ')}.`
-    : 'Your courses are loading.';
+    : 'Your courses are ready below.';
   const streak = (appState.user && appState.user.current_streak) || 1;
-  const summary = `Welcome ${username}. You are on your Audio-First Workspace with a ${streak} day study streak. ${courseListStr} Say Open AI to ask the tutor a question, Open Library to listen to books, Open Quizzes for voice-answered tests, or press keys 1 through 5.`;
+  const summary = `Welcome ${username}. You have a ${streak} day study streak. ${courseListStr} Ask me any question, or say Open Library, Open Quizzes, or Open AI.`;
+  if (isBlindModeActive()) {
+    appendBlindConvoTurn('ai', summary, { actionBadge: 'Workspace Overview' });
+  }
   announceTTS(summary);
 }
 window.readBlindWorkspaceOverview = readBlindWorkspaceOverview;
@@ -1026,9 +1393,9 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
     'Blind': {
       bodyClass: 'mode-blind',
       pageId: 'workspace-page-blind',
-      pill: 'Blind • Audio-First Page',
-      title: 'Audio-First Workspace',
-      subtitle: 'Hands-free voice navigation is active. Say "Open AI", "Open library", "Open quizzes", or press 1–5.'
+      pill: 'Blind • Live Voice Companion',
+      title: 'Live Voice Conversation Hub',
+      subtitle: 'Talk naturally with Gismo AI or give voice commands — I stay listening after every reply.'
     },
     'Visually Impaired': {
       bodyClass: 'mode-visually-impaired',
@@ -1075,9 +1442,11 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
     appState.tutorMuted = false;
     localStorage.setItem('gismo_tutor_muted', 'false');
     if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
+    setTheme('hc');
     appState.fontScale = Math.max(appState.fontScale || 1.15, 1.15);
     document.documentElement.style.setProperty('--font-scale', appState.fontScale);
     if (elements.slider) elements.slider.value = appState.fontScale;
+    initBlindConversationFeed(!!options.fromLogin);
     if (typeof autoEnableVoiceNav === 'function') autoEnableVoiceNav({ force: true });
     if (visualCue) visualCue.classList.add('hidden');
   } else if (profile === 'Visually Impaired') {
@@ -1085,6 +1454,7 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
     localStorage.setItem('gismo_tutor_muted', 'false');
     if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
     if (options.fromLogin || options.fromSettings) {
+      setTheme('hc');
       appState.fontScale = Math.max(appState.fontScale || 1.35, 1.35);
       document.documentElement.style.setProperty('--font-scale', appState.fontScale);
       localStorage.setItem('fontScale', appState.fontScale);
@@ -1104,6 +1474,7 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
       voiceNavState.manuallyStoppedByUser = true;
     }
     if (options.fromSettings || options.fromLogin) {
+      if (document.body.classList.contains('theme-hc')) setTheme('light');
       if (appState.fontScale > 1.2) {
         appState.fontScale = 1.0;
         document.documentElement.style.setProperty('--font-scale', 1.0);
@@ -1123,6 +1494,9 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
     }
     if (deafBar) deafBar.classList.remove('hidden');
     if (visualCue) visualCue.classList.remove('hidden');
+    if (options.fromSettings || options.fromLogin) {
+      if (document.body.classList.contains('theme-hc')) setTheme('light');
+    }
     updateDeafCaptionBar(
       `Welcome ${(appState.user && appState.user.username) || ''}! Visual & Captioned Mode is active — all audio is muted and every notification appears here.`,
       'AUDIO MUTED • VISUAL MODE',
@@ -1133,6 +1507,9 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
     appState.tutorMuted = false;
     localStorage.setItem('gismo_tutor_muted', 'false');
     if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
+    if (options.fromSettings && document.body.classList.contains('theme-hc')) {
+      setTheme('light');
+    }
     if (options.fromSettings && appState.fontScale > 1.25) {
       appState.fontScale = 1.0;
       document.documentElement.style.setProperty('--font-scale', 1.0);
@@ -4352,6 +4729,9 @@ function notifyTTSStarting(text) {
       voiceNavState.recognition.abort();
     } catch (_) {}
   }
+  if (typeof isBlindModeActive === 'function' && isBlindModeActive() && typeof setBlindCompanionState === 'function') {
+    setBlindCompanionState('speaking', 'Gismo is speaking — listening resumes right after...');
+  }
   if (typeof quizVoiceState !== 'undefined' && quizVoiceState.enabled && quizVoiceState.recognition) {
     try {
       quizVoiceState.recognition.abort();
@@ -4377,6 +4757,9 @@ function notifyTTSEnded(onEndCallback = null) {
       try {
         voiceNavState.recognition.start();
       } catch (_) {}
+      if (typeof isBlindModeActive === 'function' && isBlindModeActive() && typeof setBlindCompanionState === 'function') {
+        setBlindCompanionState('listening', 'Listening to you — go ahead and speak...');
+      }
       if (typeof updateVoiceHudState === 'function') {
         updateVoiceHudState('listening', 'Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
       }
@@ -6240,6 +6623,9 @@ function initVoiceNavigator() {
     voiceNavState.engineRunning = true;
     if (isLoginViewActive()) {
       updateVoiceHudState('listening', 'Voice Login: Username', 'You can login here — please say your username');
+    } else if (typeof isBlindModeActive === 'function' && isBlindModeActive()) {
+      setBlindCompanionState('listening', 'Listening to you — speak naturally or give a command...');
+      updateVoiceHudState('listening', 'Live Voice Companion', 'Speak naturally with Gismo AI or give any command');
     } else {
       updateVoiceHudState('listening', 'Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
     }
@@ -6280,6 +6666,9 @@ function initVoiceNavigator() {
     }
     
     updateVoiceHudTranscript(displayPhrase);
+    if (typeof isBlindModeActive === 'function' && isBlindModeActive() && typeof updateBlindInterimTranscript === 'function') {
+      updateBlindInterimTranscript(displayPhrase);
+    }
     if (typeof isQuizModalOpen === 'function' && isQuizModalOpen() && interimTranscript && !finalTranscript) {
       updateQuizVoiceUI('listening', 'Hearing your voice...', `Heard: <em>"${escapeHtml(displayPhrase)}"</em>`);
     }
@@ -6442,6 +6831,9 @@ function stopVoiceNavigator(options = {}) {
   }
   updateVoiceHudUi(false);
   updateVoiceLoginHint('Access your learning workspace — type or say "Username [ID]" & "Password [pass]"', false);
+  if (typeof isBlindModeActive === 'function' && isBlindModeActive() && typeof setBlindCompanionState === 'function') {
+    setBlindCompanionState('paused', 'Microphone paused — press "Mic Paused" or Alt + V to resume our conversation.');
+  }
   const btn = document.getElementById('btn-voice-nav');
   if (btn) btn.classList.remove('listening');
   if (typeof isQuizModalOpen === 'function' && isQuizModalOpen()) {
@@ -6536,6 +6928,12 @@ function executeVoiceCommand(rawTranscript) {
   if (typeof isQuizModalOpen === 'function' && isQuizModalOpen()) {
     const handled = handleQuizVoiceCommand(rawTranscript);
     if (handled) return;
+  }
+
+  // 0c. In Blind Mode, keep a steady back-and-forth voice conversation & command flow
+  if (typeof isBlindModeActive === 'function' && isBlindModeActive() && typeof handleBlindConversationTurn === 'function') {
+    handleBlindConversationTurn(rawTranscript);
+    return;
   }
   
   const isExplicitTutor = t.startsWith('ask tutor') || t.startsWith('tutor') || t.startsWith('hey gismo') || t.startsWith('ask gismo') || t.startsWith('question');
