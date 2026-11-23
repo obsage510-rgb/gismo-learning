@@ -1075,7 +1075,6 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
     appState.tutorMuted = false;
     localStorage.setItem('gismo_tutor_muted', 'false');
     if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
-    setTheme('hc');
     appState.fontScale = Math.max(appState.fontScale || 1.15, 1.15);
     document.documentElement.style.setProperty('--font-scale', appState.fontScale);
     if (elements.slider) elements.slider.value = appState.fontScale;
@@ -1086,7 +1085,6 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
     localStorage.setItem('gismo_tutor_muted', 'false');
     if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
     if (options.fromLogin || options.fromSettings) {
-      setTheme('hc');
       appState.fontScale = Math.max(appState.fontScale || 1.35, 1.35);
       document.documentElement.style.setProperty('--font-scale', appState.fontScale);
       localStorage.setItem('fontScale', appState.fontScale);
@@ -1106,7 +1104,6 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
       voiceNavState.manuallyStoppedByUser = true;
     }
     if (options.fromSettings || options.fromLogin) {
-      if (document.body.classList.contains('theme-hc')) setTheme('light');
       if (appState.fontScale > 1.2) {
         appState.fontScale = 1.0;
         document.documentElement.style.setProperty('--font-scale', 1.0);
@@ -1126,9 +1123,6 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
     }
     if (deafBar) deafBar.classList.remove('hidden');
     if (visualCue) visualCue.classList.remove('hidden');
-    if (options.fromSettings || options.fromLogin) {
-      if (document.body.classList.contains('theme-hc')) setTheme('light');
-    }
     updateDeafCaptionBar(
       `Welcome ${(appState.user && appState.user.username) || ''}! Visual & Captioned Mode is active — all audio is muted and every notification appears here.`,
       'AUDIO MUTED • VISUAL MODE',
@@ -1139,9 +1133,6 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
     appState.tutorMuted = false;
     localStorage.setItem('gismo_tutor_muted', 'false');
     if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
-    if (options.fromSettings && document.body.classList.contains('theme-hc')) {
-      setTheme('light');
-    }
     if (options.fromSettings && appState.fontScale > 1.25) {
       appState.fontScale = 1.0;
       document.documentElement.style.setProperty('--font-scale', 1.0);
