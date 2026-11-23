@@ -868,6 +868,8 @@ function selectRegisterDisability(value, options = {}) {
   const normalized = normalizeDisabilityProfile(value);
   const selectEl = document.getElementById('reg-disability');
   if (selectEl) selectEl.value = normalized;
+  const tagEl = document.getElementById('reg-disability-active-tag');
+  if (tagEl) tagEl.textContent = normalized;
   document.querySelectorAll('#reg-disability-cards .reg-dis-card').forEach(btn => {
     const isMatch = btn.dataset.dis === normalized;
     btn.classList.toggle('active', isMatch);
