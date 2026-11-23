@@ -1442,10 +1442,7 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
     appState.tutorMuted = false;
     localStorage.setItem('gismo_tutor_muted', 'false');
     if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
-    setTheme('hc');
-    appState.fontScale = Math.max(appState.fontScale || 1.15, 1.15);
-    document.documentElement.style.setProperty('--font-scale', appState.fontScale);
-    if (elements.slider) elements.slider.value = appState.fontScale;
+    setTheme('dark');
     initBlindConversationFeed(!!options.fromLogin);
     if (typeof autoEnableVoiceNav === 'function') autoEnableVoiceNav({ force: true });
     if (visualCue) visualCue.classList.add('hidden');

@@ -6,7 +6,7 @@
   <title>Gismo - Accessible AI Learning Tutor</title>
   <meta name="description" content="An interactive AI-powered learning workspace designed specifically for visually and auditory impaired students using advanced assistive speech and visual aids.">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=131">
+  <link rel="stylesheet" href="style.css?v=132">
   <!-- Markdown Parser -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -1588,69 +1588,62 @@
           </div>
         </section>
 
-        <!-- 2. BLIND / STEADY VOICE CONVERSATION & COMMAND STUDIO -->
+        <!-- 2. BLIND / LIVE VOICE CONVERSATION STAGE -->
         <section id="workspace-page-blind" class="disability-page-card dpage-blind hidden" aria-label="Blind Live Voice Conversation and Command Studio">
-          <div class="blind-studio-topbar">
-            <div class="blind-presence">
-              <div id="blind-voice-orb" class="blind-voice-orb is-listening" aria-hidden="true">
-                <span class="blind-orb-ring blind-orb-ring-1"></span>
-                <span class="blind-orb-ring blind-orb-ring-2"></span>
-                <div class="blind-orb-core">
-                  <div class="blind-wave-bars">
-                    <span></span><span></span><span></span><span></span><span></span>
-                  </div>
+          <!-- Centered Ambient Voice Presence Stage -->
+          <div class="blind-voice-stage">
+            <button type="button" id="blind-voice-orb" class="blind-voice-orb is-listening" onclick="toggleVoiceNavigator()" aria-label="Toggle live voice microphone">
+              <span class="blind-orb-halo" aria-hidden="true"></span>
+              <span class="blind-orb-ring blind-orb-ring-1" aria-hidden="true"></span>
+              <span class="blind-orb-ring blind-orb-ring-2" aria-hidden="true"></span>
+              <div class="blind-orb-core" aria-hidden="true">
+                <div class="blind-wave-bars">
+                  <span></span><span></span><span></span><span></span><span></span>
                 </div>
               </div>
-              <div class="blind-presence-meta">
-                <span class="dpage-kicker">Blind &bull; Live Voice Conversation &amp; Commands</span>
-                <h2 class="dpage-title" style="margin-bottom:0.15rem;">Gismo Live Voice Companion</h2>
-                <div id="blind-convo-status" class="blind-convo-status" role="status" aria-live="polite">Listening to you — speak naturally or give a command...</div>
+            </button>
+
+            <div class="blind-stage-caption">
+              <div id="blind-convo-status" class="blind-convo-status" role="status" aria-live="polite">Listening to you...</div>
+              <div id="blind-interim-text" class="blind-interim-text" aria-live="polite">Speak naturally — ask anything or say &ldquo;Open library&rdquo;, &ldquo;What courses do I have?&rdquo;, or &ldquo;Quiz me&rdquo;</div>
+            </div>
+          </div>
+
+          <!-- Seamless Live Conversation Stream -->
+          <div id="blind-convo-feed" class="blind-convo-feed" role="log" aria-live="polite" aria-label="Live conversation between you and Gismo AI"></div>
+
+          <!-- Minimal Voice Call Dock & Sleek Input Pill -->
+          <div class="blind-bottom-dock">
+            <div class="blind-quick-prompts" role="group" aria-label="Quick voice prompts">
+              <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('What courses do I have?')">What courses do I have?</button>
+              <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('Teach me something interesting today')">Teach me something new</button>
+              <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('Open library')">Open library</button>
+              <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('Quiz me on Science')">Quiz me on Science</button>
+            </div>
+
+            <div class="blind-dock-row">
+              <div class="blind-dock-actions">
+                <button type="button" id="btn-blind-mic-toggle" class="blind-dock-btn blind-dock-mic" onclick="toggleVoiceNavigator()" aria-label="Toggle microphone listening">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                  <span id="btn-blind-mic-label">Listening</span>
+                </button>
+                <button type="button" class="blind-dock-btn" onclick="repeatLastBlindReply()" title="Repeat last reply" aria-label="Repeat Gismo's last message">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" aria-hidden="true"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+                  <span>Repeat</span>
+                </button>
+                <button type="button" class="blind-dock-btn" onclick="stopAllTTS(); setBlindCompanionState('listening', 'Listening to you...');" title="Stop speaking" aria-label="Stop Gismo from speaking">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+                  <span>Stop</span>
+                </button>
+              </div>
+
+              <div class="blind-pill-composer">
+                <input type="text" id="blind-convo-input" class="blind-convo-input" placeholder="Speak anytime, or type here..." aria-label="Speak or type a message to Gismo AI" onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitBlindInputBar(); }">
+                <button type="button" class="blind-send-circle" onclick="submitBlindInputBar()" aria-label="Send message">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                </button>
               </div>
             </div>
-
-            <div class="blind-studio-controls">
-              <button type="button" id="btn-blind-mic-toggle" class="blind-ctrl-btn blind-ctrl-primary" onclick="toggleVoiceNavigator()" aria-label="Toggle microphone listening">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-                <span id="btn-blind-mic-label">Listening</span>
-              </button>
-              <button type="button" class="blind-ctrl-btn" onclick="repeatLastBlindReply()" aria-label="Repeat Gismo's last message">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
-                <span>Repeat</span>
-              </button>
-              <button type="button" class="blind-ctrl-btn" onclick="stopAllTTS(); setBlindCompanionState('listening', 'Stopped speaking — listening for your next command...');" aria-label="Stop Gismo from speaking">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
-                <span>Stop</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Steady Back-and-Forth Live Conversation Transcript -->
-          <div id="blind-convo-feed" class="blind-convo-feed" role="log" aria-live="polite" aria-label="Live conversation between you and Gismo AI">
-            <!-- Populated dynamically with live User <-> Gismo AI conversation bubbles -->
-          </div>
-
-          <!-- Real-Time Interim Speech Preview -->
-          <div id="blind-interim-bar" class="blind-interim-bar" aria-live="polite">
-            <span class="blind-interim-dot" aria-hidden="true"></span>
-            <span id="blind-interim-text">Ready — say anything like "What courses do I have?", "Explain gravity", or "Open library"</span>
-          </div>
-
-          <!-- Quick Speakable / Tappable Conversation & Command Starters -->
-          <div class="blind-quick-prompts" role="group" aria-label="Conversation and command starters">
-            <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('What courses do I have?')">"What courses do I have?"</button>
-            <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('Teach me something interesting today')">"Teach me something new"</button>
-            <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('Open library')">"Open library"</button>
-            <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('Quiz me on Science')">"Quiz me on Science"</button>
-            <button type="button" class="blind-prompt-pill" onclick="submitBlindConversationTurn('Read my profile')">"Read my profile"</button>
-          </div>
-
-          <!-- Optional Keyboard / Companion Input Bar -->
-          <div class="blind-convo-composer">
-            <input type="text" id="blind-convo-input" class="blind-convo-input" placeholder="Speak hands-free anytime, or type a message / command here..." aria-label="Speak or type a message to Gismo AI" onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitBlindInputBar(); }">
-            <button type="button" class="dpage-mega-btn" onclick="submitBlindInputBar()" style="padding:0.72rem 1.25rem; font-size:0.92rem;">
-              <span>Send</span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-            </button>
           </div>
         </section>
 
@@ -2301,7 +2294,7 @@
     </svg>
   </button>
   <div id="toast-feedback" class="toast-feedback"><span id="toast-icon" style="display:inline-flex; align-items:center;" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span id="toast-msg">Settings saved</span></div>
-  <script src="app.js?v=137" defer></script>
+  <script src="app.js?v=138" defer></script>
 </body>
 
 </html>
