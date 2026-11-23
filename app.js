@@ -49,23 +49,80 @@ function playEarcon(type) {
   } catch (_) {
     return;
   }
+  const now = audioCtx.currentTime;
+
+  if (type === 'mic-ready') {
+    // Gentle warm two-tone ascending chime telling a blind user: "Gismo is listening now"
+    const notes = [
+      { freq: 523.25, start: 0, dur: 0.11 },
+      { freq: 659.25, start: 0.085, dur: 0.16 }
+    ];
+    notes.forEach(n => {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(n.freq, now + n.start);
+      g.gain.setValueAtTime(0.001, now + n.start);
+      g.gain.linearRampToValueAtTime(0.08, now + n.start + 0.025);
+      g.gain.exponentialRampToValueAtTime(0.001, now + n.start + n.dur);
+      o.connect(g);
+      g.connect(audioCtx.destination);
+      o.start(now + n.start);
+      o.stop(now + n.start + n.dur + 0.02);
+    });
+    return;
+  }
+
+  if (type === 'heard') {
+    // Soft low-warm confirmation tap: "Gismo caught what you said"
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(420, now);
+    o.frequency.exponentialRampToValueAtTime(510, now + 0.09);
+    g.gain.setValueAtTime(0.001, now);
+    g.gain.linearRampToValueAtTime(0.065, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    o.start(now);
+    o.stop(now + 0.13);
+    return;
+  }
+
+  if (type === 'thinking') {
+    // Very subtle calm acoustic shimmer if AI takes a moment to think
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(340, now);
+    o.frequency.linearRampToValueAtTime(370, now + 0.18);
+    g.gain.setValueAtTime(0.001, now);
+    g.gain.linearRampToValueAtTime(0.035, now + 0.06);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    o.start(now);
+    o.stop(now + 0.24);
+    return;
+  }
+
   const osc = audioCtx.createOscillator();
   const gainNode = audioCtx.createGain();
   osc.connect(gainNode);
   gainNode.connect(audioCtx.destination);
-  const now = audioCtx.currentTime;
-  
+
   if (type === 'click') {
     osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
-    gainNode.gain.setValueAtTime(0.3, now); gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    gainNode.gain.setValueAtTime(0.22, now); gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
     osc.start(now); osc.stop(now + 0.1);
   } else if (type === 'success') {
     osc.type = 'triangle'; osc.frequency.setValueAtTime(400, now); osc.frequency.setValueAtTime(600, now + 0.1); osc.frequency.setValueAtTime(800, now + 0.2);
-    gainNode.gain.setValueAtTime(0, now); gainNode.gain.linearRampToValueAtTime(0.3, now + 0.1); gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
+    gainNode.gain.setValueAtTime(0, now); gainNode.gain.linearRampToValueAtTime(0.22, now + 0.1); gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
     osc.start(now); osc.stop(now + 0.4);
   } else if (type === 'error') {
     osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now);
-    gainNode.gain.setValueAtTime(0.3, now); gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+    gainNode.gain.setValueAtTime(0.22, now); gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
     osc.start(now); osc.stop(now + 0.3);
   } else if (type === 'listening') {
     osc.type = 'sine'; osc.frequency.setValueAtTime(440, now);
@@ -904,12 +961,17 @@ function updateDeafCaptionBar(text, badgeText = 'LIVE CAPTIONS', shouldFlash = t
 }
 window.updateDeafCaptionBar = updateDeafCaptionBar;
 
-// --- Blind Steady Voice Conversation & Command Companion ---
+// --- Blind Real-Time Voice Conversation Companion ---
 const blindConvoState = {
   initializedForUser: null,
   lastAiReply: '',
+  openingGreeting: '',
   history: [],
-  isRequestInFlight: false
+  isRequestInFlight: false,
+  queuedUtterance: '',
+  utteranceBuffer: [],
+  utteranceTimer: null,
+  thinkingCueTimer: null
 };
 
 function isBlindModeActive() {
@@ -917,19 +979,43 @@ function isBlindModeActive() {
 }
 window.isBlindModeActive = isBlindModeActive;
 
+function updateBlindFloatingBarVisibility() {
+  const bar = document.getElementById('blind-floating-voice-bar');
+  if (!bar) return;
+  const shouldShow = isBlindModeActive() && (appState.currentView !== 'dashboard' || !!appState.activeLesson);
+  bar.classList.toggle('hidden', !shouldShow);
+}
+window.updateBlindFloatingBarVisibility = updateBlindFloatingBarVisibility;
+
 function setBlindCompanionState(state, statusMsg) {
+  const normalized = state || 'listening';
   const orb = document.getElementById('blind-voice-orb');
   const statusEl = document.getElementById('blind-convo-status');
   const micLabel = document.getElementById('btn-blind-mic-label');
+  const floatDot = document.getElementById('blind-float-dot');
+  const floatStatus = document.getElementById('blind-float-status');
+
   if (orb) {
     orb.classList.remove('is-listening', 'is-speaking', 'is-thinking', 'is-paused');
-    orb.classList.add(`is-${state || 'listening'}`);
+    orb.classList.add(`is-${normalized}`);
+    if (normalized !== 'listening') {
+      orb.style.setProperty('--orb-voice-scale', '1');
+    }
+  }
+  if (floatDot) {
+    floatDot.classList.remove('is-listening', 'is-speaking', 'is-thinking', 'is-paused');
+    floatDot.classList.add(`is-${normalized}`);
   }
   if (statusEl && statusMsg) {
     statusEl.textContent = statusMsg;
   }
+  if (floatStatus && statusMsg) {
+    floatStatus.textContent = statusMsg;
+  }
   if (micLabel) {
-    micLabel.textContent = state === 'paused' ? 'Mic Paused' : (state === 'speaking' ? 'Speaking' : (state === 'thinking' ? 'Thinking...' : 'Listening'));
+    micLabel.textContent = normalized === 'paused'
+      ? 'Mic Paused'
+      : (normalized === 'speaking' ? 'Speaking' : (normalized === 'thinking' ? 'Thinking...' : 'Listening'));
   }
 }
 window.setBlindCompanionState = setBlindCompanionState;
@@ -938,12 +1024,56 @@ function updateBlindInterimTranscript(text) {
   const el = document.getElementById('blind-interim-text');
   if (!el) return;
   if (text && String(text).trim()) {
-    el.textContent = `Hearing you: "${String(text).trim()}"`;
+    el.textContent = `"${String(text).trim()}"`;
+    el.classList.add('is-hearing');
   } else {
-    el.textContent = 'Ready — say anything like "What courses do I have?", "Explain gravity", or "Open library"';
+    el.textContent = "Just speak naturally whenever you're ready";
+    el.classList.remove('is-hearing');
   }
 }
 window.updateBlindInterimTranscript = updateBlindInterimTranscript;
+
+function toggleBlindKeyboardDrawer() {
+  const drawer = document.getElementById('blind-keyboard-drawer');
+  const btn = document.getElementById('btn-blind-keyboard-toggle');
+  if (!drawer) return;
+  const isNowHidden = drawer.classList.toggle('hidden');
+  if (btn) btn.setAttribute('aria-expanded', String(!isNowHidden));
+  if (!isNowHidden) {
+    const input = document.getElementById('blind-convo-input');
+    if (input) input.focus();
+  }
+}
+window.toggleBlindKeyboardDrawer = toggleBlindKeyboardDrawer;
+
+function handleBlindInterruptOrToggle(forceInterruptOnly = false) {
+  const isSpeakingNow = !!(
+    (typeof voiceNavState !== 'undefined' && voiceNavState.isSpeaking) ||
+    (window.speechSynthesis && window.speechSynthesis.speaking) ||
+    currentElevenLabsAudio
+  );
+
+  if (isSpeakingNow || forceInterruptOnly) {
+    stopAllTTS();
+    if (typeof voiceNavState !== 'undefined') {
+      voiceNavState.isSpeaking = false;
+      voiceNavState.lastSpeakingEndTime = 0;
+      voiceNavState.manuallyStoppedByUser = false;
+      if (voiceNavState.recognition) {
+        try { voiceNavState.recognition.start(); } catch (_) {}
+      } else {
+        startVoiceNavigator({ autoEnabled: true, skipLoginGreeting: true });
+      }
+    }
+    playEarcon('mic-ready');
+    setBlindCompanionState('listening', "I'm listening — go ahead");
+    updateBlindInterimTranscript('');
+    return;
+  }
+
+  toggleVoiceNavigator();
+}
+window.handleBlindInterruptOrToggle = handleBlindInterruptOrToggle;
 
 function appendBlindConvoTurn(sender, text, options = {}) {
   const feed = document.getElementById('blind-convo-feed');
@@ -953,11 +1083,10 @@ function appendBlindConvoTurn(sender, text, options = {}) {
   turn.className = `blind-turn ${sender === 'user' ? 'blind-turn-user' : 'blind-turn-ai'}`;
   if (options.id) turn.id = options.id;
 
-  const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const label = sender === 'user' ? 'You (Voice)' : 'Gismo AI';
+  const label = sender === 'user' ? 'You' : 'Gismo';
   const bodyHtml = options.isHtml
     ? text
-    : (sender === 'ai' && typeof marked !== 'undefined' ? marked.parse(String(text || '')) : escapeHtml(String(text || '')));
+    : escapeHtml(String(text || ''));
   const badgeHtml = options.actionBadge
     ? `<span class="blind-turn-action-badge">${escapeHtml(options.actionBadge)}</span>`
     : '';
@@ -965,7 +1094,6 @@ function appendBlindConvoTurn(sender, text, options = {}) {
   turn.innerHTML = `
     <div class="blind-turn-meta">
       <span>${label}</span>
-      <span>${nowStr}</span>
     </div>
     <div class="blind-turn-body">${bodyHtml}</div>
     ${badgeHtml}
@@ -977,38 +1105,62 @@ function appendBlindConvoTurn(sender, text, options = {}) {
   if (sender === 'ai' && !options.isPlaceholder && text) {
     const plain = String(text).replace(/[*_#`~]/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     blindConvoState.lastAiReply = plain;
-    blindConvoState.history.push({ role: 'ai', text: plain });
-    if (blindConvoState.history.length > 12) blindConvoState.history.shift();
+    blindConvoState.history.push({ role: 'model', text: plain });
+    if (blindConvoState.history.length > 20) blindConvoState.history.shift();
   } else if (sender === 'user' && text) {
     blindConvoState.history.push({ role: 'user', text: String(text).trim() });
-    if (blindConvoState.history.length > 12) blindConvoState.history.shift();
+    if (blindConvoState.history.length > 20) blindConvoState.history.shift();
   }
 
   return turn;
 }
 window.appendBlindConvoTurn = appendBlindConvoTurn;
 
+function buildBlindOpeningGreeting() {
+  const userKey = (appState.user && appState.user.username) || 'friend';
+  const hour = new Date().getHours();
+  const partOfDay = hour < 12 ? 'Good morning' : (hour < 17 ? 'Good afternoon' : 'Good evening');
+  return `${partOfDay}, ${userKey}. It's Gismo — I'm right here with you. Whenever you hear the soft chime, just talk to me naturally like we're in the same room. How are you doing today, or is there something on your mind?`;
+}
+
 function initBlindConversationFeed(forceReset = false) {
   const feed = document.getElementById('blind-convo-feed');
-  if (!feed) return;
-  const userKey = (appState.user && appState.user.username) || 'student';
+  if (!feed) return '';
+  const userKey = (appState.user && appState.user.username) || 'friend';
   if (!forceReset && blindConvoState.initializedForUser === userKey && feed.children.length > 0) {
-    return;
+    return blindConvoState.openingGreeting || blindConvoState.lastAiReply;
   }
   blindConvoState.initializedForUser = userKey;
   blindConvoState.history = [];
+  blindConvoState.utteranceBuffer = [];
+  blindConvoState.queuedUtterance = '';
+  if (blindConvoState.utteranceTimer) {
+    clearTimeout(blindConvoState.utteranceTimer);
+    blindConvoState.utteranceTimer = null;
+  }
   feed.innerHTML = '';
 
-  const welcomeMsg = `Hi ${userKey}! I'm right here with you. Speak naturally anytime — ask me to teach any topic, say "What courses do I have?", "Open library", or "Quiz me on Science", and I'll reply aloud and keep listening.`;
-  appendBlindConvoTurn('ai', welcomeMsg, { actionBadge: 'Voice Companion Active' });
-  setBlindCompanionState('listening', 'Listening to you — speak naturally or give a command...');
+  const welcomeMsg = buildBlindOpeningGreeting();
+  blindConvoState.openingGreeting = welcomeMsg;
+  appendBlindConvoTurn('ai', welcomeMsg);
+  setBlindCompanionState('listening', 'Gismo is listening');
   updateBlindInterimTranscript('');
+  updateBlindFloatingBarVisibility();
+  return welcomeMsg;
 }
 window.initBlindConversationFeed = initBlindConversationFeed;
 
+function speakBlindOrientationGuide() {
+  const guide = "You're in a live voice conversation with Gismo. You don't need to look at or click anything — just speak to me naturally whenever you hear the soft chime. You can ask me any question, chat about your day, ask what courses you have, ask me to open and read a lesson, or take a spoken quiz. Anytime I'm talking, press Space or say Stop to interrupt me, press R to repeat what I just said, or press M to pause the microphone.";
+  appendBlindConvoTurn('ai', guide, { actionBadge: 'Spoken Guide' });
+  setBlindCompanionState('speaking', 'Gismo is speaking');
+  announceTTS(guide);
+}
+window.speakBlindOrientationGuide = speakBlindOrientationGuide;
+
 function repeatLastBlindReply() {
-  const text = blindConvoState.lastAiReply || 'I am right here with you. Ask me a question or say Open Library, Open Quizzes, or What courses do I have.';
-  setBlindCompanionState('speaking', 'Repeating my last response...');
+  const text = blindConvoState.lastAiReply || "I'm right here with you. Just talk to me anytime whenever you're ready.";
+  setBlindCompanionState('speaking', 'Repeating...');
   announceTTS(text);
 }
 window.repeatLastBlindReply = repeatLastBlindReply;
@@ -1029,6 +1181,201 @@ function submitBlindConversationTurn(rawText) {
 }
 window.submitBlindConversationTurn = submitBlindConversationTurn;
 
+function buildBlindWorkspaceContext() {
+  const u = appState.user || {};
+  const courses = Object.values(lessonsDb || {})
+    .filter(l => l && l.id && l.title && !String(l.id).startsWith('gutenberg_'))
+    .slice(0, 12)
+    .map(l => ({ id: String(l.id), title: String(l.title) }));
+
+  let activeLesson = null;
+  if (appState.activeLesson && lessonsDb[appState.activeLesson]) {
+    const lesson = lessonsDb[appState.activeLesson];
+    const rawPage = (appState.currentLessonPages && appState.currentLessonPages[appState.currentPageIndex])
+      ? appState.currentLessonPages[appState.currentPageIndex]
+      : lesson.content;
+    const cleanExcerpt = String(rawPage || '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 2200);
+    activeLesson = {
+      id: String(lesson.id),
+      title: String(lesson.title || ''),
+      excerpt: cleanExcerpt
+    };
+  }
+
+  let currentView = 'voice_home';
+  if (activeLesson) currentView = `reading_lesson: ${activeLesson.title}`;
+  else if (appState.currentView && appState.currentView !== 'dashboard') currentView = appState.currentView;
+
+  return {
+    username: u.username || 'friend',
+    school: u.school || '',
+    streak: u.current_streak || 1,
+    quizzesPassed: u.quizzes_passed || 0,
+    currentView,
+    courses,
+    activeLesson
+  };
+}
+
+function resolveBlindActionBadge(action) {
+  if (!action || !action.type) return '';
+  const map = {
+    OPEN_LESSON: 'Opened Lesson',
+    READ_LESSON: 'Reading Aloud',
+    NEXT_PAGE: 'Next Page',
+    PREV_PAGE: 'Previous Page',
+    START_QUIZ: `Voice Quiz${action.value ? ' • ' + action.value : ''}`,
+    OPEN_QUIZZES: 'Quizzes',
+    OPEN_LIBRARY: 'Audio Library',
+    OPEN_PROFILE: 'Profile',
+    GO_HOME: 'Voice Room',
+    LOGOUT: 'Signing Out'
+  };
+  return map[action.type] || '';
+}
+
+function executeBlindAiAction(action) {
+  if (!action || !action.type) return { afterSpeech: null };
+  const type = String(action.type).toUpperCase();
+  const value = String(action.value || '').trim();
+
+  if (type === 'OPEN_LESSON') {
+    const courses = Object.values(lessonsDb || {}).filter(l => l && l.id);
+    let target = lessonsDb[value] || null;
+    if (!target && value) {
+      const low = value.toLowerCase();
+      target = courses.find(c => String(c.id).toLowerCase() === low || String(c.title || '').toLowerCase().includes(low));
+    }
+    if (target) {
+      loadLesson(target.id, { silent: true });
+      updateBlindFloatingBarVisibility();
+    }
+    return { afterSpeech: null };
+  }
+
+  if (type === 'READ_LESSON') {
+    return {
+      afterSpeech: () => {
+        if (elements.btnReadLesson && !elements.btnReadLesson.disabled && appState.activeLesson) {
+          elements.btnReadLesson.click();
+        }
+      }
+    };
+  }
+
+  if (type === 'NEXT_PAGE') {
+    if (appState.activeLesson) nextPage();
+    return { afterSpeech: null };
+  }
+
+  if (type === 'PREV_PAGE') {
+    if (appState.activeLesson) prevPage();
+    return { afterSpeech: null };
+  }
+
+  if (type === 'START_QUIZ') {
+    const topic = value || 'General Science';
+    return {
+      afterSpeech: () => {
+        switchView('quizzes');
+        updateBlindFloatingBarVisibility();
+        handleTriggerAiQuiz(topic);
+      }
+    };
+  }
+
+  if (type === 'OPEN_QUIZZES') {
+    switchView('quizzes');
+    updateBlindFloatingBarVisibility();
+    return { afterSpeech: null };
+  }
+
+  if (type === 'OPEN_LIBRARY') {
+    switchView('library');
+    updateBlindFloatingBarVisibility();
+    return { afterSpeech: null };
+  }
+
+  if (type === 'OPEN_PROFILE') {
+    switchView('profile');
+    updateBlindFloatingBarVisibility();
+    return { afterSpeech: null };
+  }
+
+  if (type === 'GO_HOME') {
+    if (appState.activeLesson) showDashboard();
+    switchView('dashboard');
+    updateBlindFloatingBarVisibility();
+    return { afterSpeech: null };
+  }
+
+  if (type === 'LOGOUT') {
+    return {
+      afterSpeech: () => {
+        handleLogout();
+      }
+    };
+  }
+
+  return { afterSpeech: null };
+}
+
+// Buffers natural mid-sentence pauses (~820ms) so Chrome's Web Speech API never chops a blind user's thought in half
+function queueBlindSpokenInput(rawTranscript) {
+  const clean = String(rawTranscript || '').trim();
+  if (!clean) return;
+  const t = clean.toLowerCase().replace(/[.,!?;:]/g, '').trim();
+
+  // Urgent zero-latency interrupt / playback controls fire immediately
+  if (
+    t === 'stop' || t === 'stop speaking' || t === 'stop reading' || t === 'stop talking' ||
+    t === 'quiet' || t === 'silence' || t === 'pause' || t === 'hold on' || t === 'wait'
+  ) {
+    if (blindConvoState.utteranceTimer) {
+      clearTimeout(blindConvoState.utteranceTimer);
+      blindConvoState.utteranceTimer = null;
+    }
+    blindConvoState.utteranceBuffer = [];
+    handleBlindConversationTurn(clean);
+    return;
+  }
+
+  blindConvoState.utteranceBuffer.push(clean);
+  updateBlindInterimTranscript(blindConvoState.utteranceBuffer.join(' '));
+
+  if (blindConvoState.utteranceTimer) {
+    clearTimeout(blindConvoState.utteranceTimer);
+  }
+  blindConvoState.utteranceTimer = setTimeout(() => {
+    const combined = blindConvoState.utteranceBuffer.join(' ').trim();
+    blindConvoState.utteranceBuffer = [];
+    blindConvoState.utteranceTimer = null;
+    if (combined) {
+      handleBlindConversationTurn(combined);
+    }
+  }, 820);
+}
+window.queueBlindSpokenInput = queueBlindSpokenInput;
+
+function extendBlindUtteranceWait() {
+  if (blindConvoState.utteranceTimer && blindConvoState.utteranceBuffer.length > 0) {
+    clearTimeout(blindConvoState.utteranceTimer);
+    blindConvoState.utteranceTimer = setTimeout(() => {
+      const combined = blindConvoState.utteranceBuffer.join(' ').trim();
+      blindConvoState.utteranceBuffer = [];
+      blindConvoState.utteranceTimer = null;
+      if (combined) {
+        handleBlindConversationTurn(combined);
+      }
+    }, 820);
+  }
+}
+window.extendBlindUtteranceWait = extendBlindUtteranceWait;
+
 async function handleBlindConversationTurn(rawTranscript) {
   const cleanRaw = String(rawTranscript || '').trim();
   if (!cleanRaw) return true;
@@ -1037,182 +1384,54 @@ async function handleBlindConversationTurn(rawTranscript) {
 
   updateBlindInterimTranscript('');
 
-  // Stop / silence immediately without adding clutter
-  if (t === 'stop' || t === 'stop reading' || t === 'stop speaking' || t === 'silence' || t === 'quiet' || t === 'pause') {
-    stopAllTTS();
-    setBlindCompanionState('listening', 'Paused speaking — listening for your next command...');
+  // 1. Instant local playback / microphone controls (zero network delay)
+  if (
+    t === 'stop' || t === 'stop reading' || t === 'stop speaking' || t === 'stop talking' ||
+    t === 'silence' || t === 'quiet' || t === 'pause' || t === 'hold on' || t === 'wait'
+  ) {
+    handleBlindInterruptOrToggle(true);
     return true;
   }
 
-  // Ensure feed exists and log the student's spoken turn
-  initBlindConversationFeed(false);
-  appendBlindConvoTurn('user', cleanRaw);
-
-  // Repeat last response
-  if (t === 'repeat' || t.includes('say that again') || t.includes('repeat that') || t.includes('what did you say')) {
-    playEarcon('click');
+  if (t === 'repeat' || t === 'repeat that' || t === 'say that again' || t === 'what did you say' || t === 'pardon') {
+    playEarcon('heard');
     repeatLastBlindReply();
     return true;
   }
 
-  // Logout
-  if (t.includes('log out') || t.includes('logout') || t.includes('sign out')) {
-    appendBlindConvoTurn('ai', 'Signing you out now. See you soon!', { actionBadge: 'Command • Log Out' });
-    handleLogout();
+  if (t === 'mute mic' || t === 'mute microphone' || t === 'pause mic' || t === 'pause microphone') {
+    stopVoiceNavigator();
     return true;
   }
 
-  // Open / Close floating AI Tutor card
-  if (/\b(open|show|expand)\s+(?:the\s+)?(?:ai|a\s*i|tutor|ai\s+tutor|gismo)\b/.test(t) || t === 'openai') {
-    playEarcon('success');
-    openTutorPanel();
-    const reply = 'Opened the AI Tutor panel. You can keep talking right here or inside the tutor.';
-    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Opened AI Tutor' });
-    announceTTS(reply);
-    return true;
-  }
-  if (/\b(close|hide|minimize|dismiss)\s+(?:the\s+)?(?:ai|a\s*i|tutor|ai\s+tutor|gismo)\b/.test(t) || t === 'closeai') {
-    playEarcon('success');
-    closeTutorPanel();
-    const reply = 'Closed the AI Tutor panel. I am still listening right here.';
-    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Closed AI Tutor' });
-    announceTTS(reply);
+  // If a request is already in flight, queue the follow-up cleanly instead of dropping it
+  if (blindConvoState.isRequestInFlight) {
+    blindConvoState.queuedUtterance = blindConvoState.queuedUtterance
+      ? `${blindConvoState.queuedUtterance} ${cleanRaw}`
+      : cleanRaw;
     return true;
   }
 
-  // List courses / Read workspace overview
-  if (
-    t.includes('what courses') || t.includes('my courses') || t.includes('list courses') ||
-    t.includes('read overview') || t.includes('workspace overview') || t === 'overview'
-  ) {
-    playEarcon('success');
-    const courses = Object.values(lessonsDb || []).filter(l => l && !String(l.id || '').startsWith('gutenberg_'));
-    const names = courses.map(c => c.title).slice(0, 6);
-    const reply = names.length > 0
-      ? `You have ${courses.length} courses ready: ${names.join(', ')}. Say "Open" followed by a course name, or ask me to explain any topic.`
-      : 'You have not imported any books yet, or your courses are still loading. Say "Open library" to browse free audio books.';
-    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Course Overview' });
-    announceTTS(reply);
-    return true;
-  }
+  // Ensure feed exists and capture history BEFORE appending the current user turn
+  initBlindConversationFeed(false);
+  const priorHistory = blindConvoState.history.slice(-14).map(h => ({
+    role: h.role === 'model' || h.role === 'ai' ? 'model' : 'user',
+    text: h.text
+  }));
 
-  // Open a specific course by title or ordinal ("open first course", "open biology")
-  if (/\b(open|start|read)\b/.test(t) && !t.includes('library') && !t.includes('quiz') && !t.includes('profile') && !t.includes('setting')) {
-    const courses = Object.values(lessonsDb || []).filter(l => l && l.title);
-    let matched = null;
-    if (/\b(first|1st|one)\s+(course|lesson|book)\b/.test(t) && courses[0]) matched = courses[0];
-    else if (/\b(second|2nd|two)\s+(course|lesson|book)\b/.test(t) && courses[1]) matched = courses[1];
-    else if (/\b(third|3rd|three)\s+(course|lesson|book)\b/.test(t) && courses[2]) matched = courses[2];
-    else {
-      const targetPhrase = t.replace(/^.*?\b(open|start|read)\s+(?:the\s+)?(?:course|lesson|book)?\s*/i, '').trim();
-      if (targetPhrase.length >= 3) {
-        matched = courses.find(c => String(c.title).toLowerCase().includes(targetPhrase) || targetPhrase.includes(String(c.title).toLowerCase()));
-      }
-    }
-    if (matched) {
-      playEarcon('success');
-      const reply = `Opening "${matched.title}" for you now. Say "Read lesson" to hear it aloud, or ask me any question about it.`;
-      appendBlindConvoTurn('ai', reply, { actionBadge: `Command • Opened ${matched.title}` });
-      loadLesson(matched.id);
-      return true;
-    }
-  }
+  appendBlindConvoTurn('user', cleanRaw);
+  playEarcon('heard');
 
-  // Navigation commands
-  if (t.includes('quiz me on') || t.includes('give me a quiz on')) {
-    const topic = cleanRaw.replace(/.*(quiz me on|give me a quiz on)/i, '').trim() || 'General Science';
-    playEarcon('success');
-    const reply = `Creating a voice-answered quiz on ${topic} right now. Once it opens, just say Option A, B, C, or D.`;
-    appendBlindConvoTurn('ai', reply, { actionBadge: `Command • Quiz on ${topic}` });
-    switchView('quizzes');
-    handleTriggerAiQuiz(topic);
-    return true;
-  }
-
-  if (/\b(quizzes|quiz|open quiz|take quiz|take a quiz)\b/.test(t)) {
-    playEarcon('success');
-    const reply = 'Opened your Quizzes page. You can say "Quiz me on" followed by any topic to generate one instantly.';
-    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Opened Quizzes' });
-    switchView('quizzes');
-    announceTTS(reply);
-    return true;
-  }
-
-  if (/\b(library|books|textbook|read book|audio book)\b/.test(t)) {
-    playEarcon('success');
-    const reply = 'Opened your Audio Library. Say "Go home" anytime to come right back to our conversation.';
-    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Opened Library' });
-    switchView('library');
-    announceTTS(reply);
-    return true;
-  }
-
-  if (/\b(profile|my account|student profile|my streak|my homework)\b/.test(t)) {
-    playEarcon('success');
-    const u = appState.user || {};
-    const reply = `Opening your profile. You are signed in as ${u.username || 'Student'} at ${u.school || 'Gismo Academy'}, with a ${u.current_streak || 1} day study streak and ${u.quizzes_passed || 0} quizzes passed.`;
-    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Student Profile' });
-    switchView('profile');
-    announceTTS(reply);
-    return true;
-  }
-
-  if (t === 'home' || t === 'dashboard' || /\b(go home|open dashboard|open home|back to home)\b/.test(t)) {
-    playEarcon('success');
-    const reply = 'Welcome back to your Live Voice Companion home. What would you like to learn or do next?';
-    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Home' });
-    switchView('dashboard');
-    announceTTS(reply);
-    return true;
-  }
-
-  if (t.includes('open setting') || t === 'settings' || t.includes('preferences')) {
-    playEarcon('success');
-    const reply = 'Opened Settings. Say "Close settings" whenever you are finished.';
-    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Settings' });
-    openSettingsModal();
-    announceTTS(reply);
-    return true;
-  }
-
-  if (t.includes('close setting') || t.includes('dismiss setting')) {
-    playEarcon('success');
-    closeSettingsModal();
-    const reply = 'Closed Settings. I am listening whenever you are ready.';
-    appendBlindConvoTurn('ai', reply, { actionBadge: 'Command • Closed Settings' });
-    announceTTS(reply);
-    return true;
-  }
-
-  if (t === 'read page' || t === 'read lesson' || t === 'read text' || t === 'narrate') {
-    if (elements.btnReadLesson && !elements.btnReadLesson.disabled && appState.activeLesson) {
-      playEarcon('success');
-      appendBlindConvoTurn('ai', 'Reading the active lesson aloud now. Say "Stop" anytime to pause.', { actionBadge: 'Command • Reading Lesson' });
-      elements.btnReadLesson.click();
-    } else {
-      readBlindWorkspaceOverview();
-    }
-    return true;
-  }
-
-  if (t === 'next' || t.includes('next chapter') || t.includes('next page')) {
-    playEarcon('success');
-    nextPage();
-    appendBlindConvoTurn('ai', 'Moved to the next page.', { actionBadge: 'Command • Next Page' });
-    return true;
-  }
-
-  if (t === 'previous' || t === 'prev' || t.includes('previous chapter') || t.includes('previous page')) {
-    playEarcon('success');
-    prevPage();
-    appendBlindConvoTurn('ai', 'Moved back to the previous page.', { actionBadge: 'Command • Previous Page' });
-    return true;
-  }
-
-  // Steady natural AI conversation for ANY spoken sentence or question!
-  if (blindConvoState.isRequestInFlight) return true;
   blindConvoState.isRequestInFlight = true;
-  setBlindCompanionState('thinking', 'Gismo is thinking about your message...');
+  setBlindCompanionState('thinking', 'Gismo is thinking...');
+
+  // Gentle subtle shimmer if Gemini takes more than 2.4s so a blind user never hears dead silence
+  if (blindConvoState.thinkingCueTimer) clearTimeout(blindConvoState.thinkingCueTimer);
+  blindConvoState.thinkingCueTimer = setTimeout(() => {
+    if (blindConvoState.isRequestInFlight) {
+      playEarcon('thinking');
+    }
+  }, 2400);
 
   const loadingId = `blind-thinking-${Date.now()}`;
   appendBlindConvoTurn(
@@ -1221,17 +1440,7 @@ async function handleBlindConversationTurn(rawTranscript) {
     { id: loadingId, isHtml: true, isPlaceholder: true }
   );
 
-  // Build conversational context so Gismo remembers recent back-and-forth turns
-  const recentHistory = blindConvoState.history
-    .slice(-8)
-    .map(h => `${h.role === 'user' ? 'Student' : 'Gismo AI'}: ${h.text}`)
-    .join('\n');
-  let lessonContext = '';
-  if (appState.activeLesson && lessonsDb[appState.activeLesson]) {
-    const lesson = lessonsDb[appState.activeLesson];
-    lessonContext = `\nActive Lesson: ${lesson.title}\n${String(lesson.content || '').slice(0, 2000)}`;
-  }
-  const fullContext = `You are having a steady, warm, hands-free spoken voice conversation with a blind student. Keep your reply clear, engaging, concise (2-4 spoken sentences unless asked for more detail), and end naturally so the student can reply or ask a follow-up.\n\nRecent conversation:\n${recentHistory}${lessonContext}`;
+  const blindContext = buildBlindWorkspaceContext();
 
   try {
     const response = await fetch('/api/chat', {
@@ -1240,28 +1449,51 @@ async function handleBlindConversationTurn(rawTranscript) {
       body: JSON.stringify({
         message: cleanRaw,
         persona: appState.persona || 'default',
-        context: fullContext,
+        mode: 'blind_voice',
+        blindContext,
+        clientHistory: priorHistory,
         user_id: appState.user ? appState.user.id : null,
-        session_id: appState.activeSessionId || 'blind_voice_convo'
+        username: appState.user ? appState.user.username : null,
+        session_id: 'blind_voice_convo'
       })
     });
     const data = await response.json();
-    const reply = (data && data.reply) || "I heard you! Let's explore that together—would you like a quick explanation or a practice question?";
+    const reply = (data && data.reply) || "I heard you. Could you say that one more time so I make sure I catch everything?";
+    const action = data && data.action ? data.action : null;
 
     const loadingEl = document.getElementById(loadingId);
     if (loadingEl) loadingEl.remove();
 
-    appendBlindConvoTurn('ai', reply);
-    setBlindCompanionState('speaking', 'Gismo is speaking — I will listen again right after...');
-    announceTTS(reply);
+    const badge = resolveBlindActionBadge(action);
+    appendBlindConvoTurn('ai', reply, badge ? { actionBadge: badge } : {});
+
+    // Execute immediate navigation actions right away, or defer speech-taking actions (like reading a lesson / quiz) until Gismo finishes speaking
+    const { afterSpeech } = executeBlindAiAction(action);
+
+    setBlindCompanionState('speaking', 'Gismo is speaking');
+    announceTTS(reply, () => {
+      if (typeof afterSpeech === 'function') {
+        afterSpeech();
+      }
+    });
   } catch (err) {
     const loadingEl = document.getElementById(loadingId);
     if (loadingEl) loadingEl.remove();
-    const fallbackReply = "I had a quick connection hiccup, but I'm still here with you. Please say that again or give a command like Open Library.";
+    const fallbackReply = "Sorry about that, I had a quick connection hiccup. I'm still right here with you — could you say that again?";
     appendBlindConvoTurn('ai', fallbackReply);
+    setBlindCompanionState('speaking', 'Gismo is speaking');
     announceTTS(fallbackReply);
   } finally {
+    if (blindConvoState.thinkingCueTimer) {
+      clearTimeout(blindConvoState.thinkingCueTimer);
+      blindConvoState.thinkingCueTimer = null;
+    }
     blindConvoState.isRequestInFlight = false;
+    if (blindConvoState.queuedUtterance) {
+      const nextUtterance = blindConvoState.queuedUtterance;
+      blindConvoState.queuedUtterance = '';
+      setTimeout(() => handleBlindConversationTurn(nextUtterance), 250);
+    }
   }
 
   return true;
@@ -1269,18 +1501,18 @@ async function handleBlindConversationTurn(rawTranscript) {
 window.handleBlindConversationTurn = handleBlindConversationTurn;
 
 function readBlindWorkspaceOverview() {
-  const username = (appState.user && appState.user.username) || 'Student';
+  const username = (appState.user && appState.user.username) || 'friend';
   const courseTitles = Object.values(lessonsDb || {})
     .filter(l => l && !String(l.id || '').startsWith('gutenberg_'))
     .map(l => l.title)
     .slice(0, 6);
   const courseListStr = courseTitles.length > 0
-    ? `Available courses include: ${courseTitles.join(', ')}.`
-    : 'Your courses are ready below.';
+    ? `Right now you have ${courseTitles.length} courses ready, including ${courseTitles.join(', ')}.`
+    : 'You can explore free audio books in the library, or ask me to teach any topic you want.';
   const streak = (appState.user && appState.user.current_streak) || 1;
-  const summary = `Welcome ${username}. You have a ${streak} day study streak. ${courseListStr} Ask me any question, or say Open Library, Open Quizzes, or Open AI.`;
+  const summary = `Hey ${username}, you're on a ${streak} day study streak. ${courseListStr} Just tell me what you feel like doing.`;
   if (isBlindModeActive()) {
-    appendBlindConvoTurn('ai', summary, { actionBadge: 'Workspace Overview' });
+    appendBlindConvoTurn('ai', summary);
   }
   announceTTS(summary);
 }
@@ -1367,6 +1599,8 @@ function clearDisabilityWorkspace() {
   );
   const deafBar = document.getElementById('deaf-live-caption-bar');
   if (deafBar) deafBar.classList.add('hidden');
+  const blindBar = document.getElementById('blind-floating-voice-bar');
+  if (blindBar) blindBar.classList.add('hidden');
   ['normal', 'blind', 'visually-impaired', 'dumb', 'deaf'].forEach(slug => {
     const el = document.getElementById(`workspace-page-${slug}`);
     if (el) el.classList.add('hidden');
@@ -1394,8 +1628,8 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
       bodyClass: 'mode-blind',
       pageId: 'workspace-page-blind',
       pill: 'Blind • Live Voice Companion',
-      title: 'Live Voice Conversation Hub',
-      subtitle: 'Talk naturally with Gismo AI or give voice commands — I stay listening after every reply.'
+      title: 'Gismo Live Voice',
+      subtitle: 'Hands-free spoken conversation with Gismo.'
     },
     'Visually Impaired': {
       bodyClass: 'mode-visually-impaired',
@@ -1442,10 +1676,12 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
     appState.tutorMuted = false;
     localStorage.setItem('gismo_tutor_muted', 'false');
     if (typeof updateMuteButtonUI === 'function') updateMuteButtonUI();
+    if (typeof closeTutorPanel === 'function') closeTutorPanel();
     setTheme('dark');
     initBlindConversationFeed(!!options.fromLogin);
     if (typeof autoEnableVoiceNav === 'function') autoEnableVoiceNav({ force: true });
     if (visualCue) visualCue.classList.add('hidden');
+    updateBlindFloatingBarVisibility();
   } else if (profile === 'Visually Impaired') {
     appState.tutorMuted = false;
     localStorage.setItem('gismo_tutor_muted', 'false');
@@ -1521,18 +1757,30 @@ function applyDisabilityWorkspace(rawDisability, options = {}) {
 }
 window.applyDisabilityWorkspace = applyDisabilityWorkspace;
 
-// Keyboard shortcuts 1–5 for Blind Audio-First Dashboard
+// Blind-First Hands-Free Keyboard Shortcuts (Space: Interrupt/Talk, Esc: Stop, R: Repeat, M: Mute Mic, H: Spoken Guide)
 document.addEventListener('keydown', (e) => {
-  if (!document.body.classList.contains('mode-blind')) return;
-  if (appState.currentView !== 'dashboard' || appState.activeLesson) return;
+  if (!isBlindModeActive()) return;
   const tag = (e.target && e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable)) return;
   if (e.altKey || e.ctrlKey || e.metaKey) return;
-  if (e.key === '1') { e.preventDefault(); readBlindWorkspaceOverview(); }
-  else if (e.key === '2') { e.preventDefault(); openTutorPanel(); announceTTS('AI Tutor opened. Ask your question now.'); }
-  else if (e.key === '3') { e.preventDefault(); switchView('library'); announceTTS('Opened Audio Book Library.'); }
-  else if (e.key === '4') { e.preventDefault(); switchView('quizzes'); announceTTS('Opened Voice Quizzes.'); }
-  else if (e.key === '5') { e.preventDefault(); switchView('profile'); readStudentProfileSummary(); }
+
+  if (e.code === 'Space') {
+    if (tag === 'button' || tag === 'a') return;
+    e.preventDefault();
+    handleBlindInterruptOrToggle(false);
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    handleBlindInterruptOrToggle(true);
+  } else if (e.key === 'r' || e.key === 'R') {
+    e.preventDefault();
+    repeatLastBlindReply();
+  } else if (e.key === 'm' || e.key === 'M') {
+    e.preventDefault();
+    toggleVoiceNavigator();
+  } else if (e.key === 'h' || e.key === 'H') {
+    e.preventDefault();
+    speakBlindOrientationGuide();
+  }
 });
 
 function loginSuccess(options = {}) {
@@ -1614,7 +1862,9 @@ function loginSuccess(options = {}) {
     if (appState.user.role === 'admin') {
       announceTTS(`Login successful. Welcome, ${appState.user.username}.`);
     } else if (normalizedDisability === 'Blind') {
-      announceTTS(`Welcome, ${appState.user.username}. Your Blind Audio-First workspace is open. Say Open AI, Open Library, Open Quizzes, or press 1 to hear your full overview.`);
+      const opening = blindConvoState.openingGreeting || buildBlindOpeningGreeting();
+      setBlindCompanionState('speaking', 'Gismo is speaking');
+      announceTTS(opening);
     } else if (normalizedDisability === 'Visually Impaired') {
       announceTTS(`Welcome, ${appState.user.username}. Your Visually Impaired High-Contrast Magnified workspace is open. Voice navigation is active.`);
     } else if (normalizedDisability === 'Dumb') {
@@ -1823,6 +2073,10 @@ function switchView(viewName) {
     } else if (viewName === 'settings') {
       openSettingsModal();
     }
+  }
+
+  if (typeof updateBlindFloatingBarVisibility === 'function') {
+    updateBlindFloatingBarVisibility();
   }
 
   // Keep Voice Nav active by default across all views and update HUD hints for the current view
@@ -4682,7 +4936,10 @@ function testSelectedVoice() {
 }
 window.testSelectedVoice = testSelectedVoice;
 
+let ttsPlaybackToken = 0;
+
 function stopAllTTS() {
+  ttsPlaybackToken += 1;
   if (currentElevenLabsAudio) {
     try {
       currentElevenLabsAudio.pause();
@@ -4715,8 +4972,8 @@ function notifyTTSStarting(text) {
   }
   if (text) {
     if (!voiceNavState.recentSpokenPhrases) voiceNavState.recentSpokenPhrases = [];
-    voiceNavState.recentSpokenPhrases.push({ text: text.trim(), time: Date.now() });
-    if (voiceNavState.recentSpokenPhrases.length > 10) {
+    voiceNavState.recentSpokenPhrases.push({ text: text.trim(), time: Date.now(), endedAt: null });
+    if (voiceNavState.recentSpokenPhrases.length > 8) {
       voiceNavState.recentSpokenPhrases.shift();
     }
   }
@@ -4727,7 +4984,7 @@ function notifyTTSStarting(text) {
     } catch (_) {}
   }
   if (typeof isBlindModeActive === 'function' && isBlindModeActive() && typeof setBlindCompanionState === 'function') {
-    setBlindCompanionState('speaking', 'Gismo is speaking — listening resumes right after...');
+    setBlindCompanionState('speaking', 'Gismo is speaking');
   }
   if (typeof quizVoiceState !== 'undefined' && quizVoiceState.enabled && quizVoiceState.recognition) {
     try {
@@ -4736,17 +4993,22 @@ function notifyTTSStarting(text) {
   }
 }
 
-// Notifies the voice nav system that TTS playback ended, applying an 800ms silence cooldown
+// Notifies the voice nav system that TTS playback ended, applying a brief silence cooldown before reopening mic
 function notifyTTSEnded(onEndCallback = null) {
   if (typeof voiceNavState === 'undefined') {
     if (onEndCallback) onEndCallback();
     return;
   }
-  voiceNavState.lastSpeakingEndTime = Date.now();
+  const now = Date.now();
+  voiceNavState.lastSpeakingEndTime = now;
+  if (Array.isArray(voiceNavState.recentSpokenPhrases) && voiceNavState.recentSpokenPhrases.length > 0) {
+    voiceNavState.recentSpokenPhrases[voiceNavState.recentSpokenPhrases.length - 1].endedAt = now;
+  }
   if (voiceNavState.cooldownTimer) {
     clearTimeout(voiceNavState.cooldownTimer);
   }
-  // Enforce 800ms cooldown window to prevent room reverberation and OS buffer latency
+  const isBlind = typeof isBlindModeActive === 'function' && isBlindModeActive();
+  const cooldownMs = isBlind ? 550 : 750;
   voiceNavState.cooldownTimer = setTimeout(() => {
     voiceNavState.isSpeaking = false;
     voiceNavState.cooldownTimer = null;
@@ -4754,10 +5016,10 @@ function notifyTTSEnded(onEndCallback = null) {
       try {
         voiceNavState.recognition.start();
       } catch (_) {}
-      if (typeof isBlindModeActive === 'function' && isBlindModeActive() && typeof setBlindCompanionState === 'function') {
-        setBlindCompanionState('listening', 'Listening to you — go ahead and speak...');
-      }
-      if (typeof updateVoiceHudState === 'function') {
+      if (isBlind && typeof setBlindCompanionState === 'function') {
+        setBlindCompanionState('listening', 'Gismo is listening');
+        playEarcon('mic-ready');
+      } else if (typeof updateVoiceHudState === 'function') {
         updateVoiceHudState('listening', 'Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
       }
     } else if (typeof quizVoiceState !== 'undefined' && quizVoiceState.enabled && quizVoiceState.recognition && isQuizModalOpen()) {
@@ -4766,7 +5028,7 @@ function notifyTTSEnded(onEndCallback = null) {
       } catch (_) {}
     }
     if (onEndCallback) onEndCallback();
-  }, 800);
+  }, cooldownMs);
 }
 
 async function announceTTS(text, onEndCallback = null) {
@@ -4870,6 +5132,58 @@ async function announceTTS(text, onEndCallback = null) {
   }
 }
 
+function pickPreferredNaturalVoice() {
+  if (appState.selectedVoice) return appState.selectedVoice;
+  const voices = (synth && typeof synth.getVoices === 'function') ? synth.getVoices() : [];
+  if (!voices || voices.length === 0) return null;
+  const enVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+  const pool = enVoices.length > 0 ? enVoices : voices;
+  const preferredMatchers = [
+    v => /natural|neural/i.test(v.name),
+    v => /google us english|google uk english/i.test(v.name),
+    v => /aria|jenny|samantha|ava|guy|daniel|karen|serena/i.test(v.name)
+  ];
+  for (const match of preferredMatchers) {
+    const found = pool.find(match);
+    if (found) return found;
+  }
+  return pool[0] || voices[0];
+}
+
+function splitSpeechChunks(text, maxLen = 210) {
+  if (!text || text.length <= maxLen) return [text];
+  const sentences = text.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [text];
+  const chunks = [];
+  let current = '';
+  for (const s of sentences) {
+    const part = s.trim();
+    if (!part) continue;
+    if ((current + ' ' + part).trim().length <= maxLen) {
+      current = (current + ' ' + part).trim();
+    } else {
+      if (current) chunks.push(current);
+      if (part.length <= maxLen) {
+        current = part;
+      } else {
+        // Break overly long clause on commas or spaces
+        const words = part.split(/\s+/);
+        let sub = '';
+        for (const w of words) {
+          if ((sub + ' ' + w).trim().length > maxLen) {
+            if (sub) chunks.push(sub);
+            sub = w;
+          } else {
+            sub = (sub + ' ' + w).trim();
+          }
+        }
+        current = sub;
+      }
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks.length > 0 ? chunks : [text];
+}
+
 function fallbackBrowserTTS(text, onEndCallback = null) {
   if (!synth || appState.tutorMuted) {
     notifyTTSEnded(onEndCallback);
@@ -4879,10 +5193,11 @@ function fallbackBrowserTTS(text, onEndCallback = null) {
 
   try { synth.cancel(); } catch (_) {}
 
-  // Strip markdown, asterisks, brackets, and raw HTML for clear speech
-  const cleanText = text
+  // Strip markdown, asterisks, brackets, decorative emojis, and raw HTML for clear speech
+  const cleanText = String(text || '')
     .replace(/[*_#`~\[\]]/g, '')
     .replace(/<[^>]+>/g, '')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -4891,6 +5206,10 @@ function fallbackBrowserTTS(text, onEndCallback = null) {
     return;
   }
 
+  const myToken = ttsPlaybackToken;
+  const voice = pickPreferredNaturalVoice();
+  const chunks = splitSpeechChunks(cleanText, 210);
+
   // Notify echo shield that speech is starting
   notifyTTSStarting(cleanText);
 
@@ -4898,39 +5217,49 @@ function fallbackBrowserTTS(text, onEndCallback = null) {
   setCaption(`Narrator: "${snippet}"`);
   animateVisualizer(true);
 
-  const utterance = new SpeechSynthesisUtterance(cleanText);
-  if (appState.selectedVoice) {
-    utterance.voice = appState.selectedVoice;
-  } else {
-    const voices = synth.getVoices() || [];
-    const en = voices.find(v => v.lang.startsWith('en')) || voices[0];
-    if (en) utterance.voice = en;
+  let idx = 0;
+  function speakNextChunk() {
+    if (myToken !== ttsPlaybackToken || appState.tutorMuted) {
+      return;
+    }
+    if (idx >= chunks.length) {
+      notifyTTSEnded(onEndCallback);
+      setCaption("Ready.");
+      animateVisualizer(false);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(chunks[idx]);
+    if (voice) utterance.voice = voice;
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    utterance.onstart = () => {
+      if (typeof voiceNavState !== 'undefined' && voiceNavState.pendingLoginGreeting) {
+        voiceNavState.loginGreetingSpoken = true;
+        voiceNavState.pendingLoginGreeting = false;
+      }
+    };
+
+    utterance.onend = () => {
+      if (myToken !== ttsPlaybackToken) return;
+      idx += 1;
+      speakNextChunk();
+    };
+
+    utterance.onerror = (e) => {
+      if (myToken !== ttsPlaybackToken) return;
+      if (e && (e.error === 'interrupted' || e.error === 'canceled')) return;
+      console.warn("Browser TTS playback error:", e);
+      notifyTTSEnded(onEndCallback);
+      setCaption("Ready.");
+      animateVisualizer(false);
+    };
+
+    synth.speak(utterance);
   }
 
-  utterance.rate = 1.0;
-  utterance.pitch = 1.0;
-
-  utterance.onstart = () => {
-    if (typeof voiceNavState !== 'undefined' && voiceNavState.pendingLoginGreeting) {
-      voiceNavState.loginGreetingSpoken = true;
-      voiceNavState.pendingLoginGreeting = false;
-    }
-  };
-
-  utterance.onend = () => {
-    notifyTTSEnded(onEndCallback);
-    setCaption("Ready.");
-    animateVisualizer(false);
-  };
-
-  utterance.onerror = (e) => {
-    notifyTTSEnded(onEndCallback);
-    console.warn("Browser TTS playback error:", e);
-    setCaption("Ready.");
-    animateVisualizer(false);
-  };
-
-  synth.speak(utterance);
+  speakNextChunk();
 }
 
 function setupTextScaler() {
@@ -5018,7 +5347,7 @@ function handleLogoClick() {
 window.handleLogoClick = handleLogoClick;
 
 // --- Lesson Logic ---
-function loadLesson(lessonId) {
+function loadLesson(lessonId, options = {}) {
   const lesson = lessonsDb[lessonId];
   if (!lesson) return;
   appState.activeLesson = lessonId;
@@ -5108,20 +5437,31 @@ function loadLesson(lessonId) {
   if (quizBtn && lesson.quiz_q) quizBtn.style.display = 'inline-flex';
   else if (quizBtn) quizBtn.style.display = 'none';
 
-  announceTTS(`Loaded ${isLibraryBook ? 'book' : 'lesson'}: ${lesson.title}.`);
+  if (typeof updateBlindFloatingBarVisibility === 'function') {
+    updateBlindFloatingBarVisibility();
+  }
+
+  if (!options.silent) {
+    announceTTS(`Loaded ${isLibraryBook ? 'book' : 'lesson'}: ${lesson.title}.`);
+  }
 }
 
 function showDashboard() {
   const wasLibraryBook = appState.activeLesson && lessonsDb[appState.activeLesson] &&
     (lessonsDb[appState.activeLesson].id.startsWith('gutenberg_') || lessonsDb[appState.activeLesson].meta === 'Web Book');
   appState.activeLesson = null;
-  stopAllTTS();
+  if (!isBlindModeActive()) {
+    stopAllTTS();
+  }
   elements.lessonActiveContainer.style.display = 'none';
   if (elements.mainContent) {
     const welcomeBanner = elements.mainContent.querySelector('.welcome-banner');
     if (welcomeBanner) welcomeBanner.style.display = '';
     const disabilityHub = document.getElementById('disability-workspace-hub');
     if (disabilityHub) disabilityHub.style.display = '';
+  }
+  if (typeof updateBlindFloatingBarVisibility === 'function') {
+    updateBlindFloatingBarVisibility();
   }
   
   if (appState.user && appState.user.role === 'admin') {
@@ -5769,33 +6109,41 @@ const voiceIsolationState = {
   enrolledProfile: null // { meanPitch: number, minPitch: number, maxPitch: number, enrolledAt: string }
 };
 
-// Echo Detection: verifies if incoming speech matches recent system spoken utterances
+// Echo Detection: verifies if incoming speech is genuine speaker echo immediately after TTS ends
 function isEchoOfRecentSpeech(transcript) {
   if (!transcript || typeof voiceNavState === 'undefined') return false;
   const tClean = transcript.toLowerCase().trim().replace(/[.,!?;:'"“”]/g, '');
-  if (!tClean || tClean.length < 2) return false;
-  
+  if (!tClean) return false;
+
+  const tAllWords = tClean.split(/\s+/).filter(Boolean);
+  // Never block natural short human replies (e.g. "yes", "science", "tell me more", "explain")
+  if (tAllWords.length < 3 || tClean.length < 16) return false;
+
   const now = Date.now();
-  const phrases = (voiceNavState.recentSpokenPhrases || []).filter(p => now - p.time < 8000);
-  
+  const phrases = (voiceNavState.recentSpokenPhrases || []).filter(p => {
+    const refTime = p.endedAt || p.time || 0;
+    return now - refTime < 2400;
+  });
+  if (phrases.length === 0) return false;
+
   for (const item of phrases) {
     const sClean = (item.text || '').toLowerCase().trim().replace(/[.,!?;:'"“”]/g, '');
     if (!sClean) continue;
-    
-    // Direct inclusion
-    if (sClean.includes(tClean) || tClean.includes(sClean)) {
+
+    // Direct substantial phrase echo
+    if (sClean.includes(tClean)) {
       return true;
     }
-    
-    // Word overlap check for partial echoes
-    const tWords = tClean.split(/\s+/).filter(w => w.length > 2);
+
+    // High-confidence multi-word overlap check for genuine room echo
+    const tWords = tAllWords.filter(w => w.length > 2);
     const sWords = new Set(sClean.split(/\s+/).filter(w => w.length > 2));
-    if (tWords.length > 0) {
+    if (tWords.length >= 3) {
       let matched = 0;
       for (const w of tWords) {
         if (sWords.has(w)) matched++;
       }
-      if (matched >= 2 && (matched / tWords.length) >= 0.5) {
+      if (matched >= 3 && (matched / tWords.length) >= 0.7) {
         return true;
       }
     }
@@ -5911,7 +6259,17 @@ function startAudioMonitorLoop() {
     }
     voiceIsolationState.recentPeakRmsDb = peak;
 
-    // 2. Fundamental frequency (pitch F0) via autocorrelation
+    // 2. Live microphone reactivity on the Blind Voice Orb
+    if (typeof isBlindModeActive === 'function' && isBlindModeActive() && typeof voiceNavState !== 'undefined' && voiceNavState.isListening && !voiceNavState.isSpeaking) {
+      const orb = document.getElementById('blind-voice-orb');
+      if (orb && orb.classList.contains('is-listening')) {
+        const clamped = Math.max(0, Math.min(1, (db + 58) / 38));
+        const scale = (1 + clamped * 0.28).toFixed(3);
+        orb.style.setProperty('--orb-voice-scale', scale);
+      }
+    }
+
+    // 3. Fundamental frequency (pitch F0) via autocorrelation
     const pitch = detectFundamentalFrequency(buffer, voiceIsolationState.audioContext ? voiceIsolationState.audioContext.sampleRate : 44100);
     if (pitch > 0) {
       voiceIsolationState.currentPitch = pitch;
@@ -5959,9 +6317,12 @@ function detectFundamentalFrequency(buffer, sampleRate) {
 
 // Verification filter: Inspects whether incoming audio is genuine student speech
 function verifyStudentVoiceInput(rawTranscript) {
+  const isBlind = typeof isBlindModeActive === 'function' && isBlindModeActive();
+  const cooldownMs = isBlind ? 550 : 750;
+
   // 1. Acoustic Self-Echo & Post-Speech Cooldown Check
   if (typeof voiceNavState !== 'undefined') {
-    if (voiceNavState.isSpeaking || (Date.now() - (voiceNavState.lastSpeakingEndTime || 0) < 800)) {
+    if (voiceNavState.isSpeaking || (Date.now() - (voiceNavState.lastSpeakingEndTime || 0) < cooldownMs)) {
       console.log(`[Echo Shield] Rejected transcript during system playback/cooldown: "${rawTranscript}"`);
       return false;
     }
@@ -5980,13 +6341,13 @@ function verifyStudentVoiceInput(rawTranscript) {
     return true; 
   }
 
-  // 2. Near-field Gate Check: Reject distant background noise and room chatter
-  // Check the peak volume during the speech utterance (within the last 1.5 seconds)
-  const threshold = GATE_THRESHOLDS[voiceIsolationState.gateSensitivity] || -38;
+  // 2. Near-field Gate Check: gentle threshold in Blind mode so comfortable conversational voice is never dropped
+  const baseThreshold = GATE_THRESHOLDS[voiceIsolationState.gateSensitivity] || -38;
+  const threshold = isBlind ? Math.min(baseThreshold, -54) : baseThreshold;
   const observedLevel = Math.max(voiceIsolationState.recentPeakRmsDb || -100, voiceIsolationState.currentRmsDb || -100);
   if (observedLevel < threshold) {
     console.log(`[Voice Isolation] Far-field speech/noise ignored. Peak: ${observedLevel.toFixed(1)}dB < Threshold: ${threshold}dB`);
-    if (typeof updateVoiceHudState === 'function') {
+    if (!isBlind && typeof updateVoiceHudState === 'function') {
       updateVoiceHudState('error', 'Background Sound Filtered', 'Distant noise filtered out. Please speak closer to microphone.');
     }
     return false;
@@ -6001,7 +6362,7 @@ function verifyStudentVoiceInput(rawTranscript) {
 
     if (pitch < lowerBound || pitch > upperBound) {
       console.log(`[Voice Isolation] Speaker pitch ${pitch.toFixed(1)}Hz out of profile bounds (${lowerBound.toFixed(1)}Hz - ${upperBound.toFixed(1)}Hz)`);
-      if (typeof updateVoiceHudState === 'function') {
+      if (!isBlind && typeof updateVoiceHudState === 'function') {
         updateVoiceHudState('error', 'Other Speaker Filtered', 'Voiceprint does not match the calibrated student profile.');
       }
       return false;
@@ -6618,22 +6979,29 @@ function initVoiceNavigator() {
   rec.onstart = () => {
     voiceNavState.isListening = true;
     voiceNavState.engineRunning = true;
+    const isBlind = typeof isBlindModeActive === 'function' && isBlindModeActive();
     if (isLoginViewActive()) {
       updateVoiceHudState('listening', 'Voice Login: Username', 'You can login here — please say your username');
-    } else if (typeof isBlindModeActive === 'function' && isBlindModeActive()) {
-      setBlindCompanionState('listening', 'Listening to you — speak naturally or give a command...');
-      updateVoiceHudState('listening', 'Live Voice Companion', 'Speak naturally with Gismo AI or give any command');
+    } else if (isBlind) {
+      if (!blindConvoState.isRequestInFlight) {
+        setBlindCompanionState('listening', 'Gismo is listening');
+      }
     } else {
       updateVoiceHudState('listening', 'Listening for Voice Commands...', 'Try: "Go to library", "Dark mode", "Ask tutor [question]"');
     }
     const btn = document.getElementById('btn-voice-nav');
     if (btn) btn.classList.add('listening');
-    playEarcon('click');
+    if (!isBlind) {
+      playEarcon('click');
+    }
   };
   
   rec.onresult = (event) => {
-    // 1. If AI is speaking aloud via TTS or in 800ms cooldown, ignore microphone completely
-    if (voiceNavState.isSpeaking || (Date.now() - (voiceNavState.lastSpeakingEndTime || 0) < 800)) {
+    const isBlind = typeof isBlindModeActive === 'function' && isBlindModeActive();
+    const cooldownMs = isBlind ? 550 : 750;
+
+    // 1. If AI is speaking aloud via TTS or in post-speech cooldown, ignore microphone completely
+    if (voiceNavState.isSpeaking || (Date.now() - (voiceNavState.lastSpeakingEndTime || 0) < cooldownMs)) {
       return;
     }
 
@@ -6663,8 +7031,16 @@ function initVoiceNavigator() {
     }
     
     updateVoiceHudTranscript(displayPhrase);
-    if (typeof isBlindModeActive === 'function' && isBlindModeActive() && typeof updateBlindInterimTranscript === 'function') {
-      updateBlindInterimTranscript(displayPhrase);
+    if (isBlind) {
+      const combinedPreview = (blindConvoState.utteranceBuffer && blindConvoState.utteranceBuffer.length > 0)
+        ? `${blindConvoState.utteranceBuffer.join(' ')} ${displayPhrase}`
+        : displayPhrase;
+      if (typeof updateBlindInterimTranscript === 'function') {
+        updateBlindInterimTranscript(combinedPreview);
+      }
+      if (interimTranscript && !finalTranscript && typeof extendBlindUtteranceWait === 'function') {
+        extendBlindUtteranceWait();
+      }
     }
     if (typeof isQuizModalOpen === 'function' && isQuizModalOpen() && interimTranscript && !finalTranscript) {
       updateQuizVoiceUI('listening', 'Hearing your voice...', `Heard: <em>"${escapeHtml(displayPhrase)}"</em>`);
@@ -6684,6 +7060,10 @@ function initVoiceNavigator() {
     if (event.error === 'not-allowed') {
       voiceNavState.engineRunning = false;
       updateVoiceHudState('error', 'Microphone Access Denied', 'Please allow microphone access in your browser settings.');
+      if (typeof isBlindModeActive === 'function' && isBlindModeActive()) {
+        setBlindCompanionState('paused', 'Microphone blocked — please allow microphone access');
+        announceTTS('I need microphone permission to hear you. Please allow microphone access in your browser, or press the Keyboard button.');
+      }
       stopVoiceNavigator({ silent: true });
     } else if (event.error !== 'no-speech') {
       updateVoiceHudState('error', `Voice Status: ${event.error}`, 'Listening resumed...');
@@ -6692,8 +7072,10 @@ function initVoiceNavigator() {
   
   rec.onend = () => {
     voiceNavState.engineRunning = false;
+    const isBlind = typeof isBlindModeActive === 'function' && isBlindModeActive();
+    const cooldownMs = isBlind ? 550 : 750;
     // Only auto-restart if user still has voice navigation on and TTS is not currently playing
-    if (voiceNavState.isListening && !voiceNavState.isSpeaking && (Date.now() - (voiceNavState.lastSpeakingEndTime || 0) >= 800)) {
+    if (voiceNavState.isListening && !voiceNavState.isSpeaking && (Date.now() - (voiceNavState.lastSpeakingEndTime || 0) >= cooldownMs)) {
       try {
         rec.start();
       } catch (e) {
@@ -6711,6 +7093,10 @@ function toggleVoiceNavigator() {
   } else {
     voiceNavState.manuallyStoppedByUser = false;
     startVoiceNavigator();
+    if (typeof isBlindModeActive === 'function' && isBlindModeActive()) {
+      playEarcon('mic-ready');
+      setBlindCompanionState('listening', 'Gismo is listening');
+    }
   }
 }
 window.toggleVoiceNavigator = toggleVoiceNavigator;
@@ -6829,7 +7215,10 @@ function stopVoiceNavigator(options = {}) {
   updateVoiceHudUi(false);
   updateVoiceLoginHint('Access your learning workspace — type or say "Username [ID]" & "Password [pass]"', false);
   if (typeof isBlindModeActive === 'function' && isBlindModeActive() && typeof setBlindCompanionState === 'function') {
-    setBlindCompanionState('paused', 'Microphone paused — press "Mic Paused" or Alt + V to resume our conversation.');
+    setBlindCompanionState('paused', 'Microphone paused — press Space or M to resume');
+    if (!options.silent) {
+      announceTTS('Microphone paused. Press M or Space whenever you want to talk again.');
+    }
   }
   const btn = document.getElementById('btn-voice-nav');
   if (btn) btn.classList.remove('listening');
@@ -6927,9 +7316,13 @@ function executeVoiceCommand(rawTranscript) {
     if (handled) return;
   }
 
-  // 0c. In Blind Mode, keep a steady back-and-forth voice conversation & command flow
-  if (typeof isBlindModeActive === 'function' && isBlindModeActive() && typeof handleBlindConversationTurn === 'function') {
-    handleBlindConversationTurn(rawTranscript);
+  // 0c. In Blind Mode, buffer natural human pauses and converse directly with Gismo AI
+  if (typeof isBlindModeActive === 'function' && isBlindModeActive()) {
+    if (typeof queueBlindSpokenInput === 'function') {
+      queueBlindSpokenInput(rawTranscript);
+    } else if (typeof handleBlindConversationTurn === 'function') {
+      handleBlindConversationTurn(rawTranscript);
+    }
     return;
   }
   

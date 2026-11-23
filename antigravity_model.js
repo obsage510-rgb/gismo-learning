@@ -66,107 +66,297 @@ Guidelines:
   }
 
   /**
-   * Generates a tutor response for the student.
+   * Builds a blind-only spoken voice conversation system prompt.
+   * Sees and treats the user strictly as a blind person having a real,
+   * natural ear-to-ear conversation with Gismo AI.
    */
-  async generateResponse({ message, persona = 'default', context = '', history = [] }) {
-    const trimmed = (message || '').trim();
-    if (!trimmed) {
-      return {
-        reply: "Hello! I am your Gismo AI Tutor. Ask me any question about your lessons!",
-        model: this.modelName
-      };
+  buildBlindVoiceSystemInstructions(persona = 'default', blindContext = null, fallbackContext = '') {
+    const ctx = blindContext && typeof blindContext === 'object' ? blindContext : {};
+    const studentName = ctx.username || 'friend';
+    const school = ctx.school ? ` at ${ctx.school}` : '';
+    const streak = ctx.streak || 1;
+    const quizzesPassed = ctx.quizzesPassed || 0;
+    const currentView = ctx.currentView || 'voice_home';
+    const courses = Array.isArray(ctx.courses) ? ctx.courses.slice(0, 12) : [];
+    const courseLines = courses.length > 0
+      ? courses.map((c, i) => `  ${i + 1}. "${c.title}" (id: ${c.id})`).join('\n')
+      : '  None loaded yet.';
+
+    let personaTone = 'Warm, calm, genuinely attentive, encouraging, and naturally conversational — like a patient friend and mentor sitting beside the student.';
+    if (persona === 'scientist') {
+      personaTone = 'Warm, curious, and enthusiastically scientific, using playful sound and tactile analogies while staying clear, grounded, and easy to listen to.';
+    } else if (persona === 'historian') {
+      personaTone = 'Warm, vivid storyteller who brings history and ideas to life through rich auditory and tactile imagery, like sharing stories by a fireside.';
     }
 
-    // Fast conversational replies
-    const lower = trimmed.toLowerCase();
-    if (lower === 'hi' || lower === 'hello' || lower === 'hey' || lower.startsWith('hello ') || lower.startsWith('hi ')) {
-      return {
-        reply: `Hello! I am **Gismo**, your accessible AI tutor powered by **Antigravity**. I'm here to help you explore your lessons, prepare for quizzes, or answer questions. What would you like to learn about today?`,
-        model: this.modelName,
-        persona
-      };
+    let instructions = `You are Gismo, a live voice AI companion and tutor speaking directly to ${studentName}${school}.
+
+CRITICAL IDENTITY & ACCESSIBILITY REALITY:
+- ${studentName} is completely BLIND and cannot see the screen at all. You MUST perceive and treat them as a blind person ONLY.
+- You are having a REAL, continuous, ear-to-ear spoken conversation with them. You are their voice companion, study partner, and eyes for this learning space.
+- NEVER mention anything visual or sighted UI elements. NEVER say "click", "tap", "look below", "on your screen", "the button", "the tab", "the card", "sidebar", "highlighted", "as you can see", or "scroll down". Everything they do happens through talking with you.
+- NEVER use Markdown, asterisks, bold text, bullet points, numbered lists, hashtags, backticks, code blocks, emojis, raw URLs, or LaTeX symbols. Write ONLY pure, natural spoken English that sounds effortless when read aloud by Text-to-Speech. Spell out formulas naturally (for example say "H 2 O" or "water", "E equals M C squared", "divided by").
+- When describing concepts, use vivid non-visual sensory imagery: sound, rhythm, texture, temperature, weight, motion, and spatial feeling instead of colors or diagrams.
+
+CONVERSATION STYLE (MAKE IT FEEL REAL):
+- Tone: ${personaTone}
+- Speak like a real person in a real conversation: use natural contractions ("I'm", "you're", "let's", "that's"), respond genuinely to their mood or casual remarks (if they say hi, ask how they're doing; if they sound tired or stuck, be empathetic; if they joke, smile along), and remember what you were just talking about in earlier turns.
+- Keep most spoken replies naturally paced — around 2 to 4 clear spoken sentences — so it feels like a real two-way dialogue instead of a long lecture. If they ask for a detailed explanation, story, or full walkthrough, give a rich explanation and check in naturally at the end.
+- Never repeat robotic boilerplate like "I am an accessible learning assistant powered by..." unless they specifically ask about your technology.
+
+STUDENT'S LIVE WORKSPACE STATE:
+- Student Name: ${studentName}
+- Study Streak: ${streak} day${streak === 1 ? '' : 's'}, Quizzes Passed: ${quizzesPassed}
+- Current Location: ${currentView}
+- Available Courses:
+${courseLines}`;
+
+    if (ctx.activeLesson && ctx.activeLesson.title) {
+      instructions += `\n- Currently Open Lesson: "${ctx.activeLesson.title}" (id: ${ctx.activeLesson.id || ''})`;
+      if (ctx.activeLesson.excerpt) {
+        instructions += `\n- Active Lesson Excerpt:\n"""\n${String(ctx.activeLesson.excerpt).slice(0, 2400)}\n"""`;
+      }
+    } else if (fallbackContext) {
+      instructions += `\n- Additional Context:\n"""\n${String(fallbackContext).slice(0, 2000)}\n"""`;
     }
 
-    if (lower.includes('who are you') || lower.includes('what are you')) {
-      return {
-        reply: `I am **Gismo AI**, an accessible learning assistant powered by the **Google Antigravity SDK** and Gemini. I adapt to your preferred learning mode—providing spoken explanations, simplified summaries, and visual descriptions!`,
-        model: this.modelName,
-        persona
+    instructions += `
+
+SILENT VOICE ACTIONS (OPTIONAL):
+Only when ${studentName} clearly asks to perform one of these platform actions, append ONE exact tag at the very end of your spoken reply (after your final sentence). It is stripped silently before speaking:
+- Open a specific course from Available Courses above: [[ACTION:OPEN_LESSON:<exact_course_id>]]
+- Read the currently open lesson aloud: [[ACTION:READ_LESSON]]
+- Go to next page/chapter of open lesson: [[ACTION:NEXT_PAGE]]
+- Go to previous page/chapter of open lesson: [[ACTION:PREV_PAGE]]
+- Start a voice-answered quiz on a topic: [[ACTION:START_QUIZ:<topic>]]
+- Open the Quizzes space: [[ACTION:OPEN_QUIZZES]]
+- Open the Audio Book Library: [[ACTION:OPEN_LIBRARY]]
+- Open Student Profile: [[ACTION:OPEN_PROFILE]]
+- Return to the main voice conversation space: [[ACTION:GO_HOME]]
+- Sign out / log out: [[ACTION:LOGOUT]]
+Do NOT emit an action tag during ordinary conversation, Q&A, explanations, or when just listing courses.`;
+
+    return instructions;
+  }
+
+  /**
+   * Strips silent [[ACTION:...]] tags and cleans stray markdown/emojis so TTS sounds completely human.
+   */
+  extractActionAndCleanBlindReply(rawText) {
+    let text = String(rawText || '').trim();
+    let action = null;
+
+    const actionMatch = text.match(/\[\[ACTION:([A-Z_]+)(?::([^\]]+))?\]\]/i);
+    if (actionMatch) {
+      action = {
+        type: String(actionMatch[1] || '').toUpperCase(),
+        value: actionMatch[2] ? String(actionMatch[2]).trim() : ''
       };
+      text = text.replace(/\[\[ACTION:[^\]]+\]\]/gi, '').trim();
     }
 
-    if (/^(thank\s+you|thanks|thx|ty)([!.,\s]+(gismo|so\s+much|very\s+much|a\s+lot))?[!.,\s]*$/i.test(trimmed)) {
-      return {
-        reply: `You're very welcome! Keep up the fantastic curiosity. Let me know if there's anything else you'd like to explore!`,
-        model: this.modelName,
-        persona
-      };
-    }
+    // Remove markdown syntax, headings, bullet markers, code ticks, and decorative emojis for clean speech
+    text = text
+      .replace(/```[\s\S]*?```/g, (m) => m.replace(/```[a-z]*\n?/gi, '').replace(/```/g, ''))
+      .replace(/^\s*#{1,6}\s+/gm, '')
+      .replace(/^\s*[-*•]\s+/gm, '')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/__([^_]+)__/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\$H_2O\$/gi, 'H 2 O')
+      .replace(/\$CO_2\$/gi, 'C O 2')
+      .replace(/\$([^$]+)\$/g, '$1')
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+      .replace(/\n{2,}/g, ' ')
+      .replace(/\n/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
 
-    // Call Gemini API through Antigravity engine
-    if (this.apiKey) {
-      try {
-        const systemPrompt = this.buildSystemInstructions(persona, context);
-        const contents = [];
+    return { reply: text, action };
+  }
 
-        // Append recent chat history if available, ensuring alternating roles starting with 'user'
-        if (Array.isArray(history) && history.length > 0) {
-          const recent = history.slice(-8);
-          for (const item of recent) {
-            const text = (item.content || item.text || '').trim();
-            if (!text) continue;
-            const role = item.role === 'model' || item.role === 'ai' ? 'model' : 'user';
-            if (contents.length === 0 && role !== 'user') continue;
-            const prev = contents[contents.length - 1];
-            if (prev && prev.role === role) {
-              prev.parts[0].text += `\n\n${text}`;
-            } else {
-              contents.push({ role, parts: [{ text }] });
-            }
+  /**
+   * Calls Gemini REST API with optional fast low-latency thinkingBudget=0 and graceful fallback retry.
+   */
+  async callGeminiChat(systemPrompt, contents, options = {}) {
+    if (!this.apiKey) return null;
+    const isBlindVoice = !!options.isBlindVoice;
+    const attempts = isBlindVoice
+      ? [
+          {
+            model: 'gemini-2.5-flash',
+            generationConfig: { temperature: 0.75, maxOutputTokens: 650, thinkingConfig: { thinkingBudget: 0 } },
+            timeoutMs: 12000
+          },
+          {
+            model: 'gemini-2.5-flash',
+            generationConfig: { temperature: 0.75, maxOutputTokens: 800 },
+            timeoutMs: 14000
+          },
+          {
+            model: 'gemini-2.0-flash',
+            generationConfig: { temperature: 0.75, maxOutputTokens: 650 },
+            timeoutMs: 12000
           }
-        }
+        ]
+      : [
+          {
+            model: 'gemini-2.5-flash',
+            generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+            timeoutMs: 12000
+          },
+          {
+            model: 'gemini-2.0-flash',
+            generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+            timeoutMs: 12000
+          }
+        ];
 
-        // Add current student prompt (avoiding consecutive 'user' turns)
-        const lastTurn = contents[contents.length - 1];
-        if (lastTurn && lastTurn.role === 'user') {
-          lastTurn.parts[0].text = trimmed;
-        } else {
-          contents.push({
-            role: 'user',
-            parts: [{ text: trimmed }]
-          });
-        }
-
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
+    for (const attempt of attempts) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${attempt.model}:generateContent?key=${this.apiKey}`;
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             system_instruction: { parts: [{ text: systemPrompt }] },
             contents,
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 1024
-            }
+            generationConfig: attempt.generationConfig
           }),
-          signal: AbortSignal.timeout(7500)
+          signal: AbortSignal.timeout(attempt.timeoutMs)
         });
 
         if (response.ok) {
           const data = await response.json();
           const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (candidate) {
-            return {
-              reply: candidate.trim(),
-              model: this.modelName,
-              persona,
-              status: 'success'
-            };
+          if (candidate && candidate.trim()) {
+            return candidate.trim();
           }
+        } else {
+          const errText = await response.text().catch(() => '');
+          console.warn(`Gemini (${attempt.model}) HTTP ${response.status}:`, errText.slice(0, 200));
         }
       } catch (err) {
-        console.warn('Antigravity API generation warning:', err.message);
+        console.warn(`Gemini (${attempt.model}) attempt warning:`, err.message);
       }
+    }
+
+    return null;
+  }
+
+  /**
+   * Generates a tutor response for the student.
+   */
+  async generateResponse({ message, persona = 'default', context = '', history = [], mode = 'standard', blindContext = null }) {
+    const trimmed = (message || '').trim();
+    const isBlindVoice = mode === 'blind_voice';
+
+    if (!trimmed) {
+      return {
+        reply: isBlindVoice
+          ? "I'm right here listening whenever you're ready. What's on your mind?"
+          : "Hello! I am your Gismo AI Tutor. Ask me any question about your lessons!",
+        model: this.modelName,
+        action: null
+      };
+    }
+
+    // Standard visual chat fast replies (NEVER intercept blind_voice — blind users deserve real organic conversation on every turn!)
+    if (!isBlindVoice) {
+      const lower = trimmed.toLowerCase();
+      if (lower === 'hi' || lower === 'hello' || lower === 'hey' || lower.startsWith('hello ') || lower.startsWith('hi ')) {
+        return {
+          reply: `Hello! I am **Gismo**, your accessible AI tutor powered by **Antigravity**. I'm here to help you explore your lessons, prepare for quizzes, or answer questions. What would you like to learn about today?`,
+          model: this.modelName,
+          persona
+        };
+      }
+
+      if (lower.includes('who are you') || lower.includes('what are you')) {
+        return {
+          reply: `I am **Gismo AI**, an accessible learning assistant powered by the **Google Antigravity SDK** and Gemini. I adapt to your preferred learning mode—providing spoken explanations, simplified summaries, and visual descriptions!`,
+          model: this.modelName,
+          persona
+        };
+      }
+
+      if (/^(thank\s+you|thanks|thx|ty)([!.,\s]+(gismo|so\s+much|very\s+much|a\s+lot))?[!.,\s]*$/i.test(trimmed)) {
+        return {
+          reply: `You're very welcome! Keep up the fantastic curiosity. Let me know if there's anything else you'd like to explore!`,
+          model: this.modelName,
+          persona
+        };
+      }
+    }
+
+    // Call Gemini API through Antigravity engine
+    if (this.apiKey) {
+      const systemPrompt = isBlindVoice
+        ? this.buildBlindVoiceSystemInstructions(persona, blindContext, context)
+        : this.buildSystemInstructions(persona, context);
+
+      const contents = [];
+      const historyLimit = isBlindVoice ? 16 : 8;
+
+      // Append recent chat history if available, ensuring alternating roles starting with 'user'
+      if (Array.isArray(history) && history.length > 0) {
+        const recent = history.slice(-historyLimit);
+        for (const item of recent) {
+          const text = (item.content || item.text || '').trim();
+          if (!text) continue;
+          const role = item.role === 'model' || item.role === 'ai' ? 'model' : 'user';
+          if (contents.length === 0 && role !== 'user') continue;
+          const prev = contents[contents.length - 1];
+          if (prev && prev.role === role) {
+            prev.parts[0].text += `\n\n${text}`;
+          } else {
+            contents.push({ role, parts: [{ text }] });
+          }
+        }
+      }
+
+      // Add current student prompt (avoiding consecutive 'user' turns)
+      const lastTurn = contents[contents.length - 1];
+      if (lastTurn && lastTurn.role === 'user') {
+        lastTurn.parts[0].text = trimmed;
+      } else {
+        contents.push({
+          role: 'user',
+          parts: [{ text: trimmed }]
+        });
+      }
+
+      const candidate = await this.callGeminiChat(systemPrompt, contents, { isBlindVoice });
+      if (candidate) {
+        if (isBlindVoice) {
+          const cleaned = this.extractActionAndCleanBlindReply(candidate);
+          return {
+            reply: cleaned.reply || "I heard you! Could you tell me a little more about what you'd like to explore?",
+            action: cleaned.action,
+            model: this.modelName,
+            persona,
+            status: 'success'
+          };
+        }
+        return {
+          reply: candidate,
+          model: this.modelName,
+          persona,
+          status: 'success'
+        };
+      }
+    }
+
+    if (isBlindVoice) {
+      const localBlind = this.buildBlindLocalReply(trimmed, persona, blindContext);
+      return {
+        reply: localBlind.reply,
+        action: localBlind.action || null,
+        model: this.modelName,
+        persona,
+        status: 'ok'
+      };
     }
 
     const fallbackText = this.buildLocalTutorReply(trimmed, persona, context);
@@ -176,6 +366,116 @@ Guidelines:
       model: this.modelName,
       persona,
       status: 'ok'
+    };
+  }
+
+  /**
+   * Warm, blind-only conversational fallback if Gemini API is offline or unconfigured.
+   * Zero markdown, zero emojis, zero visual UI references.
+   */
+  buildBlindLocalReply(question, persona = 'default', blindContext = null) {
+    const ctx = blindContext && typeof blindContext === 'object' ? blindContext : {};
+    const name = ctx.username || 'friend';
+    const courses = Array.isArray(ctx.courses) ? ctx.courses : [];
+    const q = String(question || '').trim().toLowerCase();
+
+    if (/^(hi|hello|hey|good morning|good afternoon|good evening|yo|sup)\b/.test(q)) {
+      return {
+        reply: `Hey ${name}, it's really good to hear your voice. I'm doing great and I'm right here with you. How are you feeling today, and is there anything you'd like to talk through or learn together?`
+      };
+    }
+
+    if (q.includes('how are you') || q.includes('how you doing')) {
+      return {
+        reply: `I'm doing really well, thanks for asking, ${name}. I'm all ears and ready whenever you are. How is your day going so far?`
+      };
+    }
+
+    if (q.includes('who are you') || q.includes('what is your name')) {
+      return {
+        reply: `I'm Gismo, your voice companion and study partner. You don't have to worry about looking at anything here — just talk with me naturally anytime you want to learn, listen to a lesson, or take a spoken quiz.`
+      };
+    }
+
+    if (q.includes('thank you') || q.includes('thanks')) {
+      return {
+        reply: `You're so welcome, ${name}. Anytime at all. What would you like to dive into next?`
+      };
+    }
+
+    if (q.includes('log out') || q.includes('logout') || q.includes('sign out')) {
+      return {
+        reply: `Alright ${name}, signing you out now. Take care, and come back anytime you want to talk.`,
+        action: { type: 'LOGOUT', value: '' }
+      };
+    }
+
+    if (q.includes('what courses') || q.includes('my courses') || q.includes('list courses') || q.includes('what can we study')) {
+      if (courses.length > 0) {
+        const titles = courses.slice(0, 5).map(c => c.title).join(', ');
+        return {
+          reply: `Right now you have ${courses.length} ${courses.length === 1 ? 'course' : 'courses'} waiting for you, including ${titles}. Just tell me which one sounds interesting and I'll open it and read it with you.`
+        };
+      }
+      return {
+        reply: `It looks like your courses are still loading or empty right now, but we can open the Audio Library for free books, or just talk through any subject you're curious about. What sounds good?`
+      };
+    }
+
+    if (q.includes('library') || q.includes('audio book') || q.includes('audiobook')) {
+      return {
+        reply: `Sure thing, opening the Audio Library for you now. Whenever you want to come back to just talking with me, just say go home.`,
+        action: { type: 'OPEN_LIBRARY', value: '' }
+      };
+    }
+
+    if (q.includes('quiz me on') || q.includes('give me a quiz on') || q.includes('test me on')) {
+      const topic = String(question || '').replace(/.*?(quiz me on|give me a quiz on|test me on)/i, '').trim() || 'General Science';
+      return {
+        reply: `Love that idea. I'm putting together a spoken quiz on ${topic} right now. Once I read each question, just say Option A, B, C, or D.`,
+        action: { type: 'START_QUIZ', value: topic }
+      };
+    }
+
+    if (/\b(open|start|read)\b/.test(q) && courses.length > 0) {
+      const matched = courses.find(c => c.title && q.includes(String(c.title).toLowerCase()));
+      if (matched) {
+        return {
+          reply: `Opening ${matched.title} for you now. Tell me whenever you'd like me to start reading it aloud, or ask me anything about it.`,
+          action: { type: 'OPEN_LESSON', value: matched.id }
+        };
+      }
+    }
+
+    if (q.includes('read lesson') || q.includes('read it') || q.includes('read this')) {
+      if (ctx.activeLesson && ctx.activeLesson.title) {
+        return {
+          reply: `Starting to read ${ctx.activeLesson.title} aloud for you now. Say stop anytime if you want to pause or ask a question.`,
+          action: { type: 'READ_LESSON', value: '' }
+        };
+      }
+    }
+
+    if (q.includes('photosynthesis') || q.includes('cell') || q.includes('mitochondria') || q.includes('dna') || q.includes('biology')) {
+      return {
+        reply: `Biology is fascinating. Inside every living cell, tiny power stations called mitochondria turn nutrients into energy, while plants use sunlight, water, and carbon dioxide during photosynthesis to make their own food and release fresh oxygen into the air we breathe. Would you like to zoom in on cells, photosynthesis, or D N A?`
+      };
+    }
+
+    if (q.includes('planet') || q.includes('solar') || q.includes('gravity') || q.includes('black hole') || q.includes('physics') || q.includes('space')) {
+      return {
+        reply: `Imagine space like a giant stretched fabric. Heavy objects like our Sun dip that fabric downward, which is why Earth and the other planets naturally curve around it in steady orbits — that pull is gravity. Want me to explain black holes, orbits, or how stars are born next?`
+      };
+    }
+
+    if (q.includes('neural') || q.includes('machine learning') || q.includes('artificial intelligence') || /\bai\b/.test(q)) {
+      return {
+        reply: `Artificial intelligence works a bit like learning by practice. Instead of following fixed rules, a neural network listens to thousands of examples, notices patterns, and adjusts itself until it can understand speech, answer questions, or solve new problems. Would you like an everyday example of how it learns?`
+      };
+    }
+
+    return {
+      reply: `That's a really interesting thought about ${question}. Let's unpack it together step by step — would you like me to start with a simple everyday analogy, or go straight into how it works in detail?`
     };
   }
 

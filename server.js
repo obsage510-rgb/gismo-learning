@@ -1876,10 +1876,21 @@ app.delete('/api/chat/session', (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message = '', persona = 'default', context = '', user_id, username, session_id = 'default' } = req.body || {};
+    const {
+      message = '',
+      persona = 'default',
+      context = '',
+      user_id,
+      username,
+      session_id = 'default',
+      mode = 'standard',
+      blindContext = null,
+      clientHistory = null
+    } = req.body || {};
     if (!message) return res.status(400).json({ error: 'No message provided' });
 
     const resolvedUserId = resolveStudentUser(user_id, username);
+    const isBlindVoice = mode === 'blind_voice';
 
     if (resolvedUserId) {
       try {
@@ -1892,9 +1903,18 @@ app.post('/api/chat', async (req, res) => {
     }
 
     let history = [];
-    if (resolvedUserId) {
+    if (Array.isArray(clientHistory) && clientHistory.length > 0) {
+      history = clientHistory
+        .filter(item => item && (item.text || item.content))
+        .slice(-16)
+        .map(item => ({
+          role: item.role === 'ai' || item.role === 'model' ? 'model' : 'user',
+          content: String(item.text || item.content).trim()
+        }));
+    } else if (resolvedUserId) {
       try {
-        const recent = db.prepare("SELECT role, content FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default')) ORDER BY timestamp DESC, id DESC LIMIT 10").all(resolvedUserId, session_id, session_id);
+        const limit = isBlindVoice ? 16 : 10;
+        const recent = db.prepare(`SELECT role, content FROM chats WHERE user_id = ? AND (session_id = ? OR (session_id IS NULL AND ? = 'default')) ORDER BY timestamp DESC, id DESC LIMIT ${limit}`).all(resolvedUserId, session_id, session_id);
         if (recent && recent.length > 1) {
           history = recent.reverse().slice(0, -1);
         }
@@ -1912,7 +1932,9 @@ app.post('/api/chat', async (req, res) => {
       message,
       persona,
       context: String(context || '').slice(0, 6000),
-      history
+      history,
+      mode,
+      blindContext
     });
 
     if (resolvedUserId && result.reply) {
@@ -1927,6 +1949,7 @@ app.post('/api/chat', async (req, res) => {
 
     return res.json({
       reply: result.reply,
+      action: result.action || null,
       model: result.model,
       persona: result.persona || persona,
       session_id,
@@ -1934,8 +1957,21 @@ app.post('/api/chat', async (req, res) => {
     });
   } catch (err) {
     console.error('Chat endpoint error:', err.message);
+    const isBlindVoice = req.body?.mode === 'blind_voice';
+    if (isBlindVoice) {
+      const localBlind = antigravityTutor.buildBlindLocalReply(req.body?.message || '', req.body?.persona || 'default', req.body?.blindContext || null);
+      return res.json({
+        reply: localBlind.reply,
+        action: localBlind.action || null,
+        model: 'Antigravity-Gismo-Flash-2.5',
+        persona: req.body?.persona || 'default',
+        session_id: req.body?.session_id || 'blind_voice_convo',
+        status: 'ok'
+      });
+    }
     return res.json({
       reply: antigravityTutor.buildLocalTutorReply(req.body?.message || '', req.body?.persona || 'default', req.body?.context || ''),
+      action: null,
       model: 'Antigravity-Gismo-Flash-2.5',
       persona: req.body?.persona || 'default',
       session_id: req.body?.session_id || 'default',
