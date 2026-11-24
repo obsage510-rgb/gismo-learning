@@ -42,20 +42,20 @@ class AntigravityTutorModel {
    */
   buildSystemInstructions(persona = 'default', context = '') {
     let instructions = `You are Gismo AI, the flagship assistive tutor on the Accessible AI Learning Platform, powered by the Antigravity AI Engine.
-Your core mission is to make learning crystal clear, inspiring, and fully accessible to all students, including those with visual impairments, hearing impairments, or learning differences.
+Your core mission is to make learning crystal clear, inspiring, and fully accessible to all students.
 
 Guidelines:
-1. Format all answers in clean, readable Markdown using **bold** for key concepts and bullet points for complex topics.
-2. Structure your answers so they sound natural when read aloud by Text-to-Speech (TTS).
-3. If the student has visual impairments, provide vivid descriptions and analogies.
-4. Keep answers focused, engaging, and encourage active curiosity.`;
+1. Keep all responses SHORT, concise, and direct (1 to 3 brief sentences or 2 to 3 short bullet points maximum) unless the student explicitly asks for a long breakdown.
+2. Format answers in clean Markdown using **bold** for key concepts.
+3. Structure answers so they sound natural when read aloud by Text-to-Speech (TTS).
+4. If the student has visual impairments, provide vivid descriptions and analogies.`;
 
     if (persona === 'scientist') {
-      instructions += `\n\nPersona: Mad Scientist! Use eccentric laboratory metaphors, enthusiasm, sparks of curiosity, and quirky scientific references while keeping the explanation accurate!`;
+      instructions += `\n\nPersona: Mad Scientist! Use playful scientific enthusiasm while keeping the explanation short and accurate!`;
     } else if (persona === 'historian') {
-      instructions += `\n\nPersona: Ancient Historian! Speak as if consulting ancient scrolls and chronicling timeless wisdom through the ages, while remaining clear and helpful!`;
+      instructions += `\n\nPersona: Ancient Historian! Speak with timeless storytelling flair while keeping answers brief and clear!`;
     } else {
-      instructions += `\n\nPersona: Helpful Guide. Warm, supportive, encouraging, and clear.`;
+      instructions += `\n\nPersona: Helpful Guide. Warm, supportive, encouraging, and concise.`;
     }
 
     if (context) {
@@ -82,59 +82,98 @@ Guidelines:
       ? courses.map((c, i) => `  ${i + 1}. "${c.title}" (id: ${c.id})`).join('\n')
       : '  None loaded yet.';
 
-    let personaTone = 'Warm, calm, genuinely attentive, encouraging, and naturally conversational — like a patient friend and mentor sitting beside the student.';
+    const assignedQuizzes = Array.isArray(ctx.assignedQuizzes) ? ctx.assignedQuizzes : [];
+    const pendingQuizzes = assignedQuizzes.filter(q => !q.submission);
+    const quizLines = assignedQuizzes.length > 0
+      ? assignedQuizzes.map((q, i) => {
+          const status = q.submission
+            ? `Completed (${q.submission.score}/${q.submission.total}, ${q.submission.percentage}%)`
+            : 'PENDING (Not taken yet)';
+          return `  ${i + 1}. "${q.title}" — Subject: ${q.subject || 'General'} (${q.question_count || 1} questions, id: ${q.id}) — Status: ${status}`;
+        }).join('\n')
+      : '  None assigned yet.';
+
+    const homeworkList = Array.isArray(ctx.homework) ? ctx.homework : [];
+    const pendingHomework = homeworkList.filter(h => h.status !== 'completed');
+    const homeworkLines = homeworkList.length > 0
+      ? homeworkList.map((h, i) => `  ${i + 1}. "${h.title}" — Instructions: "${h.description || 'No description'}" (id: ${h.id}) — Status: ${h.status === 'completed' ? 'COMPLETED' : 'PENDING'}`).join('\n')
+      : '  No homework assignments.';
+
+    const notesList = Array.isArray(ctx.notes) ? ctx.notes.slice(0, 6) : [];
+    const notesLines = notesList.length > 0
+      ? notesList.map((n, i) => `  ${i + 1}. "${n.content}"`).join('\n')
+      : '  No saved notes yet.';
+
+    let personaTone = 'Warm, calm, genuinely attentive, encouraging, and naturally conversational.';
     if (persona === 'scientist') {
-      personaTone = 'Warm, curious, and enthusiastically scientific, using playful sound and tactile analogies while staying clear, grounded, and easy to listen to.';
+      personaTone = 'Warm, curious, and enthusiastically scientific, using playful sound and tactile analogies.';
     } else if (persona === 'historian') {
-      personaTone = 'Warm, vivid storyteller who brings history and ideas to life through rich auditory and tactile imagery, like sharing stories by a fireside.';
+      personaTone = 'Warm, vivid storyteller who brings ideas to life through rich auditory and tactile imagery.';
     }
 
     let instructions = `You are Gismo, a live voice AI companion and tutor speaking directly to ${studentName}${school}.
 
 CRITICAL IDENTITY & ACCESSIBILITY REALITY:
 - ${studentName} is completely BLIND and cannot see the screen at all. You MUST perceive and treat them as a blind person ONLY.
-- You are having a REAL, continuous, ear-to-ear spoken conversation with them. You are their voice companion, study partner, and eyes for this learning space.
+- You are having a REAL, continuous, ear-to-ear spoken conversation with them. You are their voice companion, study partner, and hands-free controller for this entire platform.
 - NEVER mention anything visual or sighted UI elements. NEVER say "click", "tap", "look below", "on your screen", "the button", "the tab", "the card", "sidebar", "highlighted", "as you can see", or "scroll down". Everything they do happens through talking with you.
-- NEVER use Markdown, asterisks, bold text, bullet points, numbered lists, hashtags, backticks, code blocks, emojis, raw URLs, or LaTeX symbols. Write ONLY pure, natural spoken English that sounds effortless when read aloud by Text-to-Speech. Spell out formulas naturally (for example say "H 2 O" or "water", "E equals M C squared", "divided by").
-- When describing concepts, use vivid non-visual sensory imagery: sound, rhythm, texture, temperature, weight, motion, and spatial feeling instead of colors or diagrams.
+- NEVER use Markdown, asterisks, bold text, bullet points, numbered lists, hashtags, backticks, code blocks, emojis, raw URLs, or LaTeX symbols. Write ONLY pure, natural spoken English that sounds effortless when read aloud by Text-to-Speech.
 
-CONVERSATION STYLE (MAKE IT FEEL REAL):
+KEEP RESPONSES SHORT & ACTION-ORIENTED (CRITICAL):
 - Tone: ${personaTone}
-- Speak like a real person in a real conversation: use natural contractions ("I'm", "you're", "let's", "that's"), respond genuinely to their mood or casual remarks (if they say hi, ask how they're doing; if they sound tired or stuck, be empathetic; if they joke, smile along), and remember what you were just talking about in earlier turns.
-- Keep most spoken replies naturally paced — around 2 to 4 clear spoken sentences — so it feels like a real two-way dialogue instead of a long lecture. If they ask for a detailed explanation, story, or full walkthrough, give a rich explanation and check in naturally at the end.
-- Never repeat robotic boilerplate like "I am an accessible learning assistant powered by..." unless they specifically ask about your technology.
+- Keep EVERY response SHORT and punchy: 1 to 2 brief, natural spoken sentences maximum (under 35 words). Only give a slightly longer answer if ${studentName} explicitly asks for a detailed story or full lesson explanation.
+- Do NOT ramble, do NOT repeat yourself, and do NOT ask for confirmation before performing an action ${studentName} asked for. When they ask you to do ANY action (start a quiz, open a page, complete an assignment, import a book, take a note, zoom, change theme, log out), DO IT IMMEDIATELY by including the matching [[ACTION:...]] tag and confirming in one short sentence!
 
-STUDENT'S LIVE WORKSPACE STATE:
+STUDENT'S LIVE WORKSPACE STATE (GROUND TRUTH):
 - Student Name: ${studentName}
-- Study Streak: ${streak} day${streak === 1 ? '' : 's'}, Quizzes Passed: ${quizzesPassed}
+- Study Streak: ${streak} day${streak === 1 ? '' : 's'}, Total Quizzes Passed: ${quizzesPassed}
 - Current Location: ${currentView}
-- Available Courses:
-${courseLines}`;
+- Assigned Quizzes (${pendingQuizzes.length} pending, ${assignedQuizzes.length} total):
+${quizLines}
+- Homework / Assignments (${pendingHomework.length} pending, ${homeworkList.length} total):
+${homeworkLines}
+- Available Courses & Imported Books:
+${courseLines}
+- Student's Saved Notes:
+${notesLines}`;
 
     if (ctx.activeLesson && ctx.activeLesson.title) {
       instructions += `\n- Currently Open Lesson: "${ctx.activeLesson.title}" (id: ${ctx.activeLesson.id || ''})`;
       if (ctx.activeLesson.excerpt) {
-        instructions += `\n- Active Lesson Excerpt:\n"""\n${String(ctx.activeLesson.excerpt).slice(0, 2400)}\n"""`;
+        instructions += `\n- Active Lesson Excerpt:\n"""\n${String(ctx.activeLesson.excerpt).slice(0, 2000)}\n"""`;
       }
     } else if (fallbackContext) {
-      instructions += `\n- Additional Context:\n"""\n${String(fallbackContext).slice(0, 2000)}\n"""`;
+      instructions += `\n- Additional Context:\n"""\n${String(fallbackContext).slice(0, 1500)}\n"""`;
     }
 
     instructions += `
 
-SILENT VOICE ACTIONS (OPTIONAL):
-Only when ${studentName} clearly asks to perform one of these platform actions, append ONE exact tag at the very end of your spoken reply (after your final sentence). It is stripped silently before speaking:
-- Open a specific course from Available Courses above: [[ACTION:OPEN_LESSON:<exact_course_id>]]
-- Read the currently open lesson aloud: [[ACTION:READ_LESSON]]
+SILENT VOICE ACTIONS — EXECUTE ANY REQUESTED ACTION IMMEDIATELY:
+Whenever ${studentName} asks you to perform ANY action on the platform, perform it immediately by appending ONE exact tag at the very end of your short spoken reply. It is stripped silently before speaking:
+- Take / start an assigned quiz (by id or title, or if they say "take my assigned quiz" / "start my quiz"): [[ACTION:START_ASSIGNED_QUIZ:<quiz_id_or_title>]]
+- Start a newly generated AI voice quiz on any topic: [[ACTION:START_QUIZ:<topic>]]
+- Open the Quizzes space: [[ACTION:OPEN_QUIZZES]]
+- Open a specific course or book from Available Courses above: [[ACTION:OPEN_LESSON:<exact_course_id_or_title>]]
+- Read the currently open lesson or book aloud: [[ACTION:READ_LESSON]]
 - Go to next page/chapter of open lesson: [[ACTION:NEXT_PAGE]]
 - Go to previous page/chapter of open lesson: [[ACTION:PREV_PAGE]]
-- Start a voice-answered quiz on a topic: [[ACTION:START_QUIZ:<topic>]]
-- Open the Quizzes space: [[ACTION:OPEN_QUIZZES]]
+- Read a homework assignment's full instructions aloud: [[ACTION:READ_HOMEWORK:<homework_id_or_title>]]
+- Complete / mark an assignment or homework as done: [[ACTION:COMPLETE_HOMEWORK:<homework_id_or_title>]]
+- Save / take a study note for the student: [[ACTION:SAVE_NOTE:<note_text>]]
+- Read the student's saved notes aloud: [[ACTION:READ_NOTES]]
+- Search or import a free book from Project Gutenberg / Audio Library into their library: [[ACTION:IMPORT_BOOK:<book_title_or_topic>]]
+- Search the Audio Book Library for a topic or author: [[ACTION:SEARCH_LIBRARY:<search_query>]]
 - Open the Audio Book Library: [[ACTION:OPEN_LIBRARY]]
-- Open Student Profile: [[ACTION:OPEN_PROFILE]]
-- Return to the main voice conversation space: [[ACTION:GO_HOME]]
-- Sign out / log out: [[ACTION:LOGOUT]]
-Do NOT emit an action tag during ordinary conversation, Q&A, explanations, or when just listing courses.`;
+- Open Student Profile / Assignments page: [[ACTION:OPEN_PROFILE]]
+- Open Settings & Preferences: [[ACTION:OPEN_SETTINGS]]
+- Close Settings or any open modal: [[ACTION:CLOSE_MODAL]]
+- Zoom in / increase text magnification: [[ACTION:ZOOM_IN]]
+- Zoom out / decrease text magnification: [[ACTION:ZOOM_OUT]]
+- Reset zoom / text size to default: [[ACTION:ZOOM_RESET]]
+- Change visual theme (dark, light, or hc for high contrast): [[ACTION:SET_THEME:<dark|light|hc>]]
+- Switch AI tutor persona (default, scientist, or historian): [[ACTION:SET_PERSONA:<default|scientist|historian>]]
+- Return to the main voice home space: [[ACTION:GO_HOME]]
+- Sign out / log out immediately: [[ACTION:LOGOUT]]`;
 
     return instructions;
   }
@@ -186,30 +225,30 @@ Do NOT emit an action tag during ordinary conversation, Q&A, explanations, or wh
       ? [
           {
             model: 'gemini-2.5-flash',
-            generationConfig: { temperature: 0.75, maxOutputTokens: 650, thinkingConfig: { thinkingBudget: 0 } },
-            timeoutMs: 12000
+            generationConfig: { temperature: 0.65, maxOutputTokens: 220, thinkingConfig: { thinkingBudget: 0 } },
+            timeoutMs: 10000
           },
           {
             model: 'gemini-2.5-flash',
-            generationConfig: { temperature: 0.75, maxOutputTokens: 800 },
-            timeoutMs: 14000
+            generationConfig: { temperature: 0.65, maxOutputTokens: 300 },
+            timeoutMs: 12000
           },
           {
             model: 'gemini-2.0-flash',
-            generationConfig: { temperature: 0.75, maxOutputTokens: 650 },
-            timeoutMs: 12000
+            generationConfig: { temperature: 0.65, maxOutputTokens: 220 },
+            timeoutMs: 10000
           }
         ]
       : [
           {
             model: 'gemini-2.5-flash',
-            generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
-            timeoutMs: 12000
+            generationConfig: { temperature: 0.65, maxOutputTokens: 350, thinkingConfig: { thinkingBudget: 0 } },
+            timeoutMs: 10000
           },
           {
             model: 'gemini-2.0-flash',
-            generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
-            timeoutMs: 12000
+            generationConfig: { temperature: 0.65, maxOutputTokens: 350 },
+            timeoutMs: 10000
           }
         ];
 
@@ -255,19 +294,19 @@ Do NOT emit an action tag during ordinary conversation, Q&A, explanations, or wh
     if (!trimmed) {
       return {
         reply: isBlindVoice
-          ? "I'm right here listening whenever you're ready. What's on your mind?"
-          : "Hello! I am your Gismo AI Tutor. Ask me any question about your lessons!",
+          ? "I'm listening. What would you like to do?"
+          : "Hi! I'm Gismo AI. How can I help you today?",
         model: this.modelName,
         action: null
       };
     }
 
-    // Standard visual chat fast replies (NEVER intercept blind_voice — blind users deserve real organic conversation on every turn!)
+    // Standard visual chat fast replies
     if (!isBlindVoice) {
       const lower = trimmed.toLowerCase();
       if (lower === 'hi' || lower === 'hello' || lower === 'hey' || lower.startsWith('hello ') || lower.startsWith('hi ')) {
         return {
-          reply: `Hello! I am **Gismo**, your accessible AI tutor powered by **Antigravity**. I'm here to help you explore your lessons, prepare for quizzes, or answer questions. What would you like to learn about today?`,
+          reply: `Hi! I'm **Gismo**, your AI tutor. What would you like to study or quiz on today?`,
           model: this.modelName,
           persona
         };
@@ -275,7 +314,7 @@ Do NOT emit an action tag during ordinary conversation, Q&A, explanations, or wh
 
       if (lower.includes('who are you') || lower.includes('what are you')) {
         return {
-          reply: `I am **Gismo AI**, an accessible learning assistant powered by the **Google Antigravity SDK** and Gemini. I adapt to your preferred learning mode—providing spoken explanations, simplified summaries, and visual descriptions!`,
+          reply: `I'm **Gismo AI**, your accessible tutor powered by **Google Antigravity** and Gemini. Ask me any question or start a quiz anytime!`,
           model: this.modelName,
           persona
         };
@@ -283,9 +322,23 @@ Do NOT emit an action tag during ordinary conversation, Q&A, explanations, or wh
 
       if (/^(thank\s+you|thanks|thx|ty)([!.,\s]+(gismo|so\s+much|very\s+much|a\s+lot))?[!.,\s]*$/i.test(trimmed)) {
         return {
-          reply: `You're very welcome! Keep up the fantastic curiosity. Let me know if there's anything else you'd like to explore!`,
+          reply: `You're welcome! Let me know what you'd like to explore next.`,
           model: this.modelName,
           persona
+        };
+      }
+    }
+
+    // Deterministic fast intent matcher for blind_voice mode so explicit action requests & assigned quiz/homework queries ALWAYS execute 100% reliably
+    if (isBlindVoice) {
+      const directIntent = this.matchDirectBlindIntent(trimmed, blindContext);
+      if (directIntent && directIntent.forceImmediate) {
+        return {
+          reply: directIntent.reply,
+          action: directIntent.action || null,
+          model: this.modelName,
+          persona,
+          status: 'success'
         };
       }
     }
@@ -297,7 +350,7 @@ Do NOT emit an action tag during ordinary conversation, Q&A, explanations, or wh
         : this.buildSystemInstructions(persona, context);
 
       const contents = [];
-      const historyLimit = isBlindVoice ? 16 : 8;
+      const historyLimit = isBlindVoice ? 12 : 8;
 
       // Append recent chat history if available, ensuring alternating roles starting with 'user'
       if (Array.isArray(history) && history.length > 0) {
@@ -331,9 +384,11 @@ Do NOT emit an action tag during ordinary conversation, Q&A, explanations, or wh
       if (candidate) {
         if (isBlindVoice) {
           const cleaned = this.extractActionAndCleanBlindReply(candidate);
+          // If Gemini forgot to attach the action tag for a clear action command, merge the fallback action
+          const fallbackIntent = !cleaned.action ? this.matchDirectBlindIntent(trimmed, blindContext) : null;
           return {
-            reply: cleaned.reply || "I heard you! Could you tell me a little more about what you'd like to explore?",
-            action: cleaned.action,
+            reply: cleaned.reply || "Got it. What next?",
+            action: cleaned.action || (fallbackIntent ? fallbackIntent.action : null),
             model: this.modelName,
             persona,
             status: 'success'
@@ -370,10 +425,315 @@ Do NOT emit an action tag during ordinary conversation, Q&A, explanations, or wh
   }
 
   /**
+   * Matches explicit voice commands and assigned quiz/homework queries in Blind Mode
+   * so they always work reliably and concisely.
+   */
+  matchDirectBlindIntent(question, blindContext = null) {
+    const ctx = blindContext && typeof blindContext === 'object' ? blindContext : {};
+    const name = ctx.username || 'friend';
+    const courses = Array.isArray(ctx.courses) ? ctx.courses : [];
+    const assignedQuizzes = Array.isArray(ctx.assignedQuizzes) ? ctx.assignedQuizzes : [];
+    const pendingQuizzes = assignedQuizzes.filter(q => !q.submission);
+    const homework = Array.isArray(ctx.homework) ? ctx.homework : [];
+    const pendingHomework = homework.filter(h => h.status !== 'completed');
+    const notes = Array.isArray(ctx.notes) ? ctx.notes : [];
+    const raw = String(question || '').trim();
+    const q = raw.toLowerCase().replace(/[.,!?;:]/g, '').trim();
+
+    // 1. Logout / Sign out
+    if (/\b(log\s*out|sign\s*out)\b/.test(q)) {
+      return {
+        forceImmediate: true,
+        reply: `Signing you out now, ${name}. Talk to you soon!`,
+        action: { type: 'LOGOUT', value: '' }
+      };
+    }
+
+    // 2. Zoom / Text Size
+    if (/\b(zoom\s*in|bigger\s*text|increase\s*text|larger\s*text|magnify|zoom)\b/.test(q) && !q.includes('zoom out')) {
+      return {
+        forceImmediate: true,
+        reply: `Zoomed in and increased text magnification for you.`,
+        action: { type: 'ZOOM_IN', value: '' }
+      };
+    }
+    if (/\b(zoom\s*out|smaller\s*text|decrease\s*text)\b/.test(q)) {
+      return {
+        forceImmediate: true,
+        reply: `Zoomed out and decreased text magnification.`,
+        action: { type: 'ZOOM_OUT', value: '' }
+      };
+    }
+    if (/\b(reset\s*zoom|normal\s*text|reset\s*text)\b/.test(q)) {
+      return {
+        forceImmediate: true,
+        reply: `Reset text magnification to default.`,
+        action: { type: 'ZOOM_RESET', value: '' }
+      };
+    }
+
+    // 3. Theme switching
+    if (/\b(high\s*contrast|contrast\s*mode)\b/.test(q)) {
+      return {
+        forceImmediate: true,
+        reply: `Switched to high contrast mode.`,
+        action: { type: 'SET_THEME', value: 'hc' }
+      };
+    }
+    if (/\b(dark\s*mode|dark\s*theme)\b/.test(q)) {
+      return {
+        forceImmediate: true,
+        reply: `Switched to dark mode.`,
+        action: { type: 'SET_THEME', value: 'dark' }
+      };
+    }
+    if (/\b(light\s*mode|light\s*theme)\b/.test(q)) {
+      return {
+        forceImmediate: true,
+        reply: `Switched to light mode.`,
+        action: { type: 'SET_THEME', value: 'light' }
+      };
+    }
+
+    // 4. Take / Save a Note
+    const noteMatch = raw.match(/(?:take\s+a\s+note|save\s+a\s+note|add\s+a\s+note|write\s+a\s+note|note\s+down|remember\s+that)\s*[:\-]?\s+(.+)$/i);
+    if (noteMatch && noteMatch[1]) {
+      const noteText = noteMatch[1].trim();
+      return {
+        forceImmediate: true,
+        reply: `Saved your note: ${noteText}.`,
+        action: { type: 'SAVE_NOTE', value: noteText }
+      };
+    }
+
+    // 5. Read Notes
+    if (/\b(read\s+my\s+notes|what\s+are\s+my\s+notes|my\s+notes|list\s+notes)\b/.test(q)) {
+      if (notes.length > 0) {
+        const listStr = notes.slice(0, 3).map(n => n.content).join('. ');
+        return {
+          forceImmediate: true,
+          reply: `You have ${notes.length} saved ${notes.length === 1 ? 'note' : 'notes'}: ${listStr}.`,
+          action: { type: 'READ_NOTES', value: '' }
+        };
+      }
+      return {
+        forceImmediate: true,
+        reply: `You don't have any saved notes yet. Just say take a note followed by whatever you want me to save.`
+      };
+    }
+
+    // 6. Start / Take an Assigned Quiz
+    const matchedQuizByTitle = assignedQuizzes.find(qz => qz.title && q.includes(String(qz.title).toLowerCase())) ||
+      assignedQuizzes.find(qz => qz.subject && q.includes(String(qz.subject).toLowerCase()));
+    if (
+      (/\b(start|take|begin|open|launch|do)\b/.test(q) && /\b(assigned\s+quiz|my\s+quiz|the\s+quiz|quiz)\b/.test(q) && !/\b(quiz\s+me\s+on|give\s+me\s+a\s+quiz\s+on|test\s+me\s+on)\b/.test(q)) ||
+      (/\b(start|take|begin|do)\b/.test(q) && matchedQuizByTitle)
+    ) {
+      const targetQuiz = matchedQuizByTitle || pendingQuizzes[0] || assignedQuizzes[0];
+      if (targetQuiz && (/\b(assigned|my\s+quiz|start\s+quiz|take\s+quiz|take\s+the\s+quiz|do\s+the\s+quiz)\b/.test(q) || matchedQuizByTitle)) {
+        return {
+          forceImmediate: true,
+          reply: `Starting your assigned quiz, ${targetQuiz.title}, right now.`,
+          action: { type: 'START_ASSIGNED_QUIZ', value: String(targetQuiz.id) }
+        };
+      }
+    }
+
+    // 7. Asking if they have any assigned quizzes
+    if (
+      /\b(do\s+i\s+have|are\s+there|what\s+are|check|list|show|any)\b/.test(q) &&
+      /\b(assigned\s+quiz|assigned\s+quizzes|my\s+quiz|my\s+quizzes|pending\s+quiz|pending\s+quizzes|quiz|quizzes)\b/.test(q) &&
+      !/\b(quiz\s+me\s+on|give\s+me\s+a\s+quiz\s+on)\b/.test(q)
+    ) {
+      if (pendingQuizzes.length > 0) {
+        const names = pendingQuizzes.map(qz => `${qz.title} in ${qz.subject || 'General'}`).join(', ');
+        return {
+          forceImmediate: true,
+          reply: `Yes! You have ${pendingQuizzes.length} pending assigned ${pendingQuizzes.length === 1 ? 'quiz' : 'quizzes'}: ${names}. Say start my quiz whenever you want to take it.`
+        };
+      }
+      if (assignedQuizzes.length > 0) {
+        const names = assignedQuizzes.map(qz => qz.title).join(', ');
+        return {
+          forceImmediate: true,
+          reply: `You have ${assignedQuizzes.length} assigned ${assignedQuizzes.length === 1 ? 'quiz' : 'quizzes'} (${names}), and you've already completed ${assignedQuizzes.length === 1 ? 'it' : 'them'}. Say start my quiz to retake, or ask me for a new quiz on any topic.`
+        };
+      }
+      return {
+        forceImmediate: true,
+        reply: `You have no teacher-assigned quizzes waiting right now. Say quiz me on followed by any topic to start an instant voice quiz!`
+      };
+    }
+
+    // 8. Complete / mark homework assignment as done
+    if (/\b(complete|finish|mark|submit|done)\b/.test(q) && /\b(assignment|homework|task)\b/.test(q)) {
+      const targetHw = pendingHomework.find(h => h.title && q.includes(String(h.title).toLowerCase())) || pendingHomework[0] || homework[0];
+      if (targetHw) {
+        return {
+          forceImmediate: true,
+          reply: `Marked your assignment ${targetHw.title} as completed. Great work!`,
+          action: { type: 'COMPLETE_HOMEWORK', value: String(targetHw.id) }
+        };
+      }
+    }
+
+    // 9. Asking about assignments / homework
+    if (
+      /\b(assignment|assignments|homework|homeworks|coursework|pending)\b/.test(q) &&
+      !/\b(complete|finish|mark)\b/.test(q)
+    ) {
+      if (pendingHomework.length > 0) {
+        const details = pendingHomework.map(h => `${h.title}${h.description ? ': ' + h.description : ''}`).join('. ');
+        return {
+          forceImmediate: true,
+          reply: `Yes, you have ${pendingHomework.length} pending ${pendingHomework.length === 1 ? 'assignment' : 'assignments'}: ${details}. Say complete assignment when you finish it.`
+        };
+      }
+      if (homework.length > 0) {
+        return {
+          forceImmediate: true,
+          reply: `All ${homework.length} of your assignments are completed! You're completely caught up.`
+        };
+      }
+      return {
+        forceImmediate: true,
+        reply: `You don't have any pending assignments right now.`
+      };
+    }
+
+    // 10. Generate an AI Quiz on a topic
+    if (/\b(quiz\s+me\s+on|give\s+me\s+a\s+quiz\s+on|test\s+me\s+on|create\s+a\s+quiz\s+on|start\s+a\s+quiz\s+on)\b/.test(q)) {
+      const topic = raw.replace(/.*?(quiz\s+me\s+on|give\s+me\s+a\s+quiz\s+on|test\s+me\s+on|create\s+a\s+quiz\s+on|start\s+a\s+quiz\s+on)/i, '').trim() || 'General Science';
+      return {
+        forceImmediate: true,
+        reply: `Starting a spoken quiz on ${topic} right now.`,
+        action: { type: 'START_QUIZ', value: topic }
+      };
+    }
+
+    // 11. Import a book from Library
+    const importMatch = raw.match(/\b(?:import|download|add)\s+(?:the\s+book\s+|book\s+)?(.+?)(?:\s+to\s+my\s+library|\s+from\s+library)?$/i);
+    if (importMatch && importMatch[1] && !/\b(note|assignment|homework)\b/i.test(importMatch[1])) {
+      const bookQuery = importMatch[1].trim();
+      return {
+        forceImmediate: true,
+        reply: `Importing ${bookQuery} into your audio library now.`,
+        action: { type: 'IMPORT_BOOK', value: bookQuery }
+      };
+    }
+
+    // 12. Navigation commands
+    if (/\b(go\s+to\s+quizzes|open\s+quizzes|show\s+quizzes)\b/.test(q) || q === 'quizzes') {
+      if (pendingQuizzes.length > 0) {
+        const first = pendingQuizzes[0];
+        return {
+          forceImmediate: true,
+          reply: `Opened Quizzes. You have ${pendingQuizzes.length} pending assigned ${pendingQuizzes.length === 1 ? 'quiz' : 'quizzes'}, including ${first.title}. Say start my quiz to begin!`,
+          action: { type: 'OPEN_QUIZZES', value: '' }
+        };
+      }
+      return {
+        forceImmediate: true,
+        reply: `Opened Quizzes. Say quiz me on any topic, or say start my quiz.`,
+        action: { type: 'OPEN_QUIZZES', value: '' }
+      };
+    }
+
+    if (/\b(go\s+to\s+library|open\s+library|audio\s+library|open\s+books)\b/.test(q) || q === 'library') {
+      return {
+        forceImmediate: true,
+        reply: `Opened your Audio Book Library.`,
+        action: { type: 'OPEN_LIBRARY', value: '' }
+      };
+    }
+
+    if (/\b(go\s+to\s+profile|open\s+profile|my\s+profile)\b/.test(q) || q === 'profile') {
+      return {
+        forceImmediate: true,
+        reply: `Opened your Student Profile.`,
+        action: { type: 'OPEN_PROFILE', value: '' }
+      };
+    }
+
+    if (/\b(open\s+settings|go\s+to\s+settings|preferences)\b/.test(q) || q === 'settings') {
+      return {
+        forceImmediate: true,
+        reply: `Opened your Settings.`,
+        action: { type: 'OPEN_SETTINGS', value: '' }
+      };
+    }
+
+    if (/\b(close\s+settings|close\s+modal)\b/.test(q)) {
+      return {
+        forceImmediate: true,
+        reply: `Closed.`,
+        action: { type: 'CLOSE_MODAL', value: '' }
+      };
+    }
+
+    if (/\b(go\s+home|back\s+home|voice\s+home|open\s+dashboard)\b/.test(q) || q === 'home' || q === 'dashboard') {
+      return {
+        forceImmediate: true,
+        reply: `Back in your main voice space.`,
+        action: { type: 'GO_HOME', value: '' }
+      };
+    }
+
+    if (/\b(next\s+page|next\s+chapter|turn\s+page)\b/.test(q)) {
+      return {
+        forceImmediate: true,
+        reply: `Turning to the next page.`,
+        action: { type: 'NEXT_PAGE', value: '' }
+      };
+    }
+
+    if (/\b(previous\s+page|previous\s+chapter|go\s+back\s+a\s+page)\b/.test(q)) {
+      return {
+        forceImmediate: true,
+        reply: `Going back to the previous page.`,
+        action: { type: 'PREV_PAGE', value: '' }
+      };
+    }
+
+    if (/\b(read\s+lesson|read\s+page|read\s+book|read\s+it|read\s+aloud|narrate)\b/.test(q)) {
+      if (ctx.activeLesson && ctx.activeLesson.title) {
+        return {
+          forceImmediate: true,
+          reply: `Reading ${ctx.activeLesson.title} aloud now.`,
+          action: { type: 'READ_LESSON', value: '' }
+        };
+      }
+      if (courses.length > 0) {
+        return {
+          forceImmediate: true,
+          reply: `Opening and reading ${courses[0].title} for you now.`,
+          action: { type: 'OPEN_LESSON', value: courses[0].id }
+        };
+      }
+    }
+
+    if (/\b(open|start|read)\b/.test(q) && courses.length > 0) {
+      const matched = courses.find(c => c.title && q.includes(String(c.title).toLowerCase()));
+      if (matched) {
+        return {
+          forceImmediate: true,
+          reply: `Opening ${matched.title} now.`,
+          action: { type: 'OPEN_LESSON', value: matched.id }
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Warm, blind-only conversational fallback if Gemini API is offline or unconfigured.
-   * Zero markdown, zero emojis, zero visual UI references.
+   * Zero markdown, zero emojis, zero visual UI references, short replies.
    */
   buildBlindLocalReply(question, persona = 'default', blindContext = null) {
+    const direct = this.matchDirectBlindIntent(question, blindContext);
+    if (direct) return direct;
+
     const ctx = blindContext && typeof blindContext === 'object' ? blindContext : {};
     const name = ctx.username || 'friend';
     const courses = Array.isArray(ctx.courses) ? ctx.courses : [];
@@ -381,32 +741,25 @@ Do NOT emit an action tag during ordinary conversation, Q&A, explanations, or wh
 
     if (/^(hi|hello|hey|good morning|good afternoon|good evening|yo|sup)\b/.test(q)) {
       return {
-        reply: `Hey ${name}, it's really good to hear your voice. I'm doing great and I'm right here with you. How are you feeling today, and is there anything you'd like to talk through or learn together?`
+        reply: `Hey ${name}, I'm right here with you! What would you like to study or do today?`
       };
     }
 
     if (q.includes('how are you') || q.includes('how you doing')) {
       return {
-        reply: `I'm doing really well, thanks for asking, ${name}. I'm all ears and ready whenever you are. How is your day going so far?`
+        reply: `I'm doing great, ${name}! Ready to help you learn or run any command you need.`
       };
     }
 
     if (q.includes('who are you') || q.includes('what is your name')) {
       return {
-        reply: `I'm Gismo, your voice companion and study partner. You don't have to worry about looking at anything here — just talk with me naturally anytime you want to learn, listen to a lesson, or take a spoken quiz.`
+        reply: `I'm Gismo, your voice companion and study partner. Just tell me what you want to learn or do.`
       };
     }
 
     if (q.includes('thank you') || q.includes('thanks')) {
       return {
-        reply: `You're so welcome, ${name}. Anytime at all. What would you like to dive into next?`
-      };
-    }
-
-    if (q.includes('log out') || q.includes('logout') || q.includes('sign out')) {
-      return {
-        reply: `Alright ${name}, signing you out now. Take care, and come back anytime you want to talk.`,
-        action: { type: 'LOGOUT', value: '' }
+        reply: `You're very welcome, ${name}! What's next?`
       };
     }
 
@@ -414,68 +767,34 @@ Do NOT emit an action tag during ordinary conversation, Q&A, explanations, or wh
       if (courses.length > 0) {
         const titles = courses.slice(0, 5).map(c => c.title).join(', ');
         return {
-          reply: `Right now you have ${courses.length} ${courses.length === 1 ? 'course' : 'courses'} waiting for you, including ${titles}. Just tell me which one sounds interesting and I'll open it and read it with you.`
+          reply: `You have ${courses.length} ${courses.length === 1 ? 'course' : 'courses'}: ${titles}. Which one should I open?`
         };
       }
       return {
-        reply: `It looks like your courses are still loading or empty right now, but we can open the Audio Library for free books, or just talk through any subject you're curious about. What sounds good?`
+        reply: `You don't have any courses open yet, but I can import any classic book from the Audio Library or quiz you on any topic.`
       };
-    }
-
-    if (q.includes('library') || q.includes('audio book') || q.includes('audiobook')) {
-      return {
-        reply: `Sure thing, opening the Audio Library for you now. Whenever you want to come back to just talking with me, just say go home.`,
-        action: { type: 'OPEN_LIBRARY', value: '' }
-      };
-    }
-
-    if (q.includes('quiz me on') || q.includes('give me a quiz on') || q.includes('test me on')) {
-      const topic = String(question || '').replace(/.*?(quiz me on|give me a quiz on|test me on)/i, '').trim() || 'General Science';
-      return {
-        reply: `Love that idea. I'm putting together a spoken quiz on ${topic} right now. Once I read each question, just say Option A, B, C, or D.`,
-        action: { type: 'START_QUIZ', value: topic }
-      };
-    }
-
-    if (/\b(open|start|read)\b/.test(q) && courses.length > 0) {
-      const matched = courses.find(c => c.title && q.includes(String(c.title).toLowerCase()));
-      if (matched) {
-        return {
-          reply: `Opening ${matched.title} for you now. Tell me whenever you'd like me to start reading it aloud, or ask me anything about it.`,
-          action: { type: 'OPEN_LESSON', value: matched.id }
-        };
-      }
-    }
-
-    if (q.includes('read lesson') || q.includes('read it') || q.includes('read this')) {
-      if (ctx.activeLesson && ctx.activeLesson.title) {
-        return {
-          reply: `Starting to read ${ctx.activeLesson.title} aloud for you now. Say stop anytime if you want to pause or ask a question.`,
-          action: { type: 'READ_LESSON', value: '' }
-        };
-      }
     }
 
     if (q.includes('photosynthesis') || q.includes('cell') || q.includes('mitochondria') || q.includes('dna') || q.includes('biology')) {
       return {
-        reply: `Biology is fascinating. Inside every living cell, tiny power stations called mitochondria turn nutrients into energy, while plants use sunlight, water, and carbon dioxide during photosynthesis to make their own food and release fresh oxygen into the air we breathe. Would you like to zoom in on cells, photosynthesis, or D N A?`
+        reply: `In biology, mitochondria power the cell with energy, while plants use photosynthesis to turn sunlight, water, and carbon dioxide into food and oxygen. Want a quick quiz on biology?`
       };
     }
 
     if (q.includes('planet') || q.includes('solar') || q.includes('gravity') || q.includes('black hole') || q.includes('physics') || q.includes('space')) {
       return {
-        reply: `Imagine space like a giant stretched fabric. Heavy objects like our Sun dip that fabric downward, which is why Earth and the other planets naturally curve around it in steady orbits — that pull is gravity. Want me to explain black holes, orbits, or how stars are born next?`
+        reply: `Gravity is like heavy objects curving a stretched fabric in space, keeping planets in orbit around the Sun. Want to explore black holes or take a space quiz?`
       };
     }
 
     if (q.includes('neural') || q.includes('machine learning') || q.includes('artificial intelligence') || /\bai\b/.test(q)) {
       return {
-        reply: `Artificial intelligence works a bit like learning by practice. Instead of following fixed rules, a neural network listens to thousands of examples, notices patterns, and adjusts itself until it can understand speech, answer questions, or solve new problems. Would you like an everyday example of how it learns?`
+        reply: `Artificial intelligence learns by finding patterns in thousands of examples rather than following rigid rules. Want an example or a quick quiz on A I?`
       };
     }
 
     return {
-      reply: `That's a really interesting thought about ${question}. Let's unpack it together step by step — would you like me to start with a simple everyday analogy, or go straight into how it works in detail?`
+      reply: `Got it, ${name}. Would you like a quick explanation of ${question}, or should I start a voice quiz on it?`
     };
   }
 

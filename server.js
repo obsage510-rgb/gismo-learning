@@ -317,7 +317,15 @@ function resolveStudentUser(rawUserId, rawUsername) {
 app.use('/api', async (req, res, next) => {
   if (supabaseBridge.configured) {
     try {
-      const shouldForcePull = req.method !== 'GET' || req.path.startsWith('/textbooks') || req.path.startsWith('/auth');
+      const shouldForcePull =
+        req.method !== 'GET' ||
+        req.path.startsWith('/textbooks') ||
+        req.path.startsWith('/auth') ||
+        req.path.startsWith('/quizzes') ||
+        req.path.startsWith('/homework') ||
+        req.path.startsWith('/notes') ||
+        req.path.startsWith('/files') ||
+        req.path.startsWith('/users');
       await supabaseBridge.ensureReady({ forcePull: shouldForcePull });
     } catch (_) {}
 
@@ -1403,46 +1411,95 @@ app.get('/api/analytics/:user_id', (req, res) => {
 
 // --- COMPREHENSIVE QUIZ SYSTEM API ---
 
+function isQuizAssignedToStudent(quizRow, studentId, studentUsername, studentRegNo) {
+  if (!quizRow) return false;
+  const raw = String(quizRow.assigned_to || '').trim();
+  if (!raw || raw.toLowerCase() === 'all') return true;
+  if (!studentId && !studentUsername && !studentRegNo) return true;
+
+  const targetIdNum = studentId ? Number(studentId) : null;
+  const targetIdStr = studentId ? String(studentId).trim() : '';
+  const targetName = studentUsername ? String(studentUsername).trim().toLowerCase() : '';
+  const targetReg = studentRegNo ? String(studentRegNo).trim().toLowerCase() : '';
+
+  const matchesToken = (val) => {
+    if (val === null || val === undefined) return false;
+    const s = String(val).trim();
+    const sLow = s.toLowerCase();
+    if (targetIdNum !== null && !Number.isNaN(targetIdNum) && Number(s) === targetIdNum) return true;
+    if (targetIdStr && s === targetIdStr) return true;
+    if (targetName && sLow === targetName) return true;
+    if (targetReg && sLow === targetReg) return true;
+    return false;
+  };
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.some(matchesToken);
+    }
+    return matchesToken(parsed);
+  } catch (_) {
+    return raw.split(',').some(matchesToken);
+  }
+}
+
+function getAssignedQuizzesForStudent(studentId, rawUsername = '') {
+  let user = null;
+  if (studentId) {
+    try { user = db.prepare('SELECT id, username, reg_no FROM users WHERE id = ?').get(studentId); } catch (_) {}
+  }
+  if (!user && rawUsername) {
+    try { user = db.prepare('SELECT id, username, reg_no FROM users WHERE LOWER(username) = LOWER(?)').get(String(rawUsername).trim()); } catch (_) {}
+  }
+  const effectiveId = user ? user.id : (studentId ? Number(studentId) : null);
+  const effectiveName = (user && user.username) || rawUsername || '';
+  const effectiveReg = (user && user.reg_no) || '';
+
+  const allQuizzes = db.prepare('SELECT * FROM quizzes ORDER BY id DESC').all();
+  const filtered = allQuizzes.filter(q => isQuizAssignedToStudent(q, effectiveId, effectiveName, effectiveReg));
+
+  return filtered.map(q => {
+    let questions = [];
+    try { questions = JSON.parse(q.questions); } catch (e) {}
+    let submission = null;
+    if (effectiveId || effectiveName) {
+      submission = db.prepare(`
+        SELECT score, total, percentage, answers, submitted_at
+        FROM quiz_submissions
+        WHERE quiz_id = ? AND (student_id = ? OR (? != '' AND LOWER(student_username) = LOWER(?)))
+        ORDER BY id DESC LIMIT 1
+      `).get(q.id, effectiveId || -1, effectiveName, effectiveName);
+    }
+    return {
+      id: q.id,
+      title: q.title,
+      subject: q.subject,
+      created_by: q.created_by,
+      assigned_to: q.assigned_to,
+      question_count: questions.length,
+      created_at: q.created_at,
+      submission: submission || null
+    };
+  });
+}
+
+function getHomeworkForStudent(studentId, rawUsername = '') {
+  const resolvedId = resolveStudentUser(studentId, rawUsername) || (studentId ? Number(studentId) : null);
+  if (!resolvedId) return [];
+  try {
+    return db.prepare('SELECT * FROM homework WHERE student_id = ? ORDER BY id DESC').all(resolvedId);
+  } catch (_) {
+    return [];
+  }
+}
+
 // 1. Get quizzes visible to student (assigned to all or to specific student)
 app.get('/api/quizzes', (req, res) => {
   const resolvedStudentId = resolveStudentUser(req.query.student_id, req.query.username);
   const studentId = resolvedStudentId || (req.query.student_id ? parseInt(req.query.student_id, 10) : null);
   try {
-    const allQuizzes = db.prepare('SELECT * FROM quizzes ORDER BY id DESC').all();
-
-    const filtered = allQuizzes.filter(q => {
-      if (!q.assigned_to || q.assigned_to === 'all') return true;
-      if (!studentId) return true;
-      try {
-        const ids = JSON.parse(q.assigned_to);
-        if (Array.isArray(ids)) {
-          return ids.map(Number).includes(Number(studentId));
-        }
-      } catch (e) {
-        return q.assigned_to.split(',').map(s => s.trim()).includes(String(studentId));
-      }
-      return false;
-    });
-
-    const result = filtered.map(q => {
-      let questions = [];
-      try { questions = JSON.parse(q.questions); } catch (e) {}
-      let submission = null;
-      if (studentId) {
-        submission = db.prepare('SELECT score, total, percentage, answers, submitted_at FROM quiz_submissions WHERE quiz_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1').get(q.id, studentId);
-      }
-      return {
-        id: q.id,
-        title: q.title,
-        subject: q.subject,
-        created_by: q.created_by,
-        assigned_to: q.assigned_to,
-        question_count: questions.length,
-        created_at: q.created_at,
-        submission: submission || null
-      };
-    });
-
+    const result = getAssignedQuizzesForStudent(studentId, req.query.username);
     res.json(result);
   } catch (err) {
     console.error('Error fetching quizzes:', err);
@@ -1928,13 +1985,38 @@ app.post('/api/chat', async (req, res) => {
       }
     }
 
+    let enrichedBlindContext = (blindContext && typeof blindContext === 'object') ? { ...blindContext } : {};
+    if (resolvedUserId || username) {
+      try {
+        const assignedQuizzes = getAssignedQuizzesForStudent(resolvedUserId, username);
+        enrichedBlindContext.assignedQuizzes = assignedQuizzes;
+      } catch (_) {}
+      try {
+        const homework = getHomeworkForStudent(resolvedUserId, username);
+        enrichedBlindContext.homework = homework;
+      } catch (_) {}
+      try {
+        if (resolvedUserId) {
+          const notes = db.prepare('SELECT id, content, timestamp FROM notes WHERE user_id = ? ORDER BY timestamp DESC, id DESC LIMIT 10').all(resolvedUserId);
+          enrichedBlindContext.notes = notes;
+        }
+      } catch (_) {}
+      try {
+        if (!Array.isArray(enrichedBlindContext.courses) || enrichedBlindContext.courses.length === 0) {
+          const suffixPattern = `%_u${resolvedUserId || 0}`;
+          const tbs = db.prepare("SELECT id, title, meta FROM textbooks WHERE user_id = ? OR id LIKE ? OR (user_id IS NULL AND id NOT LIKE 'gutenberg_%')").all(resolvedUserId || -1, suffixPattern);
+          enrichedBlindContext.courses = tbs.slice(0, 15).map(t => ({ id: String(t.id), title: String(t.title), meta: String(t.meta || '') }));
+        }
+      } catch (_) {}
+    }
+
     const result = await antigravityTutor.generateResponse({
       message,
       persona,
       context: String(context || '').slice(0, 6000),
       history,
       mode,
-      blindContext
+      blindContext: isBlindVoice ? enrichedBlindContext : (blindContext || enrichedBlindContext)
     });
 
     if (resolvedUserId && result.reply) {

@@ -1120,7 +1120,27 @@ function buildBlindOpeningGreeting() {
   const userKey = (appState.user && appState.user.username) || 'friend';
   const hour = new Date().getHours();
   const partOfDay = hour < 12 ? 'Good morning' : (hour < 17 ? 'Good afternoon' : 'Good evening');
-  return `${partOfDay}, ${userKey}. It's Gismo — I'm right here with you. Whenever you hear the soft chime, just talk to me naturally like we're in the same room. How are you doing today, or is there something on your mind?`;
+
+  const assignedQuizzes = Array.isArray(appState.assignedQuizzes) ? appState.assignedQuizzes : [];
+  const pendingQuizzes = assignedQuizzes.filter(q => !q.submission);
+  const homeworkList = Array.isArray(appState.homeworkList) ? appState.homeworkList : [];
+  const pendingHomework = homeworkList.filter(h => h.status !== 'completed');
+
+  const reminders = [];
+  if (pendingQuizzes.length > 0) {
+    const qNames = pendingQuizzes.slice(0, 3).map(q => q.title).join(', ');
+    reminders.push(`${pendingQuizzes.length} pending ${pendingQuizzes.length === 1 ? 'quiz' : 'quizzes'} (${qNames})`);
+  }
+  if (pendingHomework.length > 0) {
+    const hwNames = pendingHomework.slice(0, 3).map(h => h.title).join(', ');
+    reminders.push(`${pendingHomework.length} pending ${pendingHomework.length === 1 ? 'assignment' : 'assignments'} (${hwNames})`);
+  }
+
+  if (reminders.length > 0) {
+    return `${partOfDay}, ${userKey}. You have ${reminders.join(' and ')}. Say start my quiz, read my assignment, or tell me what you'd like to do.`;
+  }
+
+  return `${partOfDay}, ${userKey}. It's Gismo — you're all caught up on quizzes and assignments. What would you like to do today?`;
 }
 
 function initBlindConversationFeed(forceReset = false) {
@@ -1150,8 +1170,25 @@ function initBlindConversationFeed(forceReset = false) {
 }
 window.initBlindConversationFeed = initBlindConversationFeed;
 
+async function announceBlindLoginWithReminders() {
+  if (!appState.user || appState.user.role === 'admin') return;
+  try {
+    await Promise.allSettled([
+      typeof fetchHomework === 'function' ? fetchHomework() : Promise.resolve(),
+      typeof loadStudentQuizzes === 'function' ? loadStudentQuizzes() : Promise.resolve(),
+      typeof fetchTextbooks === 'function' ? fetchTextbooks() : Promise.resolve(),
+      typeof fetchNotes === 'function' ? fetchNotes() : Promise.resolve()
+    ]);
+  } catch (_) {}
+
+  const opening = initBlindConversationFeed(true);
+  setBlindCompanionState('speaking', 'Gismo is speaking');
+  announceTTS(opening);
+}
+window.announceBlindLoginWithReminders = announceBlindLoginWithReminders;
+
 function speakBlindOrientationGuide() {
-  const guide = "You're in a live voice conversation with Gismo. You don't need to look at or click anything — just speak to me naturally whenever you hear the soft chime. You can ask me any question, chat about your day, ask what courses you have, ask me to open and read a lesson, or take a spoken quiz. Anytime I'm talking, press Space or say Stop to interrupt me, press R to repeat what I just said, or press M to pause the microphone.";
+  const guide = "Just speak naturally whenever you hear the soft chime. You can ask me to start your assigned quiz, read or complete your assignments, open and read any lesson or book, take notes, zoom in, change themes, or log out. Press Space or say Stop anytime to interrupt me.";
   appendBlindConvoTurn('ai', guide, { actionBadge: 'Spoken Guide' });
   setBlindCompanionState('speaking', 'Gismo is speaking');
   announceTTS(guide);
@@ -1184,9 +1221,9 @@ window.submitBlindConversationTurn = submitBlindConversationTurn;
 function buildBlindWorkspaceContext() {
   const u = appState.user || {};
   const courses = Object.values(lessonsDb || {})
-    .filter(l => l && l.id && l.title && !String(l.id).startsWith('gutenberg_'))
-    .slice(0, 12)
-    .map(l => ({ id: String(l.id), title: String(l.title) }));
+    .filter(l => l && l.id && l.title)
+    .slice(0, 15)
+    .map(l => ({ id: String(l.id), title: String(l.title), meta: String(l.meta || '') }));
 
   let activeLesson = null;
   if (appState.activeLesson && lessonsDb[appState.activeLesson]) {
@@ -1210,6 +1247,10 @@ function buildBlindWorkspaceContext() {
   if (activeLesson) currentView = `reading_lesson: ${activeLesson.title}`;
   else if (appState.currentView && appState.currentView !== 'dashboard') currentView = appState.currentView;
 
+  const assignedQuizzes = Array.isArray(appState.assignedQuizzes) ? appState.assignedQuizzes : [];
+  const homework = Array.isArray(appState.homeworkList) ? appState.homeworkList : [];
+  const notes = Array.isArray(appState.notes) ? appState.notes.slice(0, 10) : [];
+
   return {
     username: u.username || 'friend',
     school: u.school || '',
@@ -1217,6 +1258,9 @@ function buildBlindWorkspaceContext() {
     quizzesPassed: u.quizzes_passed || 0,
     currentView,
     courses,
+    assignedQuizzes,
+    homework,
+    notes,
     activeLesson
   };
 }
@@ -1229,9 +1273,23 @@ function resolveBlindActionBadge(action) {
     NEXT_PAGE: 'Next Page',
     PREV_PAGE: 'Previous Page',
     START_QUIZ: `Voice Quiz${action.value ? ' • ' + action.value : ''}`,
+    START_ASSIGNED_QUIZ: 'Assigned Quiz',
     OPEN_QUIZZES: 'Quizzes',
     OPEN_LIBRARY: 'Audio Library',
+    SEARCH_LIBRARY: `Library Search${action.value ? ' • ' + action.value : ''}`,
+    IMPORT_BOOK: `Importing Book${action.value ? ' • ' + action.value : ''}`,
     OPEN_PROFILE: 'Profile',
+    OPEN_SETTINGS: 'Settings',
+    CLOSE_MODAL: 'Closed Modal',
+    READ_HOMEWORK: 'Reading Assignment',
+    COMPLETE_HOMEWORK: 'Assignment Completed',
+    SAVE_NOTE: 'Note Saved',
+    READ_NOTES: 'Saved Notes',
+    ZOOM_IN: 'Zoomed In',
+    ZOOM_OUT: 'Zoomed Out',
+    ZOOM_RESET: 'Zoom Reset',
+    SET_THEME: `Theme • ${action.value || ''}`,
+    SET_PERSONA: `Persona • ${action.value || ''}`,
     GO_HOME: 'Voice Room',
     LOGOUT: 'Signing Out'
   };
@@ -1250,6 +1308,9 @@ function executeBlindAiAction(action) {
       const low = value.toLowerCase();
       target = courses.find(c => String(c.id).toLowerCase() === low || String(c.title || '').toLowerCase().includes(low));
     }
+    if (!target && courses.length > 0) {
+      target = courses[0];
+    }
     if (target) {
       loadLesson(target.id, { silent: true });
       updateBlindFloatingBarVisibility();
@@ -1260,6 +1321,12 @@ function executeBlindAiAction(action) {
   if (type === 'READ_LESSON') {
     return {
       afterSpeech: () => {
+        if (!appState.activeLesson) {
+          const courses = Object.values(lessonsDb || {}).filter(l => l && l.id);
+          if (courses.length > 0) {
+            loadLesson(courses[0].id, { silent: true });
+          }
+        }
         if (elements.btnReadLesson && !elements.btnReadLesson.disabled && appState.activeLesson) {
           elements.btnReadLesson.click();
         }
@@ -1275,6 +1342,32 @@ function executeBlindAiAction(action) {
   if (type === 'PREV_PAGE') {
     if (appState.activeLesson) prevPage();
     return { afterSpeech: null };
+  }
+
+  if (type === 'START_ASSIGNED_QUIZ') {
+    return {
+      afterSpeech: async () => {
+        if (!Array.isArray(appState.assignedQuizzes) || appState.assignedQuizzes.length === 0) {
+          await loadStudentQuizzes();
+        }
+        const quizzes = Array.isArray(appState.assignedQuizzes) ? appState.assignedQuizzes : [];
+        let targetQuiz = null;
+        if (value) {
+          const low = value.toLowerCase();
+          targetQuiz = quizzes.find(q => String(q.id) === value || String(q.title || '').toLowerCase().includes(low) || String(q.subject || '').toLowerCase().includes(low));
+        }
+        if (!targetQuiz) {
+          targetQuiz = quizzes.find(q => !q.submission) || quizzes[0];
+        }
+        switchView('quizzes');
+        updateBlindFloatingBarVisibility();
+        if (targetQuiz && targetQuiz.id) {
+          startQuizById(targetQuiz.id);
+        } else if (value && Number.isNaN(Number(value))) {
+          handleTriggerAiQuiz(value);
+        }
+      }
+    };
   }
 
   if (type === 'START_QUIZ') {
@@ -1300,9 +1393,153 @@ function executeBlindAiAction(action) {
     return { afterSpeech: null };
   }
 
+  if (type === 'SEARCH_LIBRARY') {
+    switchView('library');
+    updateBlindFloatingBarVisibility();
+    const searchInput = document.getElementById('web-search-input');
+    if (searchInput && value) {
+      searchInput.value = value;
+      handleWebSearch(false);
+    }
+    return { afterSpeech: null };
+  }
+
+  if (type === 'IMPORT_BOOK') {
+    return {
+      afterSpeech: async () => {
+        if (!value) return;
+        try {
+          const searchRes = await fetch(`/api/web/search?q=${encodeURIComponent(value)}`);
+          const books = searchRes.ok ? await searchRes.json() : [];
+          if (Array.isArray(books) && books.length > 0) {
+            const topBook = books[0];
+            await importWebBook(topBook.id, null);
+          }
+        } catch (_) {}
+      }
+    };
+  }
+
   if (type === 'OPEN_PROFILE') {
     switchView('profile');
     updateBlindFloatingBarVisibility();
+    return { afterSpeech: null };
+  }
+
+  if (type === 'OPEN_SETTINGS') {
+    openSettingsModal();
+    return { afterSpeech: null };
+  }
+
+  if (type === 'CLOSE_MODAL') {
+    closeSettingsModal();
+    closeVoiceHelpModal();
+    if (typeof isQuizModalOpen === 'function' && isQuizModalOpen()) {
+      closeQuizModal();
+    }
+    return { afterSpeech: null };
+  }
+
+  if (type === 'READ_HOMEWORK') {
+    return {
+      afterSpeech: async () => {
+        if (!Array.isArray(appState.homeworkList) || appState.homeworkList.length === 0) {
+          await fetchHomework();
+        }
+        const hws = Array.isArray(appState.homeworkList) ? appState.homeworkList : [];
+        let target = null;
+        if (value) {
+          const low = value.toLowerCase();
+          target = hws.find(h => String(h.id) === value || String(h.title || '').toLowerCase().includes(low));
+        }
+        if (!target) {
+          target = hws.find(h => h.status !== 'completed') || hws[0];
+        }
+        if (target) {
+          listenHomeworkPrompt(target.id);
+        }
+      }
+    };
+  }
+
+  if (type === 'COMPLETE_HOMEWORK') {
+    (async () => {
+      if (!Array.isArray(appState.homeworkList) || appState.homeworkList.length === 0) {
+        await fetchHomework();
+      }
+      const hws = Array.isArray(appState.homeworkList) ? appState.homeworkList : [];
+      let target = null;
+      if (value) {
+        const low = value.toLowerCase();
+        target = hws.find(h => String(h.id) === value || String(h.title || '').toLowerCase().includes(low));
+      }
+      if (!target) {
+        target = hws.find(h => h.status !== 'completed') || hws[0];
+      }
+      if (target && target.status !== 'completed') {
+        await toggleHomeworkStatus(target.id);
+      }
+    })();
+    return { afterSpeech: null };
+  }
+
+  if (type === 'SAVE_NOTE') {
+    if (value && appState.user) {
+      fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: appState.user.id,
+          username: appState.user.username,
+          content: value
+        })
+      }).then(() => fetchNotes()).catch(() => {});
+    }
+    return { afterSpeech: null };
+  }
+
+  if (type === 'READ_NOTES') {
+    fetchNotes();
+    return { afterSpeech: null };
+  }
+
+  if (type === 'ZOOM_IN') {
+    appState.fontScale = Math.min(2.0, Math.round(((appState.fontScale || 1.0) + 0.15) * 100) / 100);
+    document.documentElement.style.setProperty('--font-scale', appState.fontScale);
+    localStorage.setItem('fontScale', appState.fontScale);
+    if (elements.slider) elements.slider.value = appState.fontScale;
+    return { afterSpeech: null };
+  }
+
+  if (type === 'ZOOM_OUT') {
+    appState.fontScale = Math.max(0.8, Math.round(((appState.fontScale || 1.0) - 0.15) * 100) / 100);
+    document.documentElement.style.setProperty('--font-scale', appState.fontScale);
+    localStorage.setItem('fontScale', appState.fontScale);
+    if (elements.slider) elements.slider.value = appState.fontScale;
+    return { afterSpeech: null };
+  }
+
+  if (type === 'ZOOM_RESET') {
+    appState.fontScale = 1.0;
+    document.documentElement.style.setProperty('--font-scale', 1.0);
+    localStorage.setItem('fontScale', 1.0);
+    if (elements.slider) elements.slider.value = 1.0;
+    return { afterSpeech: null };
+  }
+
+  if (type === 'SET_THEME') {
+    const themeMap = { dark: 'dark', light: 'light', hc: 'hc', 'high contrast': 'hc', 'high-contrast': 'hc' };
+    const chosen = themeMap[value.toLowerCase()] || 'dark';
+    setTheme(chosen);
+    return { afterSpeech: null };
+  }
+
+  if (type === 'SET_PERSONA') {
+    const low = value.toLowerCase();
+    const chosen = low.includes('scien') ? 'scientist' : (low.includes('hist') ? 'historian' : 'default');
+    appState.persona = chosen;
+    localStorage.setItem('gismoPersona', chosen);
+    if (elements.personaSelect) elements.personaSelect.value = chosen;
     return { afterSpeech: null };
   }
 
@@ -1851,6 +2088,7 @@ function loginSuccess(options = {}) {
     loadStudentProfile();
     fetchNotes();
     fetchHomework();
+    loadStudentQuizzes();
     const validStudentViews = ['dashboard', 'profile', 'library', 'quizzes'];
     const targetStudentView = validStudentViews.includes(options.restoreView) ? options.restoreView : 'dashboard';
     switchView(targetStudentView);
@@ -1862,9 +2100,7 @@ function loginSuccess(options = {}) {
     if (appState.user.role === 'admin') {
       announceTTS(`Login successful. Welcome, ${appState.user.username}.`);
     } else if (normalizedDisability === 'Blind') {
-      const opening = blindConvoState.openingGreeting || buildBlindOpeningGreeting();
-      setBlindCompanionState('speaking', 'Gismo is speaking');
-      announceTTS(opening);
+      announceBlindLoginWithReminders();
     } else if (normalizedDisability === 'Visually Impaired') {
       announceTTS(`Welcome, ${appState.user.username}. Your Visually Impaired High-Contrast Magnified workspace is open. Voice navigation is active.`);
     } else if (normalizedDisability === 'Dumb') {
@@ -1874,6 +2110,11 @@ function loginSuccess(options = {}) {
     } else {
       announceTTS(`Login successful. Welcome, ${appState.user.username}.`);
     }
+  } else if (normalizedDisability === 'Blind' && appState.user && appState.user.role !== 'admin') {
+    // On page refresh in Blind mode, refresh the feed text once homework and quizzes load
+    Promise.allSettled([fetchHomework(), loadStudentQuizzes()]).then(() => {
+      initBlindConversationFeed(true);
+    });
   }
 }
 
@@ -2626,20 +2867,28 @@ window.switchStudentQuizTab = switchStudentQuizTab;
 async function loadStudentQuizzes() {
   const grid = document.getElementById('student-assigned-quizzes-grid');
   const badgeCount = document.getElementById('student-assigned-badge-count');
-  if (!grid) return;
 
   const studentId = (appState.user && appState.user.id) || '';
-  grid.innerHTML = '<div class="col-12 text-center" style="color:var(--text-secondary); padding:2.5rem;">Loading assigned quizzes...</div>';
+  const username = (appState.user && appState.user.username) || '';
+  if (grid) {
+    grid.innerHTML = '<div class="col-12 text-center" style="color:var(--text-secondary); padding:2.5rem;">Loading assigned quizzes...</div>';
+  }
 
   try {
-    const res = await fetch(`/api/quizzes?student_id=${encodeURIComponent(studentId)}`);
+    const params = new URLSearchParams();
+    if (studentId) params.set('student_id', studentId);
+    if (username) params.set('username', username);
+    const res = await fetch(`/api/quizzes?${params.toString()}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const quizzes = await res.json();
+    appState.assignedQuizzes = Array.isArray(quizzes) ? quizzes : [];
 
     if (badgeCount) {
-      const pendingCount = quizzes.filter(q => !q.submission).length;
+      const pendingCount = appState.assignedQuizzes.filter(q => !q.submission).length;
       badgeCount.textContent = pendingCount;
     }
+
+    if (!grid) return appState.assignedQuizzes;
 
     if (!quizzes || quizzes.length === 0) {
       grid.innerHTML = `
@@ -5842,14 +6091,17 @@ async function respondAsTutor(question) {
         message: question,
         persona: appState.persona,
         context: contextText,
+        blindContext: typeof buildBlindWorkspaceContext === 'function' ? buildBlindWorkspaceContext() : null,
         user_id: appState.user ? appState.user.id : null,
+        username: appState.user ? appState.user.username : null,
         session_id: currentSessionId
       })
     });
     
     const data = await response.json();
     const reply = data.reply || "Here is a helpful summary: focus on the key definitions and main concepts in the current lesson section, and let me know which part you'd like to explore step-by-step!";
-    
+    const action = data && data.action ? data.action : null;
+
     // Save to session history
     const targetSession = (appState.chatSessions || []).find(s => s.id === currentSessionId);
     if (targetSession) {
@@ -5860,6 +6112,10 @@ async function respondAsTutor(question) {
       });
       saveChatSessions();
     }
+
+    const { afterSpeech } = (action && typeof executeBlindAiAction === 'function')
+      ? executeBlindAiAction(action)
+      : { afterSpeech: null };
 
     // Only update chat DOM if the user is still on this conversation tab
     if (appState.activeSessionId === currentSessionId) {
@@ -5882,7 +6138,11 @@ async function respondAsTutor(question) {
         updateVoiceHudState('matched', 'Gismo AI Answered', hudSnippet);
       }
 
-      announceTTS(reply);
+      announceTTS(reply, () => {
+        if (typeof afterSpeech === 'function') afterSpeech();
+      });
+    } else if (typeof afterSpeech === 'function') {
+      afterSpeech();
     }
   } catch (err) {
     const fallbackReply = contextText
@@ -7335,12 +7595,37 @@ function executeVoiceCommand(rawTranscript) {
   const isQuestionStarter = questionStarters.some(starter => t.startsWith(starter + ' ') || t === starter);
   const isGeneralQuery = isExplicitTutor || isQuestionStarter || rawTranscript.trim().endsWith('?');
 
-  if (t.includes('quiz me on') || t.includes('give me a quiz on')) {
-    const topic = rawTranscript.replace(/.*(quiz me on|give me a quiz on)/i, '').trim() || 'General Science';
+  if (t.includes('quiz me on') || t.includes('give me a quiz on') || t.includes('test me on')) {
+    const topic = rawTranscript.replace(/.*(quiz me on|give me a quiz on|test me on)/i, '').trim() || 'General Science';
     playEarcon('success');
     updateVoiceHudState('matched', 'Executing Command', `Generating AI Quiz: ${topic}`);
     switchView('quizzes');
     handleTriggerAiQuiz(topic);
+    return;
+  }
+
+  if (/\b(start|take|begin|do)\s+(?:my\s+)?(?:assigned\s+quiz|my\s+quiz)\b/.test(t)) {
+    playEarcon('success');
+    updateVoiceHudState('matched', 'Executing Command', 'Starting Assigned Quiz');
+    executeBlindAiAction({ type: 'START_ASSIGNED_QUIZ', value: '' }).afterSpeech?.();
+    return;
+  }
+
+  const noteVoiceMatch = rawTranscript.match(/(?:take\s+a\s+note|save\s+a\s+note|add\s+a\s+note|write\s+a\s+note|note\s+down)\s*[:\-]?\s+(.+)$/i);
+  if (noteVoiceMatch && noteVoiceMatch[1]) {
+    const noteText = noteVoiceMatch[1].trim();
+    playEarcon('success');
+    updateVoiceHudState('matched', 'Note Saved', noteText);
+    executeBlindAiAction({ type: 'SAVE_NOTE', value: noteText });
+    announceTTS(`Saved note: ${noteText}.`);
+    return;
+  }
+
+  if (/\b(complete|finish|mark)\b/.test(t) && /\b(assignment|homework)\b/.test(t)) {
+    playEarcon('success');
+    updateVoiceHudState('matched', 'Assignment Completed', 'Marking pending assignment as completed');
+    executeBlindAiAction({ type: 'COMPLETE_HOMEWORK', value: '' });
+    announceTTS('Marked your assignment as completed.');
     return;
   }
 
@@ -7442,7 +7727,7 @@ function executeVoiceCommand(rawTranscript) {
     return;
   }
   
-  if (t.includes('bigger text') || t.includes('increase text') || t.includes('larger font') || t.includes('increase font')) {
+  if (t.includes('bigger text') || t.includes('increase text') || t.includes('larger font') || t.includes('increase font') || (t.includes('zoom') && !t.includes('zoom out') && !t.includes('reset zoom'))) {
     playEarcon('success');
     appState.fontScale = Math.min(2.0, Math.round((appState.fontScale + 0.15) * 100) / 100);
     document.documentElement.style.setProperty('--font-scale', appState.fontScale);
@@ -7453,7 +7738,7 @@ function executeVoiceCommand(rawTranscript) {
     return;
   }
   
-  if (t.includes('smaller text') || t.includes('decrease text') || t.includes('smaller font') || t.includes('decrease font')) {
+  if (t.includes('smaller text') || t.includes('decrease text') || t.includes('smaller font') || t.includes('decrease font') || t.includes('zoom out')) {
     playEarcon('success');
     appState.fontScale = Math.max(0.8, Math.round((appState.fontScale - 0.15) * 100) / 100);
     document.documentElement.style.setProperty('--font-scale', appState.fontScale);
@@ -7464,7 +7749,7 @@ function executeVoiceCommand(rawTranscript) {
     return;
   }
   
-  if (t.includes('reset text') || t.includes('normal text') || t.includes('default text')) {
+  if (t.includes('reset text') || t.includes('normal text') || t.includes('default text') || t.includes('reset zoom')) {
     playEarcon('success');
     appState.fontScale = 1.0;
     document.documentElement.style.setProperty('--font-scale', 1.0);
@@ -7532,11 +7817,18 @@ function executeVoiceCommand(rawTranscript) {
     return;
   }
 
-  if (isGeneralQuery) {
+  // 5. Help Guide
+  if (t === 'help' || t.includes('voice command') || t.includes('what can i say') || t.includes('show help')) {
+    playEarcon('success');
+    updateVoiceHudState('matched', 'Voice Commands Guide', 'Showing available voice commands');
+    openVoiceHelpModal();
+    return;
+  }
+
+  // 6. Send any other spoken request or question directly to Gismo AI so the AI can answer or perform any action requested by voice
+  if (t.length >= 3) {
     let question = rawTranscript.trim();
-    // Clean tutor prefixes if present
     question = question.replace(/^(ask\s+tutor|hey\s+gismo|ask\s+gismo|tutor|question)\s*:?/i, '').trim();
-    
     if (question.length > 0) {
       playEarcon('success');
       updateVoiceHudState('matched', 'Asking Gismo AI...', `"${question}"`);
@@ -7547,26 +7839,8 @@ function executeVoiceCommand(rawTranscript) {
       }
       handleVoiceInput(question);
       return;
-    } else {
-      playEarcon('click');
-      updateVoiceHudState('matched', 'AI Tutor Opened', 'What would you like to ask?');
-      announceTTS("AI Tutor is ready. What would you like to ask?");
-      return;
     }
   }
-  
-  // 5. Help Guide
-  if (t === 'help' || t.includes('voice command') || t.includes('what can i say') || t.includes('show help')) {
-    playEarcon('success');
-    updateVoiceHudState('matched', 'Voice Commands Guide', 'Showing available voice commands');
-    openVoiceHelpModal();
-    return;
-  }
-  
-  // Unrecognized Command (Filter out very short noise tokens)
-  if (t.length < 3) return;
-  playEarcon('error');
-  updateVoiceHudState('error', `Unrecognized: "${rawTranscript}"`, 'Say "Help" to see voice commands, or ask any question.');
 }
 window.executeVoiceCommand = executeVoiceCommand;
 
@@ -7998,7 +8272,10 @@ async function fetchHomework() {
   if (!appState.user || appState.user.role === 'admin') return;
   const list = document.getElementById('homework-list');
   try {
-    const res = await fetch(`/api/homework?student_id=${appState.user.id}`);
+    const params = new URLSearchParams();
+    if (appState.user.id) params.set('student_id', appState.user.id);
+    if (appState.user.username) params.set('username', appState.user.username);
+    const res = await fetch(`/api/homework?${params.toString()}`);
     if (res.ok) {
       const hws = await res.json();
       appState.homeworkList = hws || [];
